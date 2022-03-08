@@ -1,7 +1,7 @@
 {
   "name": "visualscript",
   "version": "0.0.0",
-  "description": "Visual programming with JavaScript",
+  "description": "A framework for visual programming on the browser",
   "main": "index.js",
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
   "license": "AGPL-3.0-or-later",

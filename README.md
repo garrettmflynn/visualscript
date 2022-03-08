@@ -1,2 +1,2 @@
 # visualscript
-Visual programming with JavaScript
+A framework for visual programming on the browser
