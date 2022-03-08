@@ -1,5 +1,5 @@
 {
-  "name": "liveengine",
+  "name": "visualscript",
   "version": "0.0.0",
   "description": "Visual programming with JavaScript",
   "main": "index.js",
