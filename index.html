@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="./src/defaults.css">
+    <script src="./dist/index.js"></script> 
+</head>
+<body>
+    
+</body>
+<script type="module">
+
+    // import * as visualscript from "./dist/index.esm.js"
+    console.log(visualscript)
+
+    const editor = new visualscript.ui.Editor({})
+    editor.toggleDisplay()
+    // document.body.insertAdjacentHTML(`beforeend`, `<p>Output: ${output}</p>`)
+
+    const parent = new visualscript.Graph()
+
+    const graph = new visualscript.Graph((input, self) => {
+        console.log(self)
+        return input + 1
+    }, parent, true)
+
+    graph.subscribe((input) => {
+        const output = input + 1
+        document.body.insertAdjacentHTML(`beforeend`, `<p>Output: ${output}</p>`)
+        return output
+    })
+
+    graph.push(2)
+
+
+</script>
+</html>
