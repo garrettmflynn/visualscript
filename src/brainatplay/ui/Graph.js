@@ -23,14 +23,13 @@ export class Graph {
         this.ports = {}
 
         // Original Application Settings
-        this.info = {}
+        this.info = info
         this.params = {}
-        this._mergeInfo(info)
+        // this._mergeInfo(info)
 
         // Reference to Higher Levels of the Application
         this.parent = parent;
         this.app = this.parent.app
-        this.session = this.app.session
 
         // Global Properties
         this.props = {  }
@@ -62,13 +61,19 @@ export class Graph {
     }
 
 
-    init = async (o) => {
+    init = async (
+        // o = {}
+    ) => {
 
-        this._mergeInfo(o)
-        await Promise.all(this.info.graphs.map(async g => await this.addNode(g)))
-        await Promise.all(this.info.nodes.map(async n => await this.addNode(n)))
-        for (const e of this.info.edges) await this.addEdge(e)
-        await Promise.all(this.info.events.map(async ev => await this.addEvent(ev))) 
+        // this._mergeInfo(o)
+
+        // Add Internal Graphs as Nodes
+        for (const name in this.info.internal) {
+            await this.addNode(this.info.internal[name])
+        }
+            // Connect External Graphs as Edges
+        for (const name in this.info.external) await this.addEdge(this.info.external[name])
+        // await Promise.all(this.info.events.map(async ev => await this.addEvent(ev))) 
     }
 
     deinit = () => {
@@ -142,22 +147,19 @@ export class Graph {
     _mergeInfo = (info={}) => {
 
         info = Object.assign({}, info)
-        if (!('nodes' in this.info)) this.info.graphs = []
-        if (!('nodes' in this.info)) this.info.nodes = []
+        if (!('internal' in this.info)) this.info.internal = {}
         if (!('edges' in this.info)) this.info.edges = []
         if (!('events' in this.info)) this.info.events = []
 
         if ('events' in info) this.info.events.push(...info.events)
         if ('edges' in info) this.info.edges.push(...info.edges)
-        if ('nodes' in info) this.info.nodes.push(...info.nodes)
-        if ('graphs' in info) this.info.graphs.push(...info.graphs)
+        if ('internal' in info) Object.assign(this.info.internal, info.internal)
 
         Object.assign(this.ports, info.ports)
 
-        delete info.nodes
+        delete info.internal
         delete info.edges
         delete info.events
-        delete info.graphs
 
         if (Object.keys(info).length > 0) Object.assign(this, info)
         if (Object.keys(info).length > 0) Object.assign(this.info, info)
@@ -195,6 +197,7 @@ export class Graph {
 
 
             // If Already Instantiated
+            console.log('Add node', o)
             if (o instanceof Graph){
                 o = Object.assign(o.info, {instance: o})
                 this.nodes.set(o.instance.uuid, o.instance) // set immediately
@@ -363,7 +366,7 @@ export class Graph {
             } else {
                 // Object Specification
                 if (structure[type] instanceof Object) {
-                    nodes = this.get('nodes', structure[type].node, this.info.nodes)
+                    nodes = this.get('nodes', structure[type].node, this.info.internal)
                     standardStruct[type].node = nodes[0]?.name ?? structure[type].node
                     standardStruct[type].port = structure[type].port ?? 'default'
                 } 

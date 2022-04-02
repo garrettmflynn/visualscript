@@ -16,25 +16,43 @@
     // import * as visualscript from "./dist/index.esm.js"
     console.log(visualscript)
 
-    const editor = new visualscript.ui.Editor({})
-    editor.toggleDisplay()
-    // document.body.insertAdjacentHTML(`beforeend`, `<p>Output: ${output}</p>`)
-
-    const parent = new visualscript.Graph()
-
-    const graph = new visualscript.Graph((input, self) => {
-        console.log(self)
-        return input + 1
-    }, parent, true)
-
-    graph.subscribe((input) => {
+    // ---------------- Create Graphs ----------------
+    const parent = new visualscript.Graph(null, null, true)
+    const upstream = new visualscript.Graph(null, null, true)
+    const func = (input, self) => {
+        return input + self.get('increment')?.value
+    }
+    const internal = new visualscript.Graph(func, null, true)
+    const downstream = new visualscript.Graph((input, self) => {
         const output = input + 1
         document.body.insertAdjacentHTML(`beforeend`, `<p>Output: ${output}</p>`)
         return output
-    })
+    }, null, true)
 
-    graph.push(2)
+    // ---------------- Set Upstream Functions ----------------
+    upstream.set('increment', 1)
+    const functionGraph = upstream.set('function', func) // or upstream.get('function')
+    const graphGraph = upstream.set('graph', internal)
 
+    // ---------------- Subscribe to Upstream ----------------
+    functionGraph.subscribe(downstream)
+    graphGraph.subscribe(downstream)
+    downstream.subscribe(upstream.get('increment')) // change incrementer
+
+    // ---------------- Populate Parent ----------------
+    parent.set('upstream', upstream)
+    parent.set('downstream', downstream)
+
+    // ---------------- Push Values to Upstream ----------------
+    const input = 2
+    await functionGraph.push(input)
+    await graphGraph.push(input)
+    
+    console.log(parent)
+
+    // ---------------- Visualize ----------------
+    const editor = new visualscript.ui.Editor(parent)
+    editor.toggleDisplay()
 
 </script>
 </html>

@@ -142,8 +142,8 @@ export class Port {
         portCopy.meta.source = port // allows tracing where data has arrived from
 
         // Add User Data
-        if (!('id' in portCopy)) portCopy.id = this.node.session?.info?.auth?.id
-        if (!('username' in portCopy)) portCopy.username = this.node.session?.info?.auth?.username
+        // if (!('id' in portCopy)) portCopy.id = this.node.session?.info?.auth?.id
+        // if (!('username' in portCopy)) portCopy.username = this.node.session?.info?.auth?.username
         return await this._onchange(portCopy);
     }
 

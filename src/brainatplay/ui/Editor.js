@@ -7,12 +7,27 @@ import { StateManager } from './StateManager'
 
 // Node Interaction
 import { Port } from './Port'
+import { Graph } from './Graph'
 
 export default class Editor{
-    constructor(app, parent=document.body) {
+
+    files = {}
+    filesidebar = {}
+    container = document.createElement('div')
+
+    constructor(graph, parent=document.body) {
         // this.manager = manager
-        this.app = app
-        if (!this.app.projects) this.app.projects = {}
+
+        // let visualizationGraph = new Graph(graph, {app: this.app}, true)
+
+        this.app = {
+            projects: {},
+            graphs: {},
+            ui: {
+                container: document.createElement('div')
+            },
+            editor: this
+        }
 
         this.parentNode = (typeof parent === 'string') ? document.getElementById(parent) : parent 
 
@@ -33,8 +48,6 @@ export default class Editor{
         this.lastMouseEvent = {}
         this.editing = false
 
-        this.files = {}
-
         this.props = {
             id: String(Math.floor(Math.random()*1000000)),
             projectContainer: null,
@@ -44,7 +57,7 @@ export default class Editor{
 
         this.elementTypesToUpdate = ['INPUT', 'SELECT', 'OUTPUT', 'TEXTAREA']
     
-        if (this.app){
+        // if (this.app){
 
             // // Only One Editor (look three levels up)
             // let existingEditor = this.parentNode.querySelector(`.brainsatplay-node-editor`)
@@ -52,7 +65,6 @@ export default class Editor{
             // if (!existingEditor && this.parentNode.parentNode.parentNode) existingEditor = this.parentNode.parentNode.parentNode.querySelector(`.brainsatplay-node-editor`)
             // if (existingEditor) existingEditor.remove()
 
-            this.container = document.createElement('div')
             this.container.id = `${this.props.id}GraphEditorMask`
             this.container.classList.add('brainsatplay-default-container')
             this.container.classList.add('brainsatplay-node-editor')
@@ -126,7 +138,6 @@ export default class Editor{
             //     undefined,
             //     () => {
                     // Set UI Attributes
-                    this.filesidebar = {}
                     this.filesidebar.container = this.container.querySelector(`[id="${this.props.id}FileSidebar"]`)
                     this.filesidebar.graph = this.filesidebar.container.querySelector(`.graphs`)
                     this.addDropdownFunctionality(this.filesidebar.graph.previousElementSibling)
@@ -194,8 +205,16 @@ export default class Editor{
         // Search for Plugins
         this.createPluginSearch(this.mainPage)
 
+        // Display Top-Level Graph
+        this.app.graphs['top'] = new Graph(graph, {app: this.app}, true)
+
+
+        console.log('INITING GRAPH',this.app.graphs, this.app.graphs.top)
+        this.app.graphs['top'].init()
+
+        // Initialize Editor
         this.init()
-    }
+    // }
 
     }
 
@@ -386,22 +405,20 @@ export default class Editor{
         }
     }
 
-    addGraph(graph){
+    addGraph = (graph) => {
 
             // Create Graph File
             let type = graph.constructor?.name
-            this.files[graph.uuid] = {name: graph.name, type, nodes: [], graph}
-            this.files[graph.uuid].elements = {}
-            this.files[graph.uuid].elements.code = (graph.ui.code instanceof Function) ? graph.ui.code() : graph.ui.code 
-            this.files[graph.uuid].elements.graph = (graph.ui.graph instanceof Function) ? graph.ui.graph() : graph.ui.graph 
+            this.files[graph.id] = {name: graph.name, type, nodes: [], graph}
+            this.files[graph.id].elements = {}
+            this.files[graph.id].elements.code = (graph.ui.code instanceof Function) ? graph.ui.code() : graph.ui.code 
+            this.files[graph.id].elements.graph = (graph.ui.graph instanceof Function) ? graph.ui.graph() : graph.ui.graph 
 
-            let graphs = graph.info.graphs.length // initial nodes
-            let nodes = graph.info.nodes.length // initial nodes
-            let parentnodes = graph.parent?.info?.nodes?.length // initial nodes
-
+            // let nodes = graph.info.internal.length // initial nodes
+            // let parentnodes = graph.parent?.info?.nodes?.length // initial nodes
             
-            let showGraph = type === 'Graph' && (nodes > 0 || (graphs === 0 && (parentnodes === 0 || parentnodes == undefined)))
-            this.createFileElement(this.files[graph.uuid], {graph: showGraph})
+            let showGraph = true// type === 'Graph' && (nodes > 0 || (graphs === 0 && (parentnodes === 0 || parentnodes == undefined)))
+            this.createFileElement(this.files[graph.id], {graph: showGraph})
             let save = this.container.querySelector(`[id="${this.props.id}save"]`)
             save.onclick = this.app.save
     }
@@ -624,14 +641,14 @@ export default class Editor{
                 this.defaultpreview.style.display = 'none'
                 // setTimeout(() => {
                     this.responsive()
-                    this.app.graphs.forEach(g => {
-                        g._resizeUI() 
-                        if (g === this.graph) {
-                            this.graph.resizeAllNodes()
-                            this.graph.resizeAllEdges()
-                            // this.graph._nodesToGrid()
-                        }
-                    })
+                    // this.app.graphs.forEach(g => {
+                    //     g._resizeUI() 
+                    //     if (g === this.graph) {
+                    //         this.graph.resizeAllNodes()
+                    //         this.graph.resizeAllEdges()
+                    //         // this.graph._nodesToGrid()
+                    //     }
+                    // })
                     this._resizeDefaultProjects()
                 },50)
             } else if (!on) {
@@ -643,9 +660,9 @@ export default class Editor{
                 this.app.ui.parent.appendChild(this.app.ui.container)
                 this.defaultpreview.style.display = 'block'
                 this.responsive()
-                this.app.graphs.forEach(g => {
-                    g._resizeUI() 
-                })
+                // this.app.graphs.forEach(g => {
+                //     g._resizeUI() 
+                // })
             }
         // }
     }
@@ -1070,6 +1087,7 @@ export default class Editor{
                 fileDict.files[type].tab.click()
             }
 
+            console.log(this.filesidebar[type], type, this.filesidebar)
             this.filesidebar[type].insertAdjacentElement('beforeend', fileDict.files[type].toggle)
             
             if (initialize[type]) fileDict.files[type].toggle.click()
