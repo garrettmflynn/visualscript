@@ -1,5 +1,5 @@
 # visualscript
-Visual reactive programming with Web Components
+Visual Reactive Programming with Web Components
 
 > **Note:** This project is still in the **proposal** phase. Do not expect everything to work—and let us know if you'd like to contribute!
 
