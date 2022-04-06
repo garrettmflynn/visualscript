@@ -1,7 +1,7 @@
-# Proposal: visualscript
-A framework for visual reactive programming on the browser
+# visualscript
+Visual reactive programming with Web Components
 
-> **Note:** See the [Brains@Play Studio](https://app.brainsatplay.com/#studio) for an early iteration of this in raw JavaScript.
+> **Note:** This project is still in the **proposal** phase. Do not expect everything to work...and let us know if you'd like to contribute!
 
 ## Basic Usage
 ```html
@@ -42,7 +42,7 @@ The entire `visualscript` framework is based on nested **Processes**.
 *Coming soon...*
 
 
-## To Do
+## Roadmap
 1. Control Panel
     - Device Connection / Management + Playground
     - Multiplayer Session Management
