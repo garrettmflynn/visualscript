@@ -16,14 +16,14 @@
     // import * as visualscript from "./dist/index.esm.js"
     console.log(visualscript)
 
-    // ---------------- Create Graphs ----------------
-    const parent = new visualscript.Graph(null, null, true)
-    const upstream = new visualscript.Graph(null, null, true)
+    // ---------------- Create Processs ----------------
+    const parent = new visualscript.Process(null, null, true)
+    const upstream = new visualscript.Process(null, null, true)
     const func = (input, self) => {
         return input + self.get('increment')?.value
     }
-    const internal = new visualscript.Graph(func, null, true)
-    const downstream = new visualscript.Graph((input, self) => {
+    const internal = new visualscript.Process(func, null, true)
+    const downstream = new visualscript.Process((input, self) => {
         const output = input + 1
         document.body.insertAdjacentHTML(`beforeend`, `<p>Output: ${output}</p>`)
         return output
@@ -31,12 +31,12 @@
 
     // ---------------- Set Upstream Functions ----------------
     upstream.set('increment', 1)
-    const functionGraph = upstream.set('function', func) // or upstream.get('function')
-    const graphGraph = upstream.set('graph', internal)
+    const functionProcess = upstream.set('function', func) // or upstream.get('function')
+    const processProcess = upstream.set('process', internal)
 
     // ---------------- Subscribe to Upstream ----------------
-    functionGraph.subscribe(downstream)
-    graphGraph.subscribe(downstream)
+    functionProcess.subscribe(downstream)
+    processProcess.subscribe(downstream)
     downstream.subscribe(upstream.get('increment')) // change incrementer
 
     // ---------------- Populate Parent ----------------
@@ -45,8 +45,8 @@
 
     // ---------------- Push Values to Upstream ----------------
     const input = 2
-    await functionGraph.push(input)
-    await graphGraph.push(input)
+    await functionProcess.push(input)
+    await processProcess.push(input)
     
     console.log(parent)
 
