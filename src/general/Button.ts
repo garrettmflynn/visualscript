@@ -118,7 +118,7 @@ export class Button extends LitElement {
             style=${styleMap({ backgroundColor: this.backgroundColor })}
             @click=${this.onClick}
       >
-        <slot></slot>
+        <slot>Button</slot>
       </button>
     `
     }

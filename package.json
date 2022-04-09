@@ -26,7 +26,8 @@
     "mini-css-extract-plugin": "2.4.5"
   },
   "dependencies": {
-    "lit": "^2.1.2"
+    "lit": "^2.1.2",
+    "webgl-plot": "^0.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.17.0",
