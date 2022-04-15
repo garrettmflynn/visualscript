@@ -48,5 +48,6 @@ The entire `visualscript` framework is based on nested **Processes**.
     - Multiplayer Session Management
     - File Viewer
 2. Everything on https://web-components.carbondesignsystem.com/?path=/story/components-accordion--default
+3. Support interative, [notebook-like](https://github.com/gzuidhof/starboard-notebook) programming
 
 
