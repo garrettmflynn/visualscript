@@ -21,7 +21,6 @@ export class File extends LitElement {
     return css`
 
     :host {
-      width: 100%;
       display: flex;
       justify-content: center;
       overflow: hidden;
@@ -62,7 +61,7 @@ export class File extends LitElement {
 
     input[type=text] {
       flex-grow: 1;
-      padding: 8px 8px;
+      padding: 10px;
       border-top-right-radius: 5px;
       border-bottom-right-radius: 5px;
       border: none;

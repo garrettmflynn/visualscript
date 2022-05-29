@@ -48,13 +48,15 @@ export class Input extends LitElement {
 
         :host {
             width: 100%;
+            font-size: 15px;
+
         }
 *{
 box-sizing: border-box;
 }
 .form-group {
 position: relative;
-margin: 1rem 0;
+margin: 15px 0;
 }
 input.outline {
 border: 1px solid  #333333;
@@ -62,7 +64,6 @@ border-radius: 5px;
 }
 label {
 position: absolute;
-font-size: 1rem;
 left: 0;
 top: 50%;
 transform: translateY(-50%);
@@ -74,11 +75,10 @@ transform-origin: left top;
 pointer-events: none;
 }
 input {
-font-size: 1rem;
 outline: none;
 border: none;
 border-radius: 0px;
-padding: 1rem 0.6rem;
+padding: 15px 0.6rem 10px 0.6rem;
 transition: 0.1s ease-out;
 border-bottom: 1px solid  #333333;
 background: transparent;

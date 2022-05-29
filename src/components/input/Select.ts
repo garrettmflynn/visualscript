@@ -67,7 +67,6 @@ export class Select extends LitElement {
     .selectNative, .selectCustom {
       position: relative;
       width: 100%;
-      height: 50px;
       font-size: 15px;
     }
 
@@ -108,8 +107,8 @@ export class Select extends LitElement {
       background-image: url("data:image/svg+xml;utf8,<svg fill='black' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
       background-repeat: no-repeat;
       background-position-x: 100%;
-      background-position-y: 0.8rem;
-      padding: 0rem 0.8rem;
+      background-position-y: 0.45rem;
+      padding: 10px 10px;
     }
     
     .selectCustom-trigger  > div {
@@ -121,7 +120,7 @@ export class Select extends LitElement {
       display: flex;
       align-items: center;
       position: relative;
-      padding: 0rem 0.8rem;
+      padding: 0px 10px;
       width: 100%;
       height: 100%;
       cursor: pointer;
@@ -204,6 +203,10 @@ export class Select extends LitElement {
     @media (prefers-color-scheme: dark) {
       .selectCustom {
         background: rgb(59, 59, 59);
+      }
+
+      .selectNative {
+        background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
       }
 
       .selectCustom-options {

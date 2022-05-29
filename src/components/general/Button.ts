@@ -26,14 +26,15 @@ export class Button extends LitElement {
     return css`
 
     .storybook-button {
-      
       font-weight: 700;
       border: 0;
       border-radius: 1em;
       cursor: pointer;
       display: inline-block;
       line-height: 1;
+      overflow: hidden;
     }
+
     .storybook-button--primary {
       color: white;
       background-color: #1ea7fd;

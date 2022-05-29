@@ -105,14 +105,14 @@ export class Sidebar extends LitElement {
     }
 
     #controls {
-      overflow-x: scroll; 
+      overflow-x: hidden;
       overflow-y: scroll;
       height: 100%;
     }
 
     @media only screen and (max-width: ${collapseThreshold}px) {
       :host {
-        max-width: auto;
+        max-width: 100%;
       }
 
       :host(.default) > #main {
