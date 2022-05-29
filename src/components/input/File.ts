@@ -24,6 +24,7 @@ export class File extends LitElement {
       width: 100%;
       display: flex;
       justify-content: center;
+      overflow: hidden;
     }
     
     input[type=file] {
@@ -65,6 +66,7 @@ export class File extends LitElement {
       border-top-right-radius: 5px;
       border-bottom-right-radius: 5px;
       border: none;
+      overflow: hidden;
     }
 
     input[type=text] {

@@ -79,6 +79,10 @@ export class Sidebar extends LitElement {
       width: var(--final-toggle-width);
     }
 
+    #main {
+      overflow: hidden;
+    }
+
     #toggle:hover { 
       background: var(--blue-spiral)
     }

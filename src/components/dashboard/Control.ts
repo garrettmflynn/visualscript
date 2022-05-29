@@ -52,7 +52,7 @@ export class Control extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0px 15px;
+      padding: 0px 5px;
       margin: 10px;
       border: 1px solid rgb(180,180,180);
       /* white-space: nowrap; */
