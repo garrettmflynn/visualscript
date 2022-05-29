@@ -126,4 +126,4 @@ export class TimeSeries extends LitElement {
     }
   }
   
-  customElements.define('visualscript-timeseries', TimeSeries);
+  customElements.define('visualscript-timeseries-stream', TimeSeries);

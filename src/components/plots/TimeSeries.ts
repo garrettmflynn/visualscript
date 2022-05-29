@@ -1,22 +1,31 @@
 import {LitElement, css, } from 'lit';
 import ResizeObserver from 'resize-observer-polyfill';
 
-export type InteractiveSpectrogramProps = {
+export type TimeSeriesProps = {
   max?: number;
   backgroundColor?: string;
-  data?: any[]
+  data?: {
+    y: any[],
+    [x:string]: any
+  }[]
+  layout?: {[x:string]: any}
   colorscale?: 'Hot' | 'Cold' | 'YlGnBu' | 'YlOrRd' | 'RdBu' | 'Portland' | 'Picnic' | 'Jet' | 'Greys' | 'Greens' | 'Electric' | 'Earth' | 'Bluered' | 'Blackbody' | string[][],
-  Plotly?: any
+  Plotly?: any,
+  onClick?: Function
 }
 
 
 const colorscales = ['Hot' , 'Cold' , 'YlGnBu' , 'YlOrRd' , 'RdBu' , 'Portland' , 'Picnic' , 'Jet' , 'Greys' , 'Greens' , 'Electric' , 'Earth' , 'Bluered' , 'Blackbody']
 
-export class InteractiveSpectrogram extends LitElement {
+export class TimeSeries extends LitElement {
 
     static get styles() {
       return css`
 
+      :host {
+        overflow: hidden;
+      }
+      
       `;
     }
 
@@ -35,6 +44,10 @@ export class InteractiveSpectrogram extends LitElement {
           type: Array,
           reflect: true
         },
+        layout: {
+          type: Object,
+          reflect: true,
+        },
         colorscale: {
           type: Object,
           reflect: true
@@ -43,51 +56,61 @@ export class InteractiveSpectrogram extends LitElement {
           type: String,
           reflect: true,
         },
+        onClick: {
+          type: Function,
+          reflect: true,
+        },
       };
     }
 
     static colorscales = colorscales
-    colorscale: InteractiveSpectrogramProps['colorscale'] = 'Electric'
-    div: HTMLDivElement = document.createElement('div');
-    data: any[] = [];
+    colorscale: TimeSeriesProps['colorscale'] = 'Electric'
+    div: any = document.createElement('div');
+    data: TimeSeriesProps['data'] = [];
     plotData: any[] = []
-    config: {[x:string]: any} = {}
+    layout: TimeSeriesProps['layout'] = {}
     windowSize = 300
     binWidth = 256
-    Plotly: InteractiveSpectrogramProps['Plotly']
+    Plotly: TimeSeriesProps['Plotly']
+    onClick: TimeSeriesProps['Plotly']
     colorscales = colorscales
 
-    constructor(props: InteractiveSpectrogramProps={}) {
+    constructor(props: TimeSeriesProps={}) {
       super();
 
-      this.data = props.data ?? [[]]
+      this.data = props.data ?? []
+      if (props.layout) this.layout = props.layout
+      if (window.Plotly) props.Plotly = window.Plotly
+
       if (props.colorscale) this.colorscale = props.colorscale
-
-      this.plotData = [
-                {
-                  x: [1,2],
-                  z: this.transpose(this.data),
-                  showscale: true,
-                  colorscale: this.colorscale,
-                  type: 'heatmap'
-                }
-              ];
-
-      this.config = {
-        responsive: true,
-        autosize: true // set autosize to rescale
-      }
-
+      if (props.onClick) this.onClick = props.onClick
 
       if (props.Plotly){
         this.Plotly = props.Plotly
-        this.Plotly.newPlot(this.div, this.plotData, this.config);
-      } else console.warn('<interactive-spectrogram>: Plotly instance not provided...')
+        this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout());
+      } else console.warn('<visualscript-timeseries->: Plotly instance not provided...')
 
       // window.addEventListener('resize', this.resize)
 
       let observer = new ResizeObserver(() => this.resize());
       observer.observe(this.div);
+  }
+
+  getTraces = () => {
+    return this.data.map(o => Object.assign({
+      type: "scatter",
+      mode: "lines",
+      // line: {color: '#000000'}
+      // name: 'Voltage',
+    }, o))
+  }
+
+  getLayout = () => {
+    return Object.assign({
+      // title: 'Basic Time Series',
+      responsive: true,
+      autosize: true
+    }, this.layout)
   }
 
   resize = () => {
@@ -104,15 +127,13 @@ export class InteractiveSpectrogram extends LitElement {
   }
 
   willUpdate(changedProps:any) {
-
-    if (changedProps.has('colorscale')) {
-      if (!Array.isArray(this.colorscale) && !this.colorscales.includes(this.colorscale)) this.colorscale = 'Electric'
-      this.Plotly.restyle(this.div, 'colorscale', this.colorscale);
-    }
     
     if (changedProps.has('data')) {
-      this.plotData[0].z = this.transpose(this.data)
-      this.Plotly.newPlot(this.div, this.plotData, this.config);
+      this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout());
+    }
+
+    if (changedProps.has('onClick')) {
+      this.div.on('plotly_click', this.onClick);
     }
   }
 
@@ -160,4 +181,4 @@ export class InteractiveSpectrogram extends LitElement {
     }
   }
   
-  customElements.define('visualscript-spectrogram-interactive', InteractiveSpectrogram);
+  customElements.define('visualscript-timeseries', TimeSeries);

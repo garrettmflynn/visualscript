@@ -71,7 +71,7 @@ import * as controls from './controls'
             container,
             video: o.video,
             stream: o.stream,
-            // spectrogram: new visualscript.streams.data.InteractiveSpectrogram(),
+            // spectrogram: new visualscript.Spectrogram(),
             spectrogram: new visualscript.streams.data.Spectrogram(),
             // timeseries: new visualscript.streams.data.TimeSeries(),
         }

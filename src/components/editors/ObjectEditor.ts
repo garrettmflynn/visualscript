@@ -1,10 +1,15 @@
 
 import { LitElement, html, css } from 'lit';
+import { TimeSeries } from '../plots';
+import {Input} from '../input/Input'
 
+type keyType = string | number | symbol
 export type ObjectEditorProps = {
   target: {[x:string]: any}
-  header?: string
+  header?: keyType
   mode?: string
+  plot?: string[],
+  onPlot?: Function
 }
 
 export class ObjectEditor extends LitElement {
@@ -12,13 +17,8 @@ export class ObjectEditor extends LitElement {
   static get styles() {
     return css`
 
-    
-    :host {
-      
-    }
     :host * {
       box-sizing: border-box;
-      
     }
 
     :host > * {
@@ -26,10 +26,6 @@ export class ObjectEditor extends LitElement {
       border-radius: 4px;
       overflow: hidden;
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
-    }
-
-    .main {
-      
     }
 
     .header {
@@ -46,13 +42,13 @@ export class ObjectEditor extends LitElement {
     }
 
     .container {
-      background: white;
       width: 100%;
       padding: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-wrap: wrap;
+      position: relative;
     }
 
     .separate {
@@ -69,6 +65,11 @@ export class ObjectEditor extends LitElement {
       flex-wrap: wrap;
     }
 
+    .info {
+      display: flex;
+      align-items: center;
+    }
+
     .name {
       font-weight: 800;
       padding-right: 10px;
@@ -78,12 +79,31 @@ export class ObjectEditor extends LitElement {
       font-size: 80%;
     }
 
+    @media (prefers-color-scheme: dark) {
+      :host > * {
+        background-color: rgb(60, 60, 60);
+        box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
+      }
+
+      .header {
+        border-bottom: 1px solid gray;
+      }
+    }
+
     `;
   }
     
     static get properties() {
       return {
-        target: {
+        // target: {
+        //   type: Object,
+        //   reflect: false,
+        // },
+        keys: {
+          type: Object,
+          reflect: true,
+        },
+        plot: {
           type: Object,
           reflect: true,
         },
@@ -95,41 +115,57 @@ export class ObjectEditor extends LitElement {
           type: String,
           reflect: true,
         },
+        onPlot: {
+          type: Function,
+          reflect: true,
+        },
       };
     }
 
     target: ObjectEditorProps['target']
+    keys: (keyType)[]
     header: ObjectEditorProps['header']
     history: any[] = []
+    plot: ObjectEditorProps['plot']
+    onPlot: ObjectEditorProps['onPlot']
     mode: string
+    timeseries: TimeSeries
 
     constructor(props: ObjectEditorProps = {target: {}, header: 'Object'}) {
       super();
 
-      this.target = props.target ?? {}
+      this.set(props.target)
       this.header = props.header ?? 'Object'
       this.mode = props.mode ?? 'view'
+      this.plot = props.plot ?? []
+      this.onPlot = props.onPlot
 
-    }
-    
-    willUpdate(changedProps:any) {
-      // console.log(changedProps)
-      if (changedProps.has('target')) {
-
-      }
+      this.timeseries = new TimeSeries({
+        data: []
+      })
     }
 
-    getActions = (key:string, o:any) => {
+    getMode = (target, plot) => {
+      return (Array.isArray(target) && plot) ? 'plot' : 'view' 
+    }
+
+    set = (target={}, plot=false) => {
+      this.target = target
+      this.keys = Reflect.ownKeys(this.target)
+      this.mode = this.getMode(this.target, plot)
+    }
+
+    getActions = (key:keyType, o:any) => {
 
       let actions;
 
       if (typeof o[key] === 'object') {
+        const mode = this.getMode(o[key], this.plot.includes(key as string))
         actions = html`<visualscript-button primary=true size="small" @click="${() => {
           this.history.push({parent: o, key: this.header})
-          this.target = o[key]
+          this.set(o[key], this.plot.includes(key as string))
           this.header = key
-          this.mode = (Array.isArray(o[key])) ? 'plot' : 'view'
-      }}">${Array.isArray(o[key]) ? html`Plot` : html`View`}</visualscript-button>`
+        }}">${mode[0].toUpperCase() + mode.slice(1)}</visualscript-button>`
       }
 
       return html`
@@ -140,17 +176,20 @@ export class ObjectEditor extends LitElement {
     }
 
 
-    getElement = (key:string, o: any) => {
-
-        
+    getElement = (key:keyType, o: any) => {
+        const input = new Input()
+        input.value = o[key]
+        input.oninput = () => {
+          o[key] = input.value // Modify original data
+        }
         return html`
         <div class="attribute separate">
-        <div>
+        <div class="info">
           <span class="name">${key}</span><br>
           <span class="value">${(
             typeof o[key] === 'object' 
-            ? (Object.keys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
-            : o[key])}</span>
+            ? (Reflect.ownKeys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
+            : input)}</span>
         </div>
           ${this.getActions(key, o)}
         </div>`
@@ -159,6 +198,11 @@ export class ObjectEditor extends LitElement {
   
     render() {
 
+      if (this.mode === 'plot') {
+        if (this.onPlot instanceof Function) this.onPlot()
+        this.insertAdjacentElement('afterend', this.timeseries)
+      } else this.timeseries.remove()
+
       return html`
       <div>
         <div class="header separate">
@@ -166,14 +210,14 @@ export class ObjectEditor extends LitElement {
           ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
               const historyItem = this.history.pop()
               this.header = historyItem.key
-              this.target = historyItem.parent
+              this.set(historyItem.parent)
           }}">Go Back</visualscript-button>` : ``}
         </div>
         <div class="container">
               ${(
                 this.mode === 'view' 
-                ? Object.keys(this.target)?.map(key => this.getElement(key, this.target))
-                : Object.keys(this.target)?.map(key => this.getElement(key, this.target)) // TODO: Implement plot
+                ? this.keys?.map(key => this.getElement(key, this.target)) 
+                : ''
               )}
         </div>
       </div>

@@ -123,32 +123,31 @@ export class File extends LitElement {
     
     render() {
 
+      const input = document.createElement('input') as any
+      input.type = 'file'
+      input.id = 'fileupload'
+      input.accept = this.accept
+      input.webkitdirectory = this.webkitdirectory
+      input.directory = this.directory
+      input.multiple = this.multiple
+      input.onchange = (ev) => {
+        const lenFiles = ev.target.files.length
+        const fileUploaded = ev.target.files[0];
+        const input = this.shadowRoot.querySelector('input[type=text]') as HTMLInputElement
+        var filename = (lenFiles === 1) ? fileUploaded.name : `${lenFiles} files`
+        input.value = filename
+        input.placeholder = filename
+        input.focus()
+        this.onChange(ev);
+      }
+
       return html`
       <label for="fileupload" id="buttonlabel">
         <button aria-controls="filename" tabindex="0" @click=${() => {
-          const input = this.shadowRoot.querySelector('input[type=file]') as HTMLInputElement
           if (input) input.click()
         }}>Choose File</button>
       </label>
-      <input 
-        type="file" 
-        id="fileupload" 
-        accept="${this.accept ?? ''}" 
-        webkitdirectory=${this.webkitdirectory}
-        directory=${this.directory}
-        multiple=${this.multiple}
-
-        @change=${(ev) => {
-          const lenFiles = ev.target.files.length
-          const fileUploaded = ev.target.files[0];
-          const input = this.shadowRoot.querySelector('input[type=text]') as HTMLInputElement
-          var filename = (lenFiles === 1) ? fileUploaded.name : `${lenFiles} files`
-          input.value = filename
-          input.placeholder = filename
-          input.focus()
-          this.onChange(ev);
-        }}
-      >
+      ${input}
       <label for="filename" class="hide">
         uploaded file
       </label>

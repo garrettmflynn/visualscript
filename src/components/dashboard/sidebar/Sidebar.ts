@@ -1,6 +1,5 @@
 
 import { LitElement, html, css } from 'lit';
-import { Control } from './Control';
 
 export type SidebarProps = {
   closed?: boolean,
@@ -118,16 +117,7 @@ export class Sidebar extends LitElement {
     }
 
 
-    #header {
-      width: 100%;
-      padding: 10px 25px;
-      background: var(--dark-color);
-      color: white;
-      margin: 0px;
-    }
-
-
-    #toggle, #header {
+    #toggle {
       position: sticky;
       left:0;
       top: 0;
@@ -141,13 +131,6 @@ export class Sidebar extends LitElement {
 
       #toggle {
         background: var(--dark-spiral)
-      }
-
-      #header {
-        width: 100%;
-        padding: 5px 25px;
-        color: black;
-        background: var(--light-color);
       }
     }
 
@@ -187,7 +170,6 @@ export class Sidebar extends LitElement {
               } else this.closed = !this.closed // Closed only added after user interaction
         }}></button>
         <div id=main>
-        ${!!renderToggle ? html`<h4 id=header>Controls</h4>` : ''}
           <div id=controls>
           ${this.content}
           <slot></slot>

@@ -100,8 +100,8 @@ dataSelect.onChange = (ev) => {
   }
 
   // ---------------------- Colorscale ----------------------
-  colorscale.options = visualscript.streams.data.InteractiveSpectrogram.colorscales
-  export const spectrogram = new visualscript.streams.data.InteractiveSpectrogram({
+  colorscale.options = visualscript.streams.data.Spectrogram.colorscales
+  export const spectrogram = new visualscript.Spectrogram({
     Plotly
   })
   designTab.insertAdjacentElement('beforeend', spectrogram)

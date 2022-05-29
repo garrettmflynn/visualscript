@@ -21,6 +21,7 @@
     "mini-css-extract-plugin": "2.4.5"
   },
   "dependencies": {
+    "@babel/plugin-transform-runtime": "^7.18.2",
     "@rollup/plugin-commonjs": "^22.0.0",
     "lit": "^2.1.2",
     "webgl-plot": "^0.7.0"
