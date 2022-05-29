@@ -62,6 +62,7 @@ export class Sidebar extends LitElement {
       position: relative;
       display: flex;
       overflow: hidden;
+      max-width: 50vw;
     }
 
 
@@ -106,6 +107,10 @@ export class Sidebar extends LitElement {
     }
 
     @media only screen and (max-width: ${collapseThreshold}px) {
+      :host {
+        max-width: auto;
+      }
+
       :host(.default) > #main {
           width: 0px;
           overflow: hidden;
