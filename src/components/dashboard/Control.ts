@@ -214,7 +214,7 @@ export class Control extends LitElement {
       const nodes = slot.assignedNodes()
 
       // Manually Place Slot Text in Button
-      if (this.type === 'button' && nodes.length) nodes.forEach(el => this.element.appendChild(el))
+      if (this.type === 'button' && nodes.length) nodes.forEach(el => this.element.appendChild(el.cloneNode()))
 
     }
   }

@@ -1,5 +1,5 @@
 import {LitElement, css, } from 'lit';
-import ResizeObserver from 'resize-observer-polyfill';
+// import ResizeObserver from 'resize-observer-polyfill';
 
 declare global {
   interface Window { Plotly: any; }
@@ -9,6 +9,7 @@ export type SpectrogramProps = {
   max?: number;
   backgroundColor?: string;
   data?: any[]
+  config?: {[x:string]: any}
   colorscale?: 'Hot' | 'Cold' | 'YlGnBu' | 'YlOrRd' | 'RdBu' | 'Portland' | 'Picnic' | 'Jet' | 'Greys' | 'Greens' | 'Electric' | 'Earth' | 'Bluered' | 'Blackbody' | string[][],
   Plotly?: any
 }
@@ -39,6 +40,10 @@ export class Spectrogram extends LitElement {
           type: Array,
           reflect: true
         },
+        config: {
+          type: Object,
+          reflect: true
+        },
         colorscale: {
           type: Object,
           reflect: true
@@ -55,10 +60,11 @@ export class Spectrogram extends LitElement {
     div: HTMLDivElement = document.createElement('div');
     data: any[] = [];
     plotData: any[] = []
-    config: {[x:string]: any} = {}
+    layout: {[x:string]: any} = {}
     windowSize = 300
     binWidth = 256
     Plotly: SpectrogramProps['Plotly']
+    config: SpectrogramProps['config'] = {}
     colorscales = colorscales
 
     constructor(props: SpectrogramProps={}) {
@@ -66,6 +72,8 @@ export class Spectrogram extends LitElement {
 
       this.data = props.data ?? [[]]
       if (props.colorscale) this.colorscale = props.colorscale
+      if (props.config) this.config = props.config
+
       if (window.Plotly) props.Plotly = window.Plotly
 
       this.plotData = [
@@ -78,34 +86,41 @@ export class Spectrogram extends LitElement {
                 }
               ];
 
-      this.config = {
-        responsive: true,
-        autosize: true // set autosize to rescale
+      this.layout = {
+        // responsive: true,
+        // autosize: true // set autosize to rescale
       }
 
 
       if (props.Plotly){
         this.Plotly = props.Plotly
-        this.Plotly.newPlot(this.div, this.plotData, this.config);
+        this.Plotly.newPlot(this.div, this.plotData, this.layout,this.getConfig());
       } else console.warn('<-spectrogram>: Plotly instance not provided...')
 
       // window.addEventListener('resize', this.resize)
 
-      let observer = new ResizeObserver(() => this.resize());
-      observer.observe(this.div);
+      // let observer = new ResizeObserver(() => this.resize());
+      // observer.observe(this.div);
   }
 
-  resize = () => {
-    this.Plotly.relayout(this.div, {
-      'xaxis.autorange': true,
-      'yaxis.autorange': true
-    })
-  }
+  // resize = () => {
+  //   this.Plotly.relayout(this.div, {
+  //     'xaxis.autorange': true,
+  //     'yaxis.autorange': true
+  //   })
+  // }
 
     transpose(a) {
       return Object.keys(a[0]).map(function(c) {
           return a.map(function(r) { return r[c]; });
       });
+  }
+
+  getConfig = () => {
+    return Object.assign({
+      displaylogo: false, 
+      responsive: true
+    }, this.config)
   }
 
   willUpdate(changedProps:any) {
@@ -117,7 +132,7 @@ export class Spectrogram extends LitElement {
     
     if (changedProps.has('data')) {
       this.plotData[0].z = this.transpose(this.data)
-      this.Plotly.newPlot(this.div, this.plotData, this.config);
+      this.Plotly.newPlot(this.div, this.plotData, this.layout, this.getConfig());
     }
   }
 

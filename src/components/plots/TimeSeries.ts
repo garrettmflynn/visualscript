@@ -1,5 +1,5 @@
 import {LitElement, css, } from 'lit';
-import ResizeObserver from 'resize-observer-polyfill';
+// import ResizeObserver from 'resize-observer-polyfill';
 
 export type TimeSeriesProps = {
   max?: number;
@@ -9,9 +9,11 @@ export type TimeSeriesProps = {
     [x:string]: any
   }[]
   layout?: {[x:string]: any}
+  config?: {[x:string]: any}
   colorscale?: 'Hot' | 'Cold' | 'YlGnBu' | 'YlOrRd' | 'RdBu' | 'Portland' | 'Picnic' | 'Jet' | 'Greys' | 'Greens' | 'Electric' | 'Earth' | 'Bluered' | 'Blackbody' | string[][],
   Plotly?: any,
   onClick?: Function
+  onLegendClick?: Function
 }
 
 
@@ -48,12 +50,20 @@ export class TimeSeries extends LitElement {
           type: Object,
           reflect: true,
         },
+        config: {
+          type: Object,
+          reflect: true,
+        },
         colorscale: {
           type: Object,
           reflect: true
         },
         backgroundColor: {
           type: String,
+          reflect: true,
+        },
+        onLegendClick: {
+          type: Function,
           reflect: true,
         },
         onClick: {
@@ -72,8 +82,10 @@ export class TimeSeries extends LitElement {
     windowSize = 300
     binWidth = 256
     Plotly: TimeSeriesProps['Plotly']
-    onClick: TimeSeriesProps['Plotly']
+    onClick: TimeSeriesProps['onClick']
+    onLegendClick: TimeSeriesProps['onLegendClick']
     colorscales = colorscales
+    config:TimeSeriesProps['config'] = {}
 
     constructor(props: TimeSeriesProps={}) {
       super();
@@ -84,16 +96,18 @@ export class TimeSeries extends LitElement {
 
       if (props.colorscale) this.colorscale = props.colorscale
       if (props.onClick) this.onClick = props.onClick
+      if (props.onLegendClick) this.onLegendClick = props.onLegendClick
+      if (props.config) this.config = props.config
 
       if (props.Plotly){
         this.Plotly = props.Plotly
-        this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout());
+        this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
       } else console.warn('<visualscript-timeseries->: Plotly instance not provided...')
 
       // window.addEventListener('resize', this.resize)
 
-      let observer = new ResizeObserver(() => this.resize());
-      observer.observe(this.div);
+      // let observer = new ResizeObserver(() => this.resize());
+      // observer.observe(this.div);
   }
 
   getTraces = () => {
@@ -105,20 +119,27 @@ export class TimeSeries extends LitElement {
     }, o))
   }
 
+  getConfig = () => {
+    return Object.assign({
+      displaylogo: false, 
+      responsive: true
+    }, this.config)
+  }
+
   getLayout = () => {
     return Object.assign({
       // title: 'Basic Time Series',
-      responsive: true,
-      autosize: true
+      // responsive: true,
+      // autosize: true
     }, this.layout)
   }
 
-  resize = () => {
-    this.Plotly.relayout(this.div, {
-      'xaxis.autorange': true,
-      'yaxis.autorange': true
-    })
-  }
+  // resize = () => {
+  //   this.Plotly.relayout(this.div, {
+  //     'xaxis.autorange': true,
+  //     'yaxis.autorange': true
+  //   })
+  // }
 
     transpose(a) {
       return Object.keys(a[0]).map(function(c) {
@@ -129,11 +150,14 @@ export class TimeSeries extends LitElement {
   willUpdate(changedProps:any) {
     
     if (changedProps.has('data')) {
-      this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout());
+      this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
     }
 
     if (changedProps.has('onClick')) {
       this.div.on('plotly_click', this.onClick);
+    }
+    if (changedProps.has('onLegendClick')) {
+      this.div.on('plotly_legendclick', this.onLegendClick)
     }
   }
 

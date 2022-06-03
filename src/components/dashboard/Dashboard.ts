@@ -29,6 +29,7 @@ export type DashboardProps = {
   closeHandler?: Function,
   global?: boolean
   toggle?: HTMLElement | string
+  toggletext?: string
 }
 
 export class Dashboard extends LitElement {
@@ -134,6 +135,14 @@ export class Dashboard extends LitElement {
     
     static get properties() {
       return {
+        toggletext: {
+          type: String,
+          reflect: true
+        },
+        toggle: {
+          type: Object,
+          reflect: true
+        },
         open: {
           type: Boolean,
           reflect: true,
@@ -151,6 +160,7 @@ export class Dashboard extends LitElement {
 
     open: DashboardProps['open']
     closeHandler: DashboardProps['closeHandler']
+    toggletext: DashboardProps['toggletext']
     global: DashboardProps['global']
     apps: Map<string, App> = new Map()
 
@@ -165,6 +175,7 @@ export class Dashboard extends LitElement {
 
       this.open = props.open ?? true;
       this.closeHandler = props.closeHandler ?? (() => {});
+      if (props.toggletext) this.toggletext = props.toggletext;
       this.toggle = (typeof props.toggle === 'string') ? document.getElementById(props.toggle) : props.toggle
     }
     
@@ -208,7 +219,7 @@ export class Dashboard extends LitElement {
     if (this.toggle) this.toggle.onclick = onClick
 
       return html`
-      ${(this.global && !this.toggle) ? html`<div id="dashboard-toggle" @click=${onClick}>Edit</div>`: ''}
+      ${(this.global && !this.toggle) ? html`<div id="dashboard-toggle" @click=${onClick}>${this.toggletext ?? 'Edit'}</div>`: ''}
       ${this.global ? html`<visualscript-button id='close' secondary size="small" @click=${() => this.open=false}>Close</visualscript-button>` : ``}
       <slot>
       </slot>

@@ -13,13 +13,10 @@ export class SidebarHeader extends LitElement {
 
     :host {
       width: 100%;
-      background: rgb(25, 25, 25);
-      position: sticky;
-      left:0;
-      top: 0;
     }
 
     h4 {
+      background: rgb(25, 25, 25);
       color: white;
       margin: 0px;
       padding: 10px 25px;
@@ -27,6 +24,7 @@ export class SidebarHeader extends LitElement {
 
     @media (prefers-color-scheme: dark) {
       h4 {
+        color: black;
         background: rgb(60, 60, 60);
       }
     }

@@ -8,8 +8,9 @@ export type ObjectEditorProps = {
   target: {[x:string]: any}
   header?: keyType
   mode?: string
-  plot?: string[],
+  plot?: Function[],
   onPlot?: Function
+  preprocess?: Function
 }
 
 export class ObjectEditor extends LitElement {
@@ -26,6 +27,10 @@ export class ObjectEditor extends LitElement {
       border-radius: 4px;
       overflow: hidden;
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
+    }
+
+    img {
+      max-height: 100px;
     }
 
     .header {
@@ -119,6 +124,10 @@ export class ObjectEditor extends LitElement {
           type: Function,
           reflect: true,
         },
+        preprocess: {
+          type: Function,
+          reflect: true,
+        },
       };
     }
 
@@ -128,6 +137,8 @@ export class ObjectEditor extends LitElement {
     history: any[] = []
     plot: ObjectEditorProps['plot']
     onPlot: ObjectEditorProps['onPlot']
+    preprocess: ObjectEditorProps['preprocess']
+
     mode: string
     timeseries: TimeSeries
 
@@ -139,6 +150,7 @@ export class ObjectEditor extends LitElement {
       this.mode = props.mode ?? 'view'
       this.plot = props.plot ?? []
       this.onPlot = props.onPlot
+      if (props.preprocess) this.preprocess = props.preprocess
 
       this.timeseries = new TimeSeries({
         data: []
@@ -146,24 +158,27 @@ export class ObjectEditor extends LitElement {
     }
 
     getMode = (target, plot) => {
-      return (Array.isArray(target) && plot) ? 'plot' : 'view' 
+      return (plot) ? 'plot' : 'view' 
     }
 
-    set = (target={}, plot=false) => {
-      this.target = target
-      this.keys = Reflect.ownKeys(this.target)
+    set = async (target={}, plot=false) => {
+      if (this.preprocess instanceof Function) this.target = await this.preprocess(target)
+      else this.target = target
+      this.keys = Object.keys(this.target)
       this.mode = this.getMode(this.target, plot)
     }
+
+    checkToPlot = (key, o) => this.plot.reduce((a,f) => a + f(key, o), 0) === this.plot.length
 
     getActions = (key:keyType, o:any) => {
 
       let actions;
 
       if (typeof o[key] === 'object') {
-        const mode = this.getMode(o[key], this.plot.includes(key as string))
-        actions = html`<visualscript-button primary=true size="small" @click="${() => {
+        const mode = this.getMode(o[key], this.checkToPlot(key,o))
+        actions = html`<visualscript-button primary=true size="small" @click="${async () => {
           this.history.push({parent: o, key: this.header})
-          this.set(o[key], this.plot.includes(key as string))
+          await this.set(o[key], this.checkToPlot(key,o))
           this.header = key
         }}">${mode[0].toUpperCase() + mode.slice(1)}</visualscript-button>`
       }
@@ -177,21 +192,32 @@ export class ObjectEditor extends LitElement {
 
 
     getElement = (key:keyType, o: any) => {
-        const input = new Input()
-        input.value = o[key]
-        input.oninput = () => {
-          o[key] = input.value // Modify original data
+        let display;
+
+        if (typeof o[key] === 'string' && o[key].includes('data:image')) {
+          display = document.createElement('img') as HTMLImageElement
+          display.src = o[key]
+          display.style.height = '100%'
+        } else {
+          display = new Input()
+          display.value = o[key]
+          display.oninput = () => {
+            o[key] = display.value // Modify original data
+          }
         }
+
+        const isObject = typeof o[key] === 'object' 
+
         return html`
         <div class="attribute separate">
         <div class="info">
           <span class="name">${key}</span><br>
           <span class="value">${(
-            typeof o[key] === 'object' 
-            ? (Reflect.ownKeys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
-            : input)}</span>
+            isObject
+            ? (Object.keys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
+            : '')}</span>
         </div>
-          ${this.getActions(key, o)}
+          ${isObject ? this.getActions(key, o) : display}
         </div>`
 
     }
@@ -199,7 +225,7 @@ export class ObjectEditor extends LitElement {
     render() {
 
       if (this.mode === 'plot') {
-        if (this.onPlot instanceof Function) this.onPlot()
+        if (this.onPlot instanceof Function) this.onPlot(this)
         this.insertAdjacentElement('afterend', this.timeseries)
       } else this.timeseries.remove()
 
@@ -209,8 +235,8 @@ export class ObjectEditor extends LitElement {
           <span>${this.header}</span>
           ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
               const historyItem = this.history.pop()
-              this.header = historyItem.key
               this.set(historyItem.parent)
+              this.header = historyItem.key
           }}">Go Back</visualscript-button>` : ``}
         </div>
         <div class="container">
