@@ -1,5 +1,7 @@
 
 import { LitElement, html, css } from 'lit';
+import {until} from 'lit-html/directives/until.js';
+
 import { TimeSeries } from '../plots';
 import {Input} from '../input/Input'
 
@@ -27,6 +29,8 @@ export class ObjectEditor extends LitElement {
       border-radius: 4px;
       overflow: hidden;
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
+      height: 100%;
+      width: 100%;
     }
 
     img {
@@ -54,6 +58,8 @@ export class ObjectEditor extends LitElement {
       justify-content: center;
       flex-wrap: wrap;
       position: relative;
+      overflow: scroll;
+      height: 100%;
     }
 
     .separate {
@@ -168,17 +174,19 @@ export class ObjectEditor extends LitElement {
       this.mode = this.getMode(this.target, plot)
     }
 
-    checkToPlot = (key, o) => this.plot.reduce((a,f) => a + f(key, o), 0) === this.plot.length
+    checkToPlot = (key, o) => this.plot.length !== 0 && this.plot.reduce((a,f) => a + f(key, o), 0) === this.plot.length
 
-    getActions = (key:keyType, o:any) => {
+    getActions = async (key:keyType, o:any) => {
 
       let actions;
 
-      if (typeof o[key] === 'object') {
-        const mode = this.getMode(o[key], this.checkToPlot(key,o))
+      const val = await Promise.resolve(o[key])
+
+      if (typeof val === 'object') {
+        const mode = this.getMode(val, this.checkToPlot(key,o))
         actions = html`<visualscript-button primary=true size="small" @click="${async () => {
           this.history.push({parent: o, key: this.header})
-          await this.set(o[key], this.checkToPlot(key,o))
+          await this.set(val, this.checkToPlot(key,o))
           this.header = key
         }}">${mode[0].toUpperCase() + mode.slice(1)}</visualscript-button>`
       }
@@ -191,22 +199,24 @@ export class ObjectEditor extends LitElement {
     }
 
 
-    getElement = (key:keyType, o: any) => {
+    getElement = async (key:keyType, o: any) => {
         let display;
 
-        if (typeof o[key] === 'string' && o[key].includes('data:image')) {
+        const val = await Promise.resolve(o[key])
+
+        if (typeof val === 'string' && val.includes('data:image')) {
           display = document.createElement('img') as HTMLImageElement
-          display.src = o[key]
+          display.src = val
           display.style.height = '100%'
         } else {
           display = new Input()
-          display.value = o[key]
+          display.value = val
           display.oninput = () => {
             o[key] = display.value // Modify original data
           }
         }
 
-        const isObject = typeof o[key] === 'object' 
+        const isObject = typeof val === 'object' 
 
         return html`
         <div class="attribute separate">
@@ -214,10 +224,10 @@ export class ObjectEditor extends LitElement {
           <span class="name">${key}</span><br>
           <span class="value">${(
             isObject
-            ? (Object.keys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
+            ? (Object.keys(val).length ? val.constructor.name : html`Empty ${val.constructor.name}`)
             : '')}</span>
         </div>
-          ${isObject ? this.getActions(key, o) : display}
+          ${isObject ? await this.getActions(key, o) : display}
         </div>`
 
     }
@@ -229,25 +239,31 @@ export class ObjectEditor extends LitElement {
         this.insertAdjacentElement('afterend', this.timeseries)
       } else this.timeseries.remove()
 
-      return html`
-      <div>
-        <div class="header separate">
-          <span>${this.header}</span>
-          ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
-              const historyItem = this.history.pop()
-              this.set(historyItem.parent)
-              this.header = historyItem.key
-          }}">Go Back</visualscript-button>` : ``}
+      const content = (
+        this.mode === 'view' 
+        ? this.keys?.map(key => this.getElement(key, this.target)) 
+        : []
+      )
+
+      return until(Promise.all(content).then((data) => {
+
+        return html`
+        <div>
+          <div class="header separate">
+            <span>${this.header}</span>
+            ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
+                const historyItem = this.history.pop()
+                this.set(historyItem.parent)
+                this.header = historyItem.key
+            }}">Go Back</visualscript-button>` : ``}
+          </div>
+          <div class="container">
+                ${data}
+          </div>
         </div>
-        <div class="container">
-              ${(
-                this.mode === 'view' 
-                ? this.keys?.map(key => this.getElement(key, this.target)) 
-                : ''
-              )}
-        </div>
-      </div>
-    `
+      `
+      }), html`<span>Loading...</span>`)
+
     }
   }
   
