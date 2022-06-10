@@ -533,10 +533,13 @@ var objToString = (obj) => {
       v = v.toString();
     } else if (v instanceof Array) {
       v = JSON.stringify(v);
-    } else if (typeof v === "object") {
-      v = convert(v);
-    } else {
+    } else if (typeof v === "object" && !!v) { // Pass on null and undefined
+      v = objToString(v);
+    } else if (typeof v === "string") {
       v = `"${v}"`;
+    }
+    else {
+      v = `${v}`;
     }
     ret += `
   ${k}: ${v},`;
@@ -908,6 +911,7 @@ var FileManager = class {
             variables.forEach((str) => {
               text = `const ${str} = ${objToString(imported[str], false)}
 ${text}`;
+
             });
           } else {
             text = `const ${variables[0]} = ${objToString(imported, false)}

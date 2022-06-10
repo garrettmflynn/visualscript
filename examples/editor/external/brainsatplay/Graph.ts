@@ -864,6 +864,7 @@ export class Graph {
     }
 
     removeTree = (node:string|GraphNode) => {
+
         if(typeof node === 'string') node = this.nodes.get(node);
         if(node instanceof GraphNode) {
             const recursivelyRemove = (node:GraphNode) => {
@@ -892,7 +893,7 @@ export class Graph {
                     }
                 }
             }
-            if((node as GraphNode).stopNode) (node as GraphNode).stopNode();
+            if((node as GraphNode).stopNode) (node as GraphNode).stopNode();            
             if((node as GraphNode).tag) {
                 this.nodes.delete((node as GraphNode).tag);
                 this.nodes.forEach((n) => {
