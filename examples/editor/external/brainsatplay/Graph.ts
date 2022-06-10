@@ -30,7 +30,7 @@ export function parseFunctionFromText(method='') {
         newFunc = new Function(varName, newFuncBody.substring(newFuncBody.indexOf('{')+1,newFuncBody.length-1));
         }
         else {
-        try {newFunc = (0, eval)(newFuncHead + newFuncBody + "}");} catch {}
+        try {newFunc = (0,eval)(newFuncHead + newFuncBody + "}");} catch {}
         }
     }
 
@@ -290,6 +290,7 @@ export class GraphNode {
             
         //can add an animationFrame coroutine, one per node //because why not
         if(node.firstRun) {
+            node.firstRun = false;
             if(
                 !( 
                    (node.children && node.forward) || 
@@ -301,13 +302,15 @@ export class GraphNode {
 
             if(node.animate && !node.isAnimating) {
                 node.runAnimation(node.animation,args,node,origin);
+                return;
             }
 
             //can add an infinite loop coroutine, one per node, e.g. an internal subroutine
             if(node.loop && typeof node.loop === 'number' && !node.isLooping) {
                 node.runLoop(node.looper,args,node,origin);
+                return;
             }
-            node.firstRun = false;
+
         }
     
         //no async/flow logic so just run and return the operator result (which could still be a promise if the operator is async)
