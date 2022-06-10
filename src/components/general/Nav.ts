@@ -23,12 +23,15 @@
 
 
 import { LitElement, html, css } from 'lit';
+import { Button } from './Button';
 
 type ElementType = {
   content: string
   link?: string,
   external?: boolean,
-  type?: string
+  type?: string,
+  id?: string,
+  onClick?: () => {} 
 }
 
 export type NavProps = {
@@ -88,9 +91,13 @@ export class Nav extends LitElement {
       font-size: 80%;
     }
 
-    #primary > * {
+    #primary > * > * {
       flex-grow: 1;
       display: flex;
+    }
+
+    #primary > * {
+      height: 100%;
     }
 
     #primary > div:lastchild {
@@ -105,7 +112,7 @@ export class Nav extends LitElement {
       height: 100%;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-end;
     }
 
     #secondary {
@@ -121,7 +128,10 @@ export class Nav extends LitElement {
     }
 
     .brand {
+      height: 100%;
       padding-right: 15px;
+      display: flex;
+      align-items: center;
     }
 
     a:not(.brand) {
@@ -143,23 +153,9 @@ export class Nav extends LitElement {
     #secondary .decorate:hover {
       box-shadow: 0 3px 0 #c4c4c4 inset;
     }
-
-    button {
-      border: 1px solid white;
-      border-radius: 3px;
-      background: transparent;
-      padding: 5px 10px;
-      margin-left: 10px;
-      font-size: 95%;
-    }
     
     nav button:last-child {
       margin-right: 0px;
-    }
-
-    button:hover {
-      outline: 1.1px solid white;
-      cursor: pointer;
     }
 
     @media only screen and (max-width: 800px) {
@@ -219,29 +215,35 @@ export class Nav extends LitElement {
     }
     
     willUpdate(changedProps:any) {
-      // console.log(changedProps)
-      if (changedProps.has('primary')) {
-        // console.log('New Primary Value', this.primary)
-      }
+
+    }
+
+    stringToFunction = (value) => {
+      let regex = new RegExp('(|[a-zA-Z]\w*|\([a-zA-Z]\w*(,\s*[a-zA-Z]\w*)*\))\s*=>')
+      let func = (typeof value === 'string') ? value.substring(0, 8) == 'function' : false
+      let arrow = (typeof value === 'string') ? regex.test(value) : false
+      return (func || arrow) ? (0, eval)('(' + value + ')') : value;
     }
 
     getElement = (o: ElementType) => {
-      switch (o.type){
+      if (o.onClick) o.onClick = this.stringToFunction(o.onClick) // Convert to function
 
+      switch (o.type){
         case 'button': 
-          return html`<a href="${o.link}" target=${(o.external) ? "_blank" : "_self"}><button>${o.content}</button></a>`
+          const button = document.createElement('visualscript-button') as Button
+          button.id = o.id
+          button.size = 'small'
+          button.onClick = o.onClick ?? (() => {})
+          button.innerHTML = o.content
+          return button
 
         default:
-          return html`<a href="${o.link}" target=${(o.external) ? "_blank" : "_self"} class="decorate">${o.content}</a>`
+          return html`<a href="${o.link}" id=${o.id}  target=${(o.external) ? "_blank" : "_self"} class="decorate">${o.content}</a>`
 
       }
     }
   
     render() {
-
-      // console.log('Primary', this.primary)
-      // console.log('secondary', this.secondary)
-      // console.log('brand', this.brand)
 
       return html`
       <header>

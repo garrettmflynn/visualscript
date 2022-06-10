@@ -2,6 +2,7 @@
 import { LitElement, html, css } from 'lit';
 import { Tab } from './Tab';
 import { Sidebar } from '..';
+import { TabContainer } from './TabContainer';
 
 // TODO: Remove long-winded references to the Global Main
 
@@ -16,6 +17,10 @@ export const TabTogglePropsLit = {
     type: String,
     reflect: true
   },
+  selected: {
+    type: Boolean,
+    reflect: true
+  }
 }
 
 export class TabToggle extends LitElement {
@@ -28,7 +33,6 @@ export class TabToggle extends LitElement {
 
     :host {
       flex-grow: 1;
-      min-width: 100px;
     }
 
     :host * {
@@ -97,28 +101,31 @@ export class TabToggle extends LitElement {
       super();
         this.to = tab
     }
-    
-    render() {
 
-      return html`
-      <button class="${(this.selected) ? 'selected' : ''}"  @click=${(ev) => {
+    select = (toggles?) => {
 
-        this.to.on(ev)
+      this.to.on(this)
 
         // Show Correct Tab
-        const tabs = this.to.dashboard.main.shadowRoot.querySelector('visualscript-tab-bar')
 
-        if (tabs){
-          this.to.toggle.shadowRoot.querySelector('button').classList.add('selected')
+        if (!toggles){
+          const parent = this.parentNode // ASSUMPTION: Always within a tabBar
+          const tabContainer = parent.getRootNode().host as TabContainer // ASSUMPTION: Always within a tabBar
+          toggles = Array.from(tabContainer.tabs.values()).map(tab => tab.toggle)
+        }
+       
+
+        if (toggles){
+          this.selected = true
 
           // if (this.to.style.display === 'none') {
-            this.to.dashboard.main.tabs.forEach(t => {
+            toggles.forEach(t => {
 
-              if (t != this.to) { 
-                t.toggle.shadowRoot.querySelector('button').classList.remove('selected')
-                t.style.display = 'none' 
-                t.off(ev)
-              } else { t.style.display = ''} // hide other tabs
+              if (t != this) { 
+                t.selected = false
+                t.to.style.display = 'none' 
+                t.to.off(this)
+              } else { t.to.style.display = ''} // hide other tabs
 
             })
           // }
@@ -134,8 +141,12 @@ export class TabToggle extends LitElement {
             sidebar.content = (this.to.controlPanel.children.length) ? this.to.controlPanel : ''
           }
         }
+    }
+    
+    render() {
 
-      }}>${this.to.name ?? `Tab`} <span>${this.to.type}</span></button>
+      return html`
+      <button class="${(this.selected) ? 'selected' : ''}"  @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
     `
     }
   }

@@ -17,6 +17,8 @@ export class TimeSeries extends LitElement {
 
       canvas{
         background: black;
+        width: 100%;
+        height: 100%;
       }
 
       `;

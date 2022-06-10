@@ -53,10 +53,8 @@ export class ObjectEditor extends LitElement {
     .container {
       width: 100%;
       padding: 10px;
-      display: flex;
       align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
       position: relative;
       overflow: scroll;
       height: 100%;

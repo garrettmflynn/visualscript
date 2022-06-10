@@ -8,9 +8,11 @@ import Prism from 'prismjs';
 
 
 export type CodeEditorProps = {
-  instance: {[x:string]: any}
-  header?: string
-  mode?: string
+  value?: string
+  onInput?: Function,
+  onSave?: Function,
+  onReset?: Function,
+  onClose?: Function
 }
 
 export class CodeEditor extends LitElement {
@@ -107,51 +109,55 @@ export class CodeEditor extends LitElement {
     
     static get properties() {
       return {
-        instance: {
-          type: Object,
-          reflect: true,
-        },
-        header: {
-          type: String,
-          reflect: true,
-        },
-        mode: {
+        value: {
           type: String,
           reflect: true,
         },
       };
     }
 
-    instance: CodeEditorProps['instance']
-    header: CodeEditorProps['header']
-    history: any[] = []
-    mode: string
+    value: CodeEditorProps['value']
+    onInput: CodeEditorProps['onInput']
+    onSave: CodeEditorProps['onSave']
+    onReset: CodeEditorProps['onReset']
+    onClose: CodeEditorProps['onClose']
 
-    constructor(props: CodeEditorProps = {instance: {}, header: 'Object'}) {
+    textArea: HTMLTextAreaElement = document.createElement('textarea')
+
+
+    constructor(props: CodeEditorProps = {}) {
       super();
 
-      this.instance = props.instance ?? {}
-      this.header = props.header ?? 'Object'
-      this.mode = props.mode ?? 'view'
+      this.value = props.value ?? ''
+      if (props.onInput) this.onInput = props.onInput
+      if (props.onSave) this.onSave = props.onSave
+      if (props.onReset) this.onReset = props.onReset
+      if (props.onClose) this.onClose = props.onClose
+
+      this.textArea.id = 'editor'
+      this.textArea.spellcheck = false
+      this.textArea.oninput = (ev) => {
+        this.text(this.textArea.value)
+        this.scroll(ev.target)
+        if (this.onInput instanceof Function) this.onInput(ev)
+    }
 
     }
     
     willUpdate(changedProps:any) {
-      // console.log(changedProps)
-      if (changedProps.has('instance')) {
 
-      }
     }
 
     getControls = () => {
 
-      let controls = ['Save', 'Reset', 'Close']
+      let controls = ['Save'] //, 'Reset', 'Close']
       // let buttonType = ['primary', 'primary', 'primary']
 
       return html`
       <div class="actions">
-            ${controls.map((name,i) => html`<visualscript-button  size="small" @click="${() => {
-              console.log('Clicked', name, i)
+            ${controls.map((name,i) => html`<visualscript-button primary size="small" @click="${() => {
+              const func = this[`on${name}`]
+              if (func) func()
           }}">${name}</visualscript-button>`)}
       </div>
       `
@@ -179,6 +185,8 @@ export class CodeEditor extends LitElement {
     render() {
 
       const language = 'javascript'
+      this.textArea.placeholder = `Write your ${language} code...`
+      this.textArea.value = this.value
 
       return html`
       <div id="controls">
@@ -186,19 +194,8 @@ export class CodeEditor extends LitElement {
         ${this.getControls()}
       </div>
       <div id='editorContainer' style="position: relative; width: 100%; height: 100%;">
-        <textarea 
-        id='editor' 
-        spellcheck="false" 
-        placeholder='Write your ${language} code...'
-        @input="${(ev) => {
-          console.error('input detected')
-          this.text(ev.target.value)
-          this.scroll(ev.target)
-          // this.oninput(ev.target.value)
-      }}"
-      
-      ></textarea>
-        <pre id="highlight" aria-hidden="true">
+        ${this.textArea}"
+          <pre id="highlight" aria-hidden="true">
             <code class="language-${language}"></code>
         </pre>
     </div>

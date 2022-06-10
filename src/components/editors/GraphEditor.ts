@@ -161,14 +161,6 @@ export class GraphEditor extends LitElement {
 
       return html`
       <div>
-        <div class="header separate">
-          <span>${this.header}</span>
-          ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
-              const historyItem = this.history.pop()
-              this.header = historyItem.key
-              this.graph = historyItem.parent
-          }}">Go Back</visualscript-button>` : ``}
-        </div>
         <div class="container">
               ${(
                 this.mode === 'view' 

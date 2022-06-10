@@ -47,14 +47,14 @@ export class App extends Tab {
 
     constructor(props: AppProps = {}) {
       const tabProps = (Object.assign({
-        on: (ev) => {
+        on: (target) => {
           this.dashboard.main.appendChild(this)
-          if (props.on instanceof Function) props.on(ev)
+          if (props.on instanceof Function) props.on(target)
         },
-        off: (ev) => {
+        off: (target) => {
           this.style.display = ''
           this.parent.appendChild(this) // Replace App element
-          if (props.off instanceof Function) props.off(ev)
+          if (props.off instanceof Function) props.off(target)
         }
       }, props) as AppProps)
       tabProps.name = props.name

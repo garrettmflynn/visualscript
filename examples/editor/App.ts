@@ -27,7 +27,6 @@ export default class App {
             for (let key in this.graph.tree) {
                 const nodeInfo = this.graph.tree[key]
                 const node = this.graph.nodes.get(nodeInfo.tag)
-                console.log('node.loop', node.loop)
                 if (node.loop) node.loop = parseFloat(node.loop) // TODO: fix importing...
                 node.run()
             }

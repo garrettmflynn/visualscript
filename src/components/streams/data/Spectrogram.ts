@@ -13,6 +13,8 @@ export class Spectrogram extends LitElement {
 
       canvas{
         background: black;
+        width: 100%;
+        height: 100%;
       }
 
       `;

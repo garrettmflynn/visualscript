@@ -11,6 +11,8 @@ export const tabStyle = css`
   height: 100%;
   box-sizing: border-box;
   background: inherit;
+  display: block;
+  overflow: hidden;
 }
 
 slot {
@@ -28,8 +30,8 @@ export type TabProps = {
   name?: string;
   controls?: ControlProps[],
   type?: 'app' | 'tab'
-  on?: (ev: Event)=> any,
-  off?: (ev: Event)=> any
+  on?: (target:TabToggle)=> any,
+  off?: (target:TabToggle)=> any
 }
 
 
@@ -90,7 +92,7 @@ export class Tab extends LitElement {
       this.toggle = new TabToggle(this)
 
       this.dashboard.addEventListener('close', (ev) => {
-        this.off(ev)
+        this.off(this.toggle)
       })
 
     }

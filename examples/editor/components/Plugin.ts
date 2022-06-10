@@ -1,5 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
+import {getFnParamNames} from '../external/brainsatplay/Graph'
 
 export type PluginProps = {
   tag: string
@@ -43,10 +44,8 @@ export class Plugin extends LitElement {
     .container {
       width: 100%;
       padding: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: flex-start;
       position: relative;
       overflow: scroll;
       height: 100%;
@@ -112,6 +111,7 @@ export class Plugin extends LitElement {
 
     constructor(props) {
       super();
+      if (props.plugin) this.set(props.plugin)
     }
 
     set = (plugin) => {
@@ -124,9 +124,10 @@ export class Plugin extends LitElement {
       return html`
         <div>
           <div class="header separate">
-            <span>${this.tag}</span>
+            <span>${this.tag ?? 'Tag'}</span>
           </div>
           <div class="container">
+          ${getFnParamNames(this.plugin.operator ?? this.plugin.looper ?? this.plugin.animation).map(str => html`<p>${str}</p>`)}
           </div>
         </div>
       `
