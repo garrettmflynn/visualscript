@@ -1,4 +1,4 @@
-import * as visualscript from '../../src/index'
+import * as visualscript from '../../../src/index'
 import AudioManager from './AudioManager'
 
 import transformations from "./transformations"
