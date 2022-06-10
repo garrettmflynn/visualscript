@@ -318,7 +318,7 @@ export class GraphNode {
 
         return new Promise(async (resolve) => {
             if(node) {
-                let run = (node, tick=0, ...input) => {
+                let run = (node, tick=0, ...input):Promise<any> => {
                     return new Promise (async (r) => {
                         tick++;
                         let res = await node.runOp(node, origin, ...input); //executes the operator on the node in the flow logic
@@ -374,16 +374,13 @@ export class GraphNode {
     
                     let res = await run(node, undefined, ...args); //repeat/recurse before moving on to the parent/child
     
-                    if(node.backward && node.parent) {
-                        await node.parent._run(node.parent, this, res);
+                    if(node.backward && node.parent?._run) {
+                        if(Array.isArray(res)) await this.runParent(node,...res);
+                        else await this.runParent(node,res);
                     }
                     if(node.children && node.forward) {
-                        if(Array.isArray(node.children)) {
-                            for(let i = 0; i < node.children.length; i++) {
-                                await node.children[i]._run(node.children[i], this, res);
-                            }
-                        }
-                        else await node.children._run(node.children, this, res);
+                        if(Array.isArray(res)) await this.runChildren(node,...res);
+                        else await this.runChildren(node,res);
                     }
     
                     return res;
@@ -404,6 +401,47 @@ export class GraphNode {
             }
             else resolve(undefined);
         });
+    }
+
+    runParent = async (node:GraphNode, ...args) => {
+        if(node.backward && node.parent) {
+            if(typeof node.parent === 'string') {
+                if(node.graph && node.graph?.get(node.parent)) {
+                    node.parent = node.graph;
+                    if(node.parent) this.nodes.set(node.parent.tag, node.parent);
+                }
+                else node.parent = this.nodes.get(node.parent);
+            }
+            
+            if(node.parent?.run) await node.parent._run(node.parent, this, ...args);
+        }
+    }
+
+    runChildren = async (node:GraphNode, ...args) => {
+        if(Array.isArray(node.children)) {
+            for(let i = 0; i < node.children.length; i++) { 
+                if (Object.getPrototypeOf(node.children[i]) === String.prototype) {
+                    if(node.graph && node.graph?.get(node.children[i])) {
+                        node.children[i] = node.graph.get(node.children[i]); //try graph scope
+                        if(!node.nodes.get(node.children[i].tag)) node.nodes.set(node.children[i].tag,node.children[i]);
+                    }
+                    if(!node.children[i] && node.nodes.get(node.children[i])) node.children[i] = node.nodes.get(node.children[i]); //try local scope
+                }
+                if(node.children[i]?.runOp)
+                    await node.children[i]._run(node.children[i], node, ...args);
+            }
+        }
+        else if(node.children) {
+            if (Object.getPrototypeOf(node.children) === String.prototype) {
+                if(node.graph && node.graph?.get(node.children)) {
+                    node.children = node.graph.get(node.children); //try graph scope
+                    if(!node.nodes.get(node.children.tag)) node.nodes.set(node.children.tag,node.children);
+                }
+                if(!node.children && node.nodes.get(node.children)) node.children = node.nodes.get(node.children); //try local scope
+            }
+            if(node.children?.runOp)
+                await node.children._run(node.children, node, ...args);
+        }
     }
     
     runAnimation = (
@@ -430,16 +468,13 @@ export class GraphNode {
                     }
                     if(result !== undefined) {
                         if(this.tag) this.setState({[this.tag]:result}); //if the anim returns it can trigger state
-                        if(node.backward && node.parent) {
-                            await node.parent._run(node.parent, this, result);
+                        if(node.backward && node.parent?._run) {
+                            if(Array.isArray(result)) await this.runParent(node,...result);
+                            else await this.runParent(node,result);
                         }
                         if(node.children && node.forward) {
-                            if(Array.isArray(node.children)) {
-                                for(let i = 0; i < node.children.length; i++) {
-                                    await node.children[i]._run(node.children[i], this, result);
-                                }
-                            }
-                            else await node.children._run(node.children, this, result);
+                            if(Array.isArray(result)) await this.runChildren(node,...result);
+                            else await this.runChildren(node,result);
                         }
                         this.setState({[node.tag]:result});
                     }
@@ -474,16 +509,13 @@ export class GraphNode {
                     }
                     if(result !== undefined) {
                         if(node.tag) node.setState({[node.tag]:result}); //if the loop returns it can trigger state
-                        if(node.backward && node.parent) {
-                            await node.parent._run(node.parent, node,  result);
+                        if(node.backward && node.parent?._run) {
+                            if(Array.isArray(result)) await this.runParent(node,...result);
+                            else await this.runParent(node,result);
                         }
                         if(node.children && node.forward) {
-                            if(Array.isArray(node.children)) {
-                                for(let i = 0; i < node.children.length; i++) {
-                                    await node.children[i]._run(node.children[i], node, result);
-                                }
-                            }
-                            else await node.children._run(node.children, node, result);
+                            if(Array.isArray(result)) await this.runChildren(node,...result);
+                            else await this.runChildren(node,result);
                         }
                         node.setState({[node.tag]:result});
                     }
@@ -586,6 +618,13 @@ export class GraphNode {
     //Call parent node operator directly (.run calls the flow logic)
     callParent = (...args) => {
         const origin = this // NOTE: This node must be the origin
+        if(typeof this.parent === 'string') {
+            if(this.graph && this.graph?.get(this.parent)) {
+                this.parent = this.graph;
+                if(this.parent) this.nodes.set(this.parent.tag, this.parent);
+            }
+            else this.parent = this.nodes.get(this.parent);
+        }
         if(typeof this.parent?.operator === 'function') return this.parent.runOp(this.parent, origin, ...args);
     }
     
@@ -594,14 +633,38 @@ export class GraphNode {
         const origin = this // NOTE: This node must be the origin
         let result;
         if(Array.isArray(this.children)) {
-            if(idx) result = this.children[idx]?.runOp(this.children[idx], origin, ...args);
+            if(idx) {
+                if (Object.getPrototypeOf(this.children[idx]) === String.prototype) {
+                if(this.graph && this.graph.get(this.children[idx])) {
+                    this.children[idx] = this.graph.get(this.children[idx]); //try graph scope
+                    if(!this.nodes.get(this.children[idx].tag)) this.nodes.set(this.children[idx].tag,this.children[idx]);
+                }
+                if(!this.children[idx] && this.nodes.get(this.children[idx])) this.children[idx] = this.nodes.get(this.children[idx]); //try local scope
+            }
+            if(this.children[idx]?.runOp) 
+                result = this.children[idx].runOp(this.children[idx], origin, ...args);
+            }
             else {
                 result = [];
                 for(let i = 0; i < this.children.length; i++) {
-                    result.push(this.children[i]?.runOp(this.children[i], origin, ...args));
+                    if (Object.getPrototypeOf(this.children[i]) === String.prototype) {
+                        if(this.graph && this.graph.get(this.children[i])) {
+                            this.children[i] = this.graph.get(this.children[i]); //try graph scope
+                            if(!this.nodes.get(this.children[i].tag)) this.nodes.set(this.children[i].tag,this.children[i]);
+                        }
+                        if(!this.children[i] && this.nodes.get(this.children[i])) this.children[i] = this.nodes.get(this.children[i]); //try local scope
+                    }
+                    if(this.children[i]?.runOp) result.push(this.children[i].runOp(this.children[i], origin, ...args));
                 } 
             }
         } else if(this.children) {
+            if (Object.getPrototypeOf(this.children) === String.prototype) {
+                if(this.graph && this.graph.get(this.children)) {
+                    this.children = this.graph.get(this.children); //try graph scope
+                    if(!this.nodes.get(this.children.tag)) this.nodes.set(this.children.tag,this.children);
+                }
+                if(!this.children && this.nodes.get(this.children)) this.children = this.nodes.get(this.children); //try local scope
+            }
             result = this.children.runOp(this.children, origin, ...args);
         }
         return result;
@@ -620,7 +683,7 @@ export class GraphNode {
     }
 
     removeTree = (node:GraphNode|string) => { //stop and dereference nodes to garbage collect them
-        if(typeof node === 'string') node = this.nodes.get(node);
+        if(node)if(Object.getPrototypeOf(node) === String.prototype) node = this.nodes.get(node);
         if(node instanceof GraphNode) {
             const recursivelyRemove = (node) => {
                 if(node.children) {
@@ -667,7 +730,7 @@ export class GraphNode {
         }
         else if (Array.isArray(n.children)) {
             for(let i = 0; i < n.children.length; i++) {
-                if(n.children[i].name === 'Graph') { 
+                if(n.children[i] instanceof GraphNode) { 
                     if(!this.graph?.nodes.get(n.children[i].tag)) this.graph.nodes.set(n.children[i].tag,n.children[i]);
                     if(!this.nodes.get(n.children[i].tag)) this.nodes.set(n.children[i].tag,n.children[i]);
                     continue; 
@@ -678,11 +741,11 @@ export class GraphNode {
                     this.convertChildrenToNodes(n.children[i]);
                 } 
                 else if (typeof n.children[i] === 'string') {
-                    if(this.graph) {
+                    if(this.graph && this.graph.get(n.children[i])) {
                         n.children[i] = this.graph.get(n.children[i]); //try graph scope
                         if(!this.nodes.get(n.children[i].tag)) this.nodes.set(n.children[i].tag,n.children[i]);
                     }
-                    if(!n.children[i]) n.children[i] = this.nodes.get(n.children[i]); //try local scope
+                    if(!n.children[i] && this.nodes.get(n.children[i])) n.children[i] = this.nodes.get(n.children[i]); //try local scope
                 }
                 
             }
@@ -693,11 +756,11 @@ export class GraphNode {
             this.convertChildrenToNodes(n.children);
         } 
         else if (typeof n.children === 'string') {
-            if(this.graph) {
+            if(this.graph && this.graph.get(n.children)) {
                 n.children = this.graph.get(n.children); //try graph scope
                 if(!this.nodes.get(n.children.tag)) this.nodes.set(n.children.tag,n.children);
             }
-            if(!n.children) n.children = this.nodes.get(n.children); //try local scope
+            if(!n.children && this.nodes.get(n.children)) n.children = this.nodes.get(n.children); //try local scope
         }
         return n.children;
     }
@@ -864,7 +927,6 @@ export class Graph {
     }
 
     removeTree = (node:string|GraphNode) => {
-
         if(typeof node === 'string') node = this.nodes.get(node);
         if(node instanceof GraphNode) {
             const recursivelyRemove = (node:GraphNode) => {
@@ -893,7 +955,7 @@ export class Graph {
                     }
                 }
             }
-            if((node as GraphNode).stopNode) (node as GraphNode).stopNode();            
+            if((node as GraphNode).stopNode) (node as GraphNode).stopNode();
             if((node as GraphNode).tag) {
                 this.nodes.delete((node as GraphNode).tag);
                 this.nodes.forEach((n) => {
