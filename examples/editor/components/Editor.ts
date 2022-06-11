@@ -49,7 +49,7 @@ export class Editor extends LitElement {
     }
 
     app: any
-    ui = document.createElement('div') 
+    ui = document.createElement('visualscript-tab') 
     files: TabContainer = new TabContainer()
     info: TabContainer = new TabContainer()
     fileHistory: {[x:string]: any} = {}
@@ -58,6 +58,8 @@ export class Editor extends LitElement {
 
     constructor(props:EditorProps={}) {
       super();
+
+      this.ui.setAttribute('name', 'UI')
       if (props.app) this.setApp(props.app)
       if (props.ui) this.setUI(props.ui)
       if (props.files) this.setFiles(props.files)
@@ -68,7 +70,8 @@ export class Editor extends LitElement {
     }
 
     setUI = (ui) => {
-      this.ui = ui
+      this.ui.innerHTML = ''
+      this.ui.appendChild(ui)
     }
 
     setFiles = async (files) => {
@@ -132,7 +135,7 @@ export class Editor extends LitElement {
 
 
       return html`
-          <visualscript-tab name="UI">${this.ui}</visualscript-tab>
+          ${this.ui}
           <visualscript-tab-container>
             <visualscript-tab name="Properties">
               <visualscript-object-editor>

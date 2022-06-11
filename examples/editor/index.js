@@ -5,14 +5,14 @@ import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
 
+import config from './app/index'
+console.log(config)
+
 // -------------- Setup File Manager --------------
 const manager = new freerange.FileManager({
     debug: true,
     ignore: ['DS_Store']
 })
-
-let file, app;
-
 
 // -------------- Setup Elememts --------------
 // const displayName = document.querySelector('#name')
@@ -34,6 +34,10 @@ nav.primary = {options: [
     }
 ]}
 
+// -------------- Setup Default App --------------
+let app = new App(config)
+editor.setApp(app)
+
 
 // -------------- Setup Keyboard Shortcuts --------------
 document.onkeydown = async (e) => {
@@ -43,21 +47,17 @@ document.onkeydown = async (e) => {
     }
 };
 
-// -------------- Handle Filesystem Mount --------------
-const onMount = async (info) => {
-    console.log('File System', info, manager)
-    file = await manager.open('index.js')
-    app = new App()
-    editor.setApp(app)
-
+const startApp = (file) => {
 
     // TODO: Make it so that only new information is fully re-imported
     app.onsave = async () => await manager.save()
 
-    app.oncompile = async () => {
-        const imported = await manager.import(file)
-        editor.setFiles(manager.files.list)
-        return imported
+    if (file){
+        app.oncompile = async () => {
+            const imported = await manager.import(file)
+            editor.setFiles(manager.files.list)
+            return imported
+        }
     }
 
     app.onstart = () => {
@@ -65,6 +65,7 @@ const onMount = async (info) => {
         const ui = new TimeSeries()
         editor.setUI(ui)
 
+        console.log(ui, app)
         app.graph.nodes.forEach(n => {
             if (n.tag === 'sine') n.subscribe((data) => {
                 ui.data = [data]
@@ -75,3 +76,13 @@ const onMount = async (info) => {
 
     app.init()
 }
+
+
+// -------------- Handle Filesystem Mount --------------
+const onMount = async (info) => {
+    console.log('File System', info, manager)
+    let file = await manager.open('index.js')
+    startApp(file)
+}
+
+startApp() // Start the default app
