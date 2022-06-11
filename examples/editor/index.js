@@ -39,9 +39,9 @@ nav.primary = {options: [
 let app = new App()
 editor.setApp(app)
 
-manager.mount(appPath)
-.then(files => manager.import(files.list[0])) // Set app with config
-.then(app.set)
+manager.mount(appPath) // Mount specified file
+.then(files => manager.import(files.list[0])) // Import the app tree
+.then(app.set) // Set app with tree
 .then(() => startApp())
 .catch(e => console.error('Remote app not available', e))
 
