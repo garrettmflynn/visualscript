@@ -8,7 +8,7 @@ export default class App {
     animated: {[key: string]: Graph}
 
     constructor(tree) {
-        this.tree = tree
+        this.set(tree)
         this.graph = null
         this.import = null
         this.animated = {}
@@ -17,6 +17,10 @@ export default class App {
     init = async () => {
         await this.compile()
         await this.start()
+    }
+
+    set = (tree) => {
+        this.tree = tree
     }
 
     start = async () => {

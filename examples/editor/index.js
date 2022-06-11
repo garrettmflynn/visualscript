@@ -5,8 +5,9 @@ import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
 
-import config from './app/index'
-console.log(config)
+// Get Remote App by Default
+const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js'
+// const appPath = `./app/index.js` // Automatically relative to window.location.href
 
 // -------------- Setup File Manager --------------
 const manager = new freerange.FileManager({
@@ -35,8 +36,14 @@ nav.primary = {options: [
 ]}
 
 // -------------- Setup Default App --------------
-let app = new App(config)
+let app = new App()
 editor.setApp(app)
+
+manager.mount(appPath)
+.then(files => manager.import(files.list[0])) // Set app with config
+.then(app.set)
+.then(() => startApp())
+.catch(e => console.error('Remote app not available', e))
 
 
 // -------------- Setup Keyboard Shortcuts --------------
@@ -52,9 +59,12 @@ const startApp = (file) => {
     // TODO: Make it so that only new information is fully re-imported
     app.onsave = async () => await manager.save()
 
+    console.log('file', file)
+
     if (file){
         app.oncompile = async () => {
             const imported = await manager.import(file)
+            console.log('imported', imported)
             editor.setFiles(manager.files.list)
             return imported
         }
@@ -84,5 +94,3 @@ const onMount = async (info) => {
     let file = await manager.open('index.js')
     startApp(file)
 }
-
-startApp() // Start the default app
