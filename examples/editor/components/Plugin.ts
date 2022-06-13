@@ -3,7 +3,7 @@ import { LitElement, html, css } from 'lit';
 import {getFnParamNames} from '../external/brainsatplay/Graph'
 
 export type PluginProps = {
-  tag: string
+  tag?: string
 }
 
 export class Plugin extends LitElement {
@@ -109,7 +109,7 @@ export class Plugin extends LitElement {
     tag: PluginProps['tag']
     plugin: {[x:string]: any}
 
-    constructor(props) {
+    constructor(props={}) {
       super();
       if (props.plugin) this.set(props.plugin)
     }

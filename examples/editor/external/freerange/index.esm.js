@@ -58,21 +58,27 @@ var request_default = async (url, options, progressCallback) => {
 // src/RangeFile.js
 var useRawArrayBuffer = ["nii", "nwb"];
 var RangeFile = class {
-  constructor(file2, options = {}) {
+  constructor(file, options = {}) {
     __publicField(this, "createFile", async (buffer, oldFile = this.file, createInSystem = false) => {
       let newFile = new Blob([buffer], oldFile);
       newFile.lastModified = oldFile.lastModified;
       newFile.lastModifiedDate = oldFile.lastModifiedDate;
       newFile.name = oldFile.name;
       newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path || this.name}`;
-      if (createInSystem && !this.fileSystemHandle)
-        this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
+      if (createInSystem && !this.fileSystemHandle) {
+        if (!this.parent) {
+          console.warn(`Directory for file ${this.path} does not exist. Choosing a filesystem to mount...`);
+          await this.manager.transfer();
+          return;
+        } else
+          this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
+      }
       return newFile;
     });
-    __publicField(this, "loadFileInfo", (file2) => {
-      this.name = file2.name;
-      this.type = file2.type;
-      const { mimeType: mimeType6, zipped, extension: extension6 } = this.manager.getInfo(file2);
+    __publicField(this, "loadFileInfo", (file) => {
+      this.name = file.name;
+      this.type = file.type;
+      const { mimeType: mimeType6, zipped, extension: extension6 } = this.manager.getInfo(file);
       this.mimeType = mimeType6;
       this.zipped = zipped;
       this.extension = extension6;
@@ -96,7 +102,7 @@ var RangeFile = class {
           if (Object.keys(this.storage).length === 0)
             this.file = await this.createFile(this.storage.buffer);
           else
-            console.warn(`No buffer created for ${this.name}...`);
+            console.warn(`No buffer created for ${this.path}...`);
         }
       }
       await this.setupByteGetters();
@@ -111,7 +117,10 @@ var RangeFile = class {
         console.warn("Will not deep clone file bodies that are class instances");
       } else {
         try {
-          this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]));
+          if (typeof this[`#body`] === "object")
+            this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]));
+          else
+            this[`#original`] = this[`#body`];
         } catch (e) {
           this[`#original`] = null;
           console.warn("Could not deep clone", e);
@@ -119,7 +128,7 @@ var RangeFile = class {
       }
       const toc = performance.now();
       if (this.debug)
-        console.warn(`Time to Deep Clone (${this.name}): ${toc - tic}ms`);
+        console.warn(`Time to Deep Clone (${this.path}): ${toc - tic}ms`);
     });
     __publicField(this, "get", async () => {
       try {
@@ -131,56 +140,63 @@ var RangeFile = class {
           this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError);
           const tocDecode = performance.now();
           if (this.debug)
-            console.warn(`Time to Decode (${this.name}): ${tocDecode - ticDecode}ms`);
+            console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`);
         }
         if (this["#original"] === void 0)
           this.setOriginal();
         return this[`#body`];
       } catch (e) {
-        const msg = `Decoder failed for ${this.name} - ${this.type || "No file type recognized"}`;
+        const msg = `Decoder failed for ${this.path} - ${this.type || "No file type recognized"}`;
         console.warn(msg, e);
         return {};
       }
     });
     __publicField(this, "set", (o2) => this[`#body`] = o2);
-    __publicField(this, "sync", async (createInSystem) => {
+    __publicField(this, "sync", async (force, createInSystem) => {
       if (this.rangeSupported) {
-        console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`);
+        console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`);
         return true;
       } else {
         const bodyString = JSON.stringify(this[`#body`]);
         const ogString = JSON.stringify(this[`#original`]);
-        if (bodyString !== ogString) {
-          console.warn(`Synching file contents with buffer (${this.name})`, `${ogString} > ${bodyString}`);
+        const different = bodyString !== ogString;
+        if (force || different) {
+          console.warn(`Synching file contents with buffer (${this.path})`, different ? `${ogString} > ${bodyString}` : bodyString);
           try {
             const ticEncode = performance.now();
             this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError);
             const tocEncode = performance.now();
             if (this.debug)
-              console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`);
+              console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`);
           } catch (e) {
             console.error("Could not encode as a buffer", o, this.mimeType, this.zipped);
             this.onError(e);
           }
-          this.file = await this.createFile(this.storage.buffer, this.file, createInSystem);
+          const newFile = await this.createFile(this.storage.buffer, this.file, createInSystem);
+          if (newFile)
+            this.file = newFile;
+          else {
+            console.warn(`New file not created for ${this.path}`);
+            return;
+          }
           this.setOriginal();
           return this.file;
         } else
           return true;
       }
     });
-    __publicField(this, "save", async () => {
-      const file2 = await this.sync(true);
-      if (file2 instanceof Blob) {
-        if (this.fileSystemHandle.size == file2.size)
+    __publicField(this, "save", async (force = !!this.remote) => {
+      const file = await this.sync(force, true);
+      if (file instanceof Blob) {
+        if (this.fileSystemHandle.size == file.size)
           return;
         const writable = await this.fileSystemHandle.createWritable();
-        const stream = file2.stream();
+        const stream = file.stream();
         const tic = performance.now();
         await stream.pipeTo(writable);
         const toc = performance.now();
         if (this.debug)
-          console.warn(`Time to stream into file (${this.name}): ${toc - tic}ms`);
+          console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`);
       }
     });
     __publicField(this, "onError", (e) => {
@@ -208,7 +224,7 @@ var RangeFile = class {
           });
           const toc2 = performance.now();
           if (this.debug && start.length > 1)
-            console.warn(`Time to merge arrays (${this.name}): ${toc2 - tic2}ms`);
+            console.warn(`Time to merge arrays (${this.path}): ${toc2 - tic2}ms`);
         }
         const tic = performance.now();
         let output = property.ignoreGlobalPostprocess ? bytes : this.config.preprocess(bytes);
@@ -216,7 +232,7 @@ var RangeFile = class {
           output = await property.postprocess(output, this["#body"], i);
         const toc = performance.now();
         if (this.debug)
-          console.warn(`Time to postprocess bytes (${this.name}, ${key}, ${start}-${start + length}): ${toc - tic}ms`);
+          console.warn(`Time to postprocess bytes (${this.path}, ${key}, ${start}-${start + length}): ${toc - tic}ms`);
         return output;
       } else {
         console.warn(`No getter for ${key}`);
@@ -337,21 +353,21 @@ var RangeFile = class {
         }
       });
     });
-    if (file2 instanceof FileSystemFileHandle)
-      this.fileSystemHandle = file2;
+    if (file instanceof FileSystemFileHandle)
+      this.fileSystemHandle = file;
     if (options.parent)
       this.parent = options.parent;
-    this.file = file2;
+    this.file = file;
     this.debug = options.debug;
     this.manager = options.manager;
     this.directory = options.directory ?? "";
     this.path = options.path;
-    this.method = file2.origin && file2.path ? "remote" : "local";
+    this.method = file.origin != void 0 && file.path != void 0 ? "remote" : "local";
     if (this.method === "remote") {
-      this.remote = file2;
-      const split = file2.path.split("/");
-      file2.name = split[split.length - 1];
-      this.options = file2.options;
+      this.remote = file;
+      const split = file.path.split("/");
+      file.name = split[split.length - 1];
+      this.options = file.options;
       this.type = null;
     }
     this.loadFileInfo(this.file);
@@ -4537,9 +4553,9 @@ var FileHandler = class {
         buffer = await encode2(buffer);
       return buffer;
     });
-    __publicField(this, "getInfo", (file2) => {
-      let [name, ...extension6] = (file2.name ?? "").split(".");
-      let mimeType6 = file2.type;
+    __publicField(this, "getInfo", (file) => {
+      let [name, ...extension6] = (file.name ?? "").split(".");
+      let mimeType6 = file.type;
       const zipped = mimeType6 === this.registry["gz"] || extension6.includes("gz");
       if (zipped)
         extension6.pop();
@@ -4581,56 +4597,88 @@ var FileHandler = class {
 var FileManager = class extends FileHandler {
   constructor(options = {}) {
     super(options);
-    __publicField(this, "reset", () => {
-      this.changelog = [];
-      this.files = this.createFileSystemInfo();
+    __publicField(this, "create", (name, native, switchSystem) => {
+      const systemInfo = this.reset(name, native);
+      if (switchSystem)
+        this.switch(systemInfo.name);
+      return systemInfo;
     });
-    __publicField(this, "get", async (file2, options = {}) => {
+    __publicField(this, "switch", (name) => {
+      if (name) {
+        this.changelog = this.mounted[name].changelog;
+        this.files = this.mounted[name].files;
+        this.native = this.mounted[name].native;
+        this.directoryName = name;
+        if (this.onswitch instanceof Function)
+          this.onswitch(name, this.files);
+      } else
+        console.warn("No name provided for a directory to switch to.");
+    });
+    __publicField(this, "onswitch", null);
+    __publicField(this, "reset", (name = this.directoryName, native = this.native) => {
+      if (!this.mounted[name])
+        this.mounted[name] = {};
+      this.mounted[name].name = name;
+      this.mounted[name].changelog = [];
+      this.mounted[name].files = this.createFileSystemInfo();
+      this.mounted[name].native = native;
+      return this.mounted[name];
+    });
+    __publicField(this, "get", async (file, options = {}) => {
       if (!options.directory)
         options.directory = this.directoryName;
-      const rangeFile = new RangeFile(file2, Object.assign({ manager: this, debug: this.debug }, options));
+      const rangeFile = new RangeFile(file, Object.assign({ manager: this, debug: this.debug }, options));
       await rangeFile.init();
       return rangeFile;
     });
     __publicField(this, "toLoad", (name) => {
       return this.ignore.reduce((a, b) => a * !name?.includes(b), true);
     });
-    __publicField(this, "load", async (file2, options = {}) => {
+    __publicField(this, "load", async (file, options = {}) => {
       let path = options.path;
       let type = options.type;
-      const files = options.files ?? this.files;
-      const toLoad = this.toLoad(file2.name ?? file2.path);
+      const directory = options.directory ?? options.system.name ?? this.directoryName;
+      const mounted = this.mounted[directory];
+      const files = options.files ?? mounted?.files ?? this.files;
+      const toLoad = this.toLoad(file.name ?? file.path);
       if (toLoad) {
         if (!path)
-          path = file2.webkitRelativePath ?? file2.relativePath ?? file2.path ?? "";
-        const fileOptions = { path, directory: this.directoryName };
-        if (!(file2 instanceof RangeFile)) {
+          path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? "";
+        const fileOptions = { path, directory };
+        if (!(file instanceof RangeFile)) {
           let addToLog;
           if (type === "remote") {
             const directoryPath = new URL(fileOptions.directory).pathname.split("/");
             const url = new URL(fileOptions.path);
-            path = file2.path = fileOptions.path = url.pathname.split("/").filter((str, i) => directoryPath?.[i] != str).join("/");
+            path = file.path = fileOptions.path = url.pathname.split("/").filter((str, i) => directoryPath?.[i] != str).join("/");
           } else {
-            if (!(file2 instanceof FileSystemFileHandle)) {
+            if (!(file instanceof FileSystemFileHandle)) {
               const pathWithoutName = path.split("/").slice(0, -1).join("/");
-              fileOptions.parent = await this.open(pathWithoutName, "directory", false);
+              fileOptions.parent = await this.open(pathWithoutName, mounted, false);
               addToLog = true;
             }
           }
-          file2 = await this.get(file2, fileOptions);
+          file = await this.get(file, fileOptions);
           if (addToLog)
-            this.changelog.push(file2);
+            this.changelog.push(file);
         }
-        this.groupConditions.forEach((func) => func(file2, path, files));
-        return file2;
+        if (files.list.has(file.path)) {
+          console.warn(`Overwriting existing ${file.path} file`);
+          files.list.delete(file.path);
+        }
+        this.groupConditions.forEach((func) => func(file, path, files));
+        return file;
       } else
-        console.warn(`Ignoring ${file2.name}`);
+        console.warn(`Ignoring ${file.name}`);
     });
     __publicField(this, "createFileSystemInfo", () => {
       const files = {};
       for (let group in this.groups) {
         const groupInfo = this.groups[group];
-        files[group] = JSON.parse(JSON.stringify(groupInfo.initial));
+        if (groupInfo.initial instanceof Map)
+          files[group] = new Map(groupInfo.initial);
+        else
+          files[group] = JSON.parse(JSON.stringify(groupInfo.initial));
       }
       return files;
     });
@@ -4643,7 +4691,7 @@ var FileManager = class extends FileHandler {
       this.groupConditions.add(condition);
     });
     __publicField(this, "addDefaultGroups", () => {
-      this.addGroup("system", {}, (file2, path, files) => {
+      this.addGroup("system", {}, (file, path, files) => {
         let target = files.system;
         let split = path.split("/");
         split = split.slice(0, split.length - 1);
@@ -4653,21 +4701,21 @@ var FileManager = class extends FileHandler {
               target[k] = {};
             target = target[k];
           });
-        target[file2.name] = file2;
+        target[file.name] = file;
       });
-      this.addGroup("types", {}, (file2, _, files) => {
-        const extension6 = file2.extension ?? file2.name;
+      this.addGroup("types", {}, (file, _, files) => {
+        const extension6 = file.extension ?? file.name;
         if (extension6) {
           if (!files.types[extension6])
             files.types[extension6] = [];
-          files.types[extension6].push(file2);
+          files.types[extension6].push(file);
         }
       });
       this.addGroup("n", 0, (_, __, files) => {
         files.n++;
       });
-      this.addGroup("list", [], (file2, _, files) => {
-        files.list.push(file2);
+      this.addGroup("list", /* @__PURE__ */ new Map(), (file, _, files) => {
+        files.list.set(file.path, file);
       });
     });
     __publicField(this, "request", request_default);
@@ -4691,31 +4739,32 @@ var FileManager = class extends FileHandler {
       } else
         return;
     });
-    __publicField(this, "getSubsystem", async (path) => {
+    __publicField(this, "getSubsystem", async (path, systemName = this.directoryName) => {
       const files = this.createFileSystemInfo();
       const split = path.split("/");
       const subDir = split.shift();
       path = split.join("/");
-      let target = this.files.system[subDir];
+      const systemInfo = this.mounted[systemName];
+      let target = systemInfo.system[subDir];
       split.forEach((str) => target = target[str]);
       let drill = async (target2, base) => {
         for (let key in target2) {
           const newBase = base ? base + "/" + key : key;
-          const file2 = target2[key];
-          if (file2 instanceof RangeFile)
-            await this.load(...this.createFileInfo(file2, newBase, files));
+          const file = target2[key];
+          if (file instanceof RangeFile)
+            await this.load(...this.createFileInfo(file, newBase, systemInfo));
           else
-            await drill(file2, newBase);
+            await drill(file, newBase);
         }
       };
       await drill(target, path);
       return files;
     });
-    __publicField(this, "mount", async (fileSystemInfo, progressCallback) => {
-      this.reset();
+    __publicField(this, "mount", async (fileSystemInfo, switchSystem = true, progressCallback) => {
       if (!fileSystemInfo)
         fileSystemInfo = await window.showDirectoryPicker();
       await set(this.directoryCacheName, fileSystemInfo);
+      let fileSystemName = fileSystemInfo.name;
       if (fileSystemInfo instanceof FileSystemDirectoryHandle) {
         await this.createLocalFilesystem(fileSystemInfo, progressCallback);
       } else if (typeof fileSystemInfo === "string") {
@@ -4725,7 +4774,6 @@ var FileManager = class extends FileHandler {
         } catch {
           url = this.getPath(fileSystemInfo, window.location.href);
         }
-        console.log("NEWURL", url);
         await this.request(url, { mode: "cors" }, progressCallback).then(async (o2) => {
           const type = o2.type.split(";")[0];
           if (type === "application/json") {
@@ -4746,38 +4794,58 @@ var FileManager = class extends FileHandler {
             };
             drill(datasets);
           } else {
-            this.directoryName = new URL(url).origin;
+            const splitURL = url.split("/");
+            const fileName = splitURL.pop();
+            fileSystemName = splitURL.join("/");
+            this.create(fileSystemName);
             const blob = new Blob([o2.buffer], { type });
-            blob.name = url.split("/").slice(-1)[0];
+            blob.name = fileName;
             const arr = this.createRemoteFileInfo(blob, url);
             await this.load(...arr);
           }
         }).catch((e) => {
           console.error("File System Load Error", e);
         });
-      } else
+      } else {
+        this.create(fileSystemName);
         await this.load(this.createFileInfo(fileSystemInfo));
-      return this.files;
+      }
+      if (Object.keys(this.mounted).length === 1)
+        switchSystem = true;
+      if (switchSystem)
+        this.switch(fileSystemName);
+      else
+        console.warn(`FileManager has not globally switched to the ${fileSystemName} filesystem`);
+      return this.mounted[fileSystemName];
     });
-    __publicField(this, "createFileInfo", (file2 = {}, path, files, type) => {
+    __publicField(this, "createFileInfo", (file = {}, path, system = this.mounted[this.directoryName], type) => {
       if (type === "remote")
-        return this.createRemoteFileInfo(file2, path);
+        return this.createRemoteFileInfo(file, path, system);
       else {
-        return [file2, { path, files }];
+        return [file, { path, system }];
       }
     });
-    __publicField(this, "createRemoteFileInfo", (file2 = {}, path) => {
-      file2 = Object.assign(file2, {
-        origin: this.directoryName,
+    __publicField(this, "createRemoteFileInfo", (file = {}, path, system) => {
+      const directory = this.directoryName ?? path.split("/").slice(0, -1).join("/");
+      if (!system) {
+        system = this.mounted[directory];
+        console.warn(`Got system info for remote files`, system);
+      }
+      if (!system)
+        system = {};
+      file = Object.assign(file, {
+        origin: directory,
         path,
         options: {
           mode: "cors"
         }
       });
       let options = {
-        type: "remote"
+        type: "remote",
+        directory,
+        system
       };
-      return [file2, options];
+      return [file, options];
     });
     __publicField(this, "iterAsync", async (iterable, asyncCallback) => {
       const promises = [];
@@ -4789,21 +4857,21 @@ var FileManager = class extends FileHandler {
       const arr = await Promise.all(promises);
       return arr;
     });
-    __publicField(this, "onhandle", async (handle, base = "", progressCallback) => {
+    __publicField(this, "onhandle", async (handle, base = "", systemInfo, progressCallback) => {
       await this.verifyPermission(handle);
-      if (handle.name != this.directoryName)
+      if (handle.name != systemInfo.name)
         base = base ? `${base}/${handle.name}` : handle.name;
       const files = [];
       if (handle.kind === "file") {
         if (progressCallback instanceof Function)
           files.push({ handle, base });
         else
-          await this.load(...this.createFileInfo(handle, base));
+          await this.load(...this.createFileInfo(handle, base, systemInfo));
       } else if (handle.kind === "directory") {
         const toLoad = this.toLoad(handle.name);
         if (toLoad) {
           const arr = await this.iterAsync(handle.values(), (entry) => {
-            return this.onhandle(entry, base, progressCallback);
+            return this.onhandle(entry, base, systemInfo, progressCallback);
           });
           files.push(...arr.flat());
         }
@@ -4811,29 +4879,30 @@ var FileManager = class extends FileHandler {
       if (!base) {
         let count = 0;
         await this.iterAsync(files, async (o2) => {
-          await this.load(...this.createFileInfo(o2.handle, o2.base));
+          await this.load(...this.createFileInfo(o2.handle, o2.base, systemInfo.files));
           count++;
-          progressCallback(this.directoryName, count / files.length, files.length);
+          progressCallback(systemInfo.name, count / files.length, files.length);
         });
       }
       return files;
     });
     __publicField(this, "createLocalFilesystem", async (handle, progressCallback) => {
-      this.directoryName = handle.name;
-      this.native = handle;
-      await this.onhandle(handle, null, progressCallback);
+      const systemInfo = this.create(handle.name, handle);
+      await this.onhandle(handle, null, systemInfo, progressCallback);
     });
-    __publicField(this, "sync", async () => {
-      return await this.iterAsync(this.files.list, async (entry) => await entry.sync());
+    __publicField(this, "sync", async (mountedName = this.directoryName) => {
+      const files = this.mounted[mountedName].files;
+      return await this.iterAsync(Array.from(files.list.values()), async (entry) => await entry.sync());
     });
-    __publicField(this, "save", (progressCallback) => {
+    __publicField(this, "save", (mountedName = this.directoryName, force, progressCallback) => {
       return new Promise(async (resolve, reject) => {
         let i = 0;
-        await this.iterAsync(this.files.list, async (rangeFile, j) => {
-          await rangeFile.save();
+        const files = this.mounted[mountedName].files;
+        await this.iterAsync(Array.from(files.list.values()), async (rangeFile, j) => {
+          await rangeFile.save(force);
           i++;
           if (progressCallback instanceof Function)
-            progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length);
+            progressCallback(mountedName, i / files.list.size, files.list.size);
         });
         this.changelog = [];
         resolve();
@@ -4849,43 +4918,59 @@ var FileManager = class extends FileHandler {
     __publicField(this, "delete", async (name, parent) => {
       return await parent.removeEntry(name, { recursive: true });
     });
-    __publicField(this, "rename", async (name) => {
-      return await file.move(name);
+    __publicField(this, "transfer", async (targetName, toTransfer = this.files) => {
+      let transferList = Array.from(toTransfer.list.values());
+      if (!targetName) {
+        const info = await this.mount(void 0, false);
+        targetName = info.name;
+      }
+      await Promise.all(transferList.map(async (f) => {
+        const path = f.path;
+        const newFile = await this.load(...this.createFileInfo({
+          name: f.name,
+          data: f[`#body`]
+        }, path, this.mounted[targetName]));
+        if (f.method === "remote")
+          f.parent = newFile.parent;
+      }));
+      await this.save(targetName, true);
+      await this.switch(targetName);
+      return this.mounted[targetName].files;
     });
-    __publicField(this, "move", async (directory, name) => {
-      return await file.move(directory, name);
-    });
-    __publicField(this, "open", async (path, type, create = true) => {
-      if (!this.native) {
+    __publicField(this, "open", async (path, systemInfo = this.mounted[this.directoryName], create = true) => {
+      let lastHandle = systemInfo.native;
+      if (!lastHandle) {
         console.error("No native filesystem mounted...");
         return;
       }
-      let system = this.files.system;
-      let directoryHandle = this.native;
-      const pathTokens = path.split("/");
-      let dirTokens = pathTokens.slice(0, -1);
-      const filename = pathTokens.slice(-1)[0];
-      if (type === "directory")
-        dirTokens = [...dirTokens, filename];
-      if (dirTokens.length > 0) {
-        for (const token of dirTokens) {
-          directoryHandle = await directoryHandle.getDirectoryHandle(token, { create: true });
-          if (!system[token])
-            system[token] = {};
-          system = system[token];
+      let system = systemInfo.files.system;
+      let pathTokens = path.split("/");
+      pathTokens = pathTokens.filter((f) => !!f);
+      let fileHandle;
+      if (pathTokens.length > 0) {
+        for (const token of pathTokens) {
+          const handle = await lastHandle.getDirectoryHandle(token, { create: true }).catch((e) => {
+            const existingFile = system[token];
+            if (existingFile)
+              fileHandle = existingFile;
+            else
+              fileHandle = directoryHandle.getFileHandle(filename, { create });
+          });
+          if (handle)
+            lastHandle = handle;
+          if (fileHandle) {
+            if (fileHandle instanceof FileSystemDirectoryHandle)
+              return await this.load(...this.createFileSystemInfo(fileHandle));
+            else
+              return fileHandle;
+          } else {
+            if (!system[token])
+              system[token] = {};
+            system = system[token];
+          }
         }
       }
-      if (type === "directory")
-        return directoryHandle;
-      else {
-        const existingFile = system[filename];
-        if (existingFile)
-          return existingFile;
-        else {
-          const fileHandle = directoryHandle.getFileHandle(filename, { create });
-          return await this.load(...this.createFileSystemInfo(fileHandle));
-        }
-      }
+      return lastHandle;
     });
     __publicField(this, "getPath", (path, ref = "") => {
       const dirTokens = ref.split("/");
@@ -4911,59 +4996,71 @@ var FileManager = class extends FileHandler {
         imported = imported.default;
       return imported;
     });
-    __publicField(this, "import", async (file2) => {
-      let text = await file2.body;
-      try {
-        return await this["#import"](text);
-      } catch (e) {
-        console.warn(`${file2.name} contains ES6 imports. Manually importing these modules...`);
-        const importInfo = {};
-        var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
-        let m;
-        do {
-          m = re.exec(text);
-          if (m == null)
+    __publicField(this, "import", async (file) => {
+      if (!file) {
+        console.error("Improper file passed to import()...");
+        return;
+      }
+      {
+        let text = await file.body;
+        try {
+          return await this["#import"](text);
+        } catch (e) {
+          console.warn(`${file.path} contains ES6 imports. Manually importing these modules...`);
+          const importInfo = {};
+          var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+          let m;
+          do {
             m = re.exec(text);
-          if (m) {
-            text = text.replace(m[0], ``);
-            const variables = m[1].trim().split(",");
-            importInfo[m[3]] = variables;
-          }
-        } while (m);
-        for (let path in importInfo) {
-          const variables = importInfo[path];
-          const isRemote = file2.method === "remote";
-          let basePath = isRemote ? `${file2.directory}/${file2.path}` : file2.path;
-          const correctPath = this.getPath(path, basePath);
-          const name = path.split("/").slice(-1)[0];
-          const importFile = isRemote ? await this.load(...this.createFileInfo({ name }, correctPath, void 0, file2.method)) : await this.open(correctPath);
-          if (importFile) {
-            const imported = await this.import(importFile);
-            if (variables.length > 1) {
-              variables.forEach((str) => {
-                text = `const ${str} = ${objToString(imported[str], false)}
-${text}`;
-              });
-            } else {
-              text = `const ${variables[0]} = ${objToString(imported, false)}
-${text}`;
+            if (m == null)
+              m = re.exec(text);
+            if (m) {
+              text = text.replace(m[0], ``);
+              const variables = m[1].trim().split(",");
+              importInfo[m[3]] = variables;
             }
-          } else {
-            console.error(`${correctPath} not found. Aborting import...`);
-            return;
+          } while (m);
+          for (let path in importInfo) {
+            let correctPath = this.getPath(path);
+            const variables = importInfo[path];
+            let importFile = this.files.list.get(correctPath);
+            if (!importFile) {
+              const isRemote = file.method === "remote";
+              let basePath = isRemote ? `${file.directory}/${file.path}` : file.path;
+              correctPath = this.getPath(path, basePath);
+              const name = path.split("/").slice(-1)[0];
+              importFile = isRemote ? await this.load(...this.createFileInfo({ name }, correctPath, void 0, file.method)) : await this.open(correctPath);
+            }
+            if (importFile) {
+              const imported = await this.import(importFile);
+              if (variables.length > 1) {
+                variables.forEach((str) => {
+                  text = `const ${str} = ${objToString(imported[str], false)}
+        ${text}`;
+                });
+              } else {
+                text = `const ${variables[0]} = ${objToString(imported, false)}
+        ${text}`;
+              }
+            } else {
+              console.error(`${correctPath} not found. Aborting import...`);
+              return;
+            }
           }
+          const tryImport = await this["#import"](text);
+          return tryImport;
         }
-        const tryImport = await this["#import"](text);
-        return tryImport;
       }
     });
     this.native = null;
     this.ignore = options.ignore ?? [];
     this.directoryCacheName = "freerangeCache";
-    this.directoryName = "";
     this.groupConditions = /* @__PURE__ */ new Set();
     this.groups = {};
-    this.reset();
+    this.mounted = {};
+    this.files = {};
+    this.changelog = [];
+    this.directoryName = void 0;
     this.addDefaultGroups();
   }
 };

@@ -41,8 +41,8 @@ export class Editor extends LitElement {
     
     static get properties() {
       return {
-        fileNames: {
-          type: Array,
+        fileUpdate: {
+          type: Number,
           reflect: true
         }
       };
@@ -53,7 +53,7 @@ export class Editor extends LitElement {
     files: TabContainer = new TabContainer()
     info: TabContainer = new TabContainer()
     fileHistory: {[x:string]: any} = {}
-    fileNames: string[] = []
+    fileUpdate: number = 0
 
 
     constructor(props:EditorProps={}) {
@@ -77,15 +77,18 @@ export class Editor extends LitElement {
     setFiles = async (files) => {
       // for (let child of this.files.children) child.remove()
 
-      const names = []
+      const previousTabs = new Set(Object.keys(this.fileHistory))
 
       await Promise.all(files.map(async f => {
 
-        let tab = this.fileHistory[f.path]
-        names.push(f.path) // Push path to names
-        if (!tab) {
+        let tabInfo = this.fileHistory[f.path]
+        const plugin = await f.manager.import(f)
+        previousTabs.delete(f.path)
+
+        if (!tabInfo) {
           
-          tab = new Tab()
+          const tab = new Tab()
+          tabInfo = {tab} // Start tracking essential tab information
           tab.name = `${f.path}`
 
           // Create File Editors
@@ -93,46 +96,63 @@ export class Editor extends LitElement {
           const codeTab = new Tab({name: "Code"});
 
           // Conditionally Show Information
-          const plugin = await f.manager.import(f)
           if (plugin.tag){
             const infoTab = new Tab({name: 'Info'})
-            const infoEditor = new Plugin({plugin})
-            infoTab.appendChild(infoEditor)
+            tabInfo.plugin = new Plugin()
+            infoTab.appendChild(tabInfo.plugin)
             container.addTab(infoTab)
 
             const objectTab = new Tab({name: "Properties"})
-            const objectEditor = new ObjectEditor({
-              target: plugin,
-              header: plugin.tag
-            })
-            objectTab.appendChild(objectEditor)
+            tabInfo.object = new ObjectEditor()
+            objectTab.appendChild(tabInfo.object)
             container.addTab(objectTab)
 
           }
 
           // Always Show Code Editor
-          const codeEditor = new CodeEditor({
-            onInput: (ev) => f.body = (ev.target as HTMLTextAreaElement).value,
-            onSave: async () => {
-              await f.save()
-              await this.app.init()
-            },
-            value: await f.body
-          })
-          codeTab.appendChild(codeEditor)
+          tabInfo.code = new CodeEditor()
+          codeTab.appendChild(tabInfo.code)
           container.addTab(codeTab)
 
           tab.appendChild(container)
           this.files.addTab(tab)
-          this.fileHistory[f.path] = tab
+          this.fileHistory[f.path] = tabInfo
+        } 
+        
+        // ---------- Update Editors ----------
+
+        // Plugin Info
+        if (tabInfo.plugin){
+          tabInfo.plugin.set(plugin)
+        }
+
+        // Object Editor
+        if (tabInfo.object){
+          tabInfo.object.set(plugin)
+          tabInfo.object.header = plugin.tag
+        }
+
+        // Code Editor
+        tabInfo.code.value = await f.body
+        tabInfo.code.onInput = (ev) => f.body = (ev.target as HTMLTextAreaElement).value,
+        tabInfo.code.onSave = async () => {
+            await f.save()
+            await this.app.init()
         }
       }))  
 
-      this.fileNames = names
+      // Remove Tabs That No Longer Exist
+      previousTabs.forEach(str => {
+        const info = this.fileHistory[str]
+        info.tab.remove() // Remove
+        delete this.fileHistory[str]
+      })
+
+      this.fileUpdate = this.fileUpdate + 1
+
     }
 
     render() {
-
 
       return html`
           ${this.ui}

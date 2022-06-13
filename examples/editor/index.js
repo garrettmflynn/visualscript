@@ -1,5 +1,5 @@
 import * as visualscript from '../../src/index'
-// import * as freerange from 'https://cdn.jsdelivr.net/npm/freerange@0.0.21/dist/index.esm.js'
+// import * as freerange from 'https://cdn.jsdelivr.net/npm/freerange@0.0.24/dist/index.esm.js'
 import * as freerange from './external/freerange/index.esm.js'
 import App from './App';
 import './components/Editor';
@@ -31,7 +31,7 @@ nav.primary = {options: [
         "content": "Select Project",
         "id": "select",
         "type": "button",
-        onClick: () => manager.mount().then(onMount)
+        onClick: () => manager.mount()
     }
 ]}
 
@@ -40,10 +40,14 @@ let app = new App()
 editor.setApp(app)
 
 manager.mount(appPath) // Mount specified file
-.then(files => manager.import(files.list[0])) // Import the app tree
-.then(app.set) // Set app with tree
-.then(() => startApp())
 .catch(e => console.error('Remote app not available', e))
+
+// -------------- Handle Filesystem Mount / Switch --------------
+manager.onswitch = (name, files) => {
+    console.log(`${name} File System Selected`, files)
+    const indexFile = files.list.get('index.js') // Get index.js file
+    startApp(indexFile)
+}
 
 
 // -------------- Setup Keyboard Shortcuts --------------
@@ -59,15 +63,12 @@ const startApp = (file) => {
     // TODO: Make it so that only new information is fully re-imported
     app.onsave = async () => await manager.save()
 
-    console.log('file', file)
 
-    if (file){
-        app.oncompile = async () => {
-            const imported = await manager.import(file)
-            console.log('imported', imported)
-            editor.setFiles(manager.files.list)
-            return imported
-        }
+    app.oncompile = async () => {
+        const file = manager.files.list.get('index.js')
+        const imported = await manager.import(file)
+        editor.setFiles(Array.from(manager.files.list.values()))
+        return imported
     }
 
     app.onstart = () => {
@@ -75,7 +76,7 @@ const startApp = (file) => {
         const ui = new TimeSeries()
         editor.setUI(ui)
 
-        console.log(ui, app)
+        console.log('App Started', app)
         app.graph.nodes.forEach(n => {
             if (n.tag === 'sine') n.subscribe((data) => {
                 ui.data = [data]
@@ -85,12 +86,4 @@ const startApp = (file) => {
     }
 
     app.init()
-}
-
-
-// -------------- Handle Filesystem Mount --------------
-const onMount = async (info) => {
-    console.log('File System', info, manager)
-    let file = await manager.open('index.js')
-    startApp(file)
 }

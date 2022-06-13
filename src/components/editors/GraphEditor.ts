@@ -1,10 +1,16 @@
 
 import { LitElement, html, css } from 'lit';
+import {until} from 'lit-html/directives/until.js';
 
+import { TimeSeries } from '../plots';
+import {Input} from '../input/Input'
+
+type keyType = string | number | symbol
 export type GraphEditorProps = {
-  graph: {[x:string]: any}
-  header?: string
-  mode?: string
+  tree: {[x:string]: any}
+  plot?: Function[],
+  onPlot?: Function
+  preprocess?: Function
 }
 
 export class GraphEditor extends LitElement {
@@ -12,13 +18,8 @@ export class GraphEditor extends LitElement {
   static get styles() {
     return css`
 
-    
-    :host {
-      
-    }
     :host * {
       box-sizing: border-box;
-      
     }
 
     :host > * {
@@ -26,33 +27,22 @@ export class GraphEditor extends LitElement {
       border-radius: 4px;
       overflow: hidden;
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
+      height: 100%;
+      width: 100%;
     }
 
-    .main {
-      
-    }
-
-    .header {
-      padding: 10px 20px;
-      border-top-left-radius: 3px;
-      border-top-right-radius: 3px;
-      font-size: 70%;
-      border-bottom: 1px solid #e3e3e3;
-    }
-
-    .header span {
-      font-weight: 800;
-      font-size: 120%;
+    img {
+      max-height: 100px;
     }
 
     .container {
-      background: white;
       width: 100%;
       padding: 10px;
-      display: flex;
       align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
+      position: relative;
+      overflow: scroll;
+      height: 100%;
     }
 
     .separate {
@@ -69,6 +59,11 @@ export class GraphEditor extends LitElement {
       flex-wrap: wrap;
     }
 
+    .info {
+      display: flex;
+      align-items: center;
+    }
+
     .name {
       font-weight: 800;
       padding-right: 10px;
@@ -78,98 +73,90 @@ export class GraphEditor extends LitElement {
       font-size: 80%;
     }
 
+    @media (prefers-color-scheme: dark) {
+      :host > * {
+        background-color: rgb(60, 60, 60);
+        box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
+      }
+    }
+
     `;
   }
     
     static get properties() {
       return {
-        graph: {
+        // tree: {
+        //   type: Object,
+        //   reflect: false,
+        // },
+        keys: {
           type: Object,
-          reflect: true,
-        },
-        header: {
-          type: String,
-          reflect: true,
-        },
-        mode: {
-          type: String,
           reflect: true,
         },
       };
     }
 
-    graph: GraphEditorProps['graph']
-    header: GraphEditorProps['header']
+    tree: GraphEditorProps['tree']
+    keys: (keyType)[]
     history: any[] = []
-    mode: string
 
-    constructor(props: GraphEditorProps = {graph: {}, header: 'Object'}) {
+    constructor(props: GraphEditorProps = {tree: {}}) {
       super();
 
-      this.graph = props.graph ?? {}
-      this.header = props.header ?? 'Object'
-      this.mode = props.mode ?? 'view'
-
-    }
-    
-    willUpdate(changedProps:any) {
-      // console.log(changedProps)
-      if (changedProps.has('graph')) {
-
-      }
+      this.set(props.tree)
     }
 
-    getActions = (key:string, o:any) => {
-
-      let actions;
-
-      if (typeof o[key] === 'object') {
-        actions = html`<visualscript-button primary=true size="small" @click="${() => {
-          this.history.push({parent: o, key: this.header})
-          this.graph = o[key]
-          this.header = key
-          this.mode = (Array.isArray(o[key])) ? 'plot' : 'view'
-      }}">${Array.isArray(o[key]) ? html`Plot` : html`View`}</visualscript-button>`
-      }
-
-      return html`
-      <div class="actions">
-            ${actions}
-      </div>
-      `
+    set = async (tree={}) => {
+      this.tree = tree
+      this.keys = Object.keys(this.tree)
     }
 
+    getElement = async (key:keyType, o: any) => {
+        let display;
 
-    getElement = (key:string, o: any) => {
+        const val = await Promise.resolve(o[key])
 
-        
+        if (typeof val === 'string' && val.includes('data:image')) {
+          display = document.createElement('img') as HTMLImageElement
+          display.src = val
+          display.style.height = '100%'
+        } else {
+          display = new Input()
+          display.value = val
+          display.oninput = () => {
+            o[key] = display.value // Modify original data
+          }
+        }
+
+        const isObject = typeof val === 'object' 
+
         return html`
         <div class="attribute separate">
-        <div>
+        <div class="info">
           <span class="name">${key}</span><br>
           <span class="value">${(
-            typeof o[key] === 'object' 
-            ? (Object.keys(o[key]).length ? o[key].constructor.name : html`Empty ${o[key].constructor.name}`)
-            : o[key])}</span>
+            isObject
+            ? (Object.keys(val).length ? val.constructor.name : html`Empty ${val.constructor.name}`)
+            : '')}</span>
         </div>
-          ${this.getActions(key, o)}
+          ${key}${o}
         </div>`
 
     }
   
     render() {
 
-      return html`
-      <div>
-        <div class="container">
-              ${(
-                this.mode === 'view' 
-                ? Object.keys(this.graph)?.map(key => this.getElement(key, this.graph))
-                : Object.keys(this.graph)?.map(key => this.getElement(key, this.graph)) // TODO: Implement plot
-              )}
-        </div>
-      </div>
-    `
+      const content = this.keys?.map(key => this.getElement(key, this.tree)) 
+
+      return until(Promise.all(content).then((data) => {
+
+        return html`
+          <div class="container">
+                ${data}
+          </div>
+      `
+      }), html`<span>Loading...</span>`)
+
     }
   }
   
