@@ -1,478 +1,43 @@
 var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-  return value;
+  for (var name2 in all)
+    __defProp(target, name2, { get: all[name2], enumerable: true });
 };
 
-// src/utils/classes.js
-function isClass(obj = {}) {
-  const isCtorClass = obj.constructor && obj.constructor.toString().substring(0, 5) === "class";
-  if (obj.prototype === void 0) {
-    return isCtorClass;
-  }
-  const isPrototypeCtorClass = obj.prototype.constructor && obj.prototype.constructor.toString && obj.prototype.constructor.toString().substring(0, 5) === "class";
-  return isCtorClass || isPrototypeCtorClass;
-}
-
-// src/request.js
-var request_default = async (url, options, progressCallback) => {
-  const response = await fetch(url, options).catch(() => {
-  });
-  return new Promise((resolve) => {
-    if (response) {
-      const reader = response.body.getReader();
-      const bytes = parseInt(response.headers.get("Content-Length"), 10);
-      const type = response.headers.get("Content-Type");
-      let bytesReceived = 0;
-      let buffer = [];
-      const processBuffer = async ({ done, value }) => {
-        if (done) {
-          const config = {};
-          if (typeof type === "string")
-            config.type = type;
-          const blob = new Blob(buffer, config);
-          const ab = await blob.arrayBuffer();
-          resolve({ buffer: new Int8Array(ab), type });
-          return;
-        }
-        bytesReceived += value.length;
-        const chunk = value;
-        buffer.push(chunk);
-        if (progressCallback instanceof Function)
-          progressCallback(options?.headers?.Range, bytesReceived / bytes, bytes);
-        return reader.read().then(processBuffer);
-      };
-      reader.read().then(processBuffer);
-    } else {
-      console.warn("Response not received!", options.headers);
-      resolve(new Uint8Array());
-    }
-  });
+// ../core/utils/info.ts
+var zipped = (suffix2, mimeType, codecs) => mimeType && mimeType === codecs.getType("gz") || suffix2.includes("gz");
+var fullSuffix = (fileName = "") => fileName.split(".").slice(1);
+var suffix = (fileName = "") => {
+  const suffix2 = fullSuffix(fileName);
+  const isZip = zipped(suffix2);
+  if (isZip)
+    suffix2.pop();
+  return suffix2.join(".");
+};
+var name = (path) => path.split("/").slice(-1)[0];
+var directory = (path) => path.split("/").slice(0, -1).join("/");
+var esm = (suffix2) => suffix2 === "js" || suffix2 === "mjs";
+var get = (type7, name2, codecs) => {
+  let mimeType = type7;
+  const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
+  const sfx = suffix(name2);
+  if (isZipped || !mimeType)
+    mimeType = codecs.getType(sfx);
+  if (esm(sfx))
+    mimeType = codecs.getType("js");
+  return { mimeType, zipped: isZipped, suffix: sfx };
 };
 
-// src/RangeFile.js
-var useRawArrayBuffer = ["nii", "nwb"];
-var RangeFile = class {
-  constructor(file, options = {}) {
-    __publicField(this, "createFile", async (buffer, oldFile = this.file, createInSystem = false) => {
-      let newFile = new Blob([buffer], oldFile);
-      newFile.lastModified = oldFile.lastModified;
-      newFile.lastModifiedDate = oldFile.lastModifiedDate;
-      newFile.name = oldFile.name;
-      newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path || this.name}`;
-      if (createInSystem && !this.fileSystemHandle) {
-        if (!this.parent) {
-          console.warn(`Directory for file ${this.path} does not exist. Choosing a filesystem to mount...`);
-          await this.manager.transfer();
-          return;
-        } else
-          this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
-      }
-      return newFile;
-    });
-    __publicField(this, "loadFileInfo", (file) => {
-      this.name = file.name;
-      this.type = file.type;
-      const { mimeType: mimeType6, zipped, extension: extension6 } = this.manager.getInfo(file);
-      this.mimeType = mimeType6;
-      this.zipped = zipped;
-      this.extension = extension6;
-    });
-    __publicField(this, "init", async () => {
-      this.config = this.manager.extensions?.[this.mimeType]?.config;
-      this.rangeSupported = !!this.config;
-      if (this.fileSystemHandle === this.file) {
-        this.file = await this.fileSystemHandle.getFile();
-        this.loadFileInfo(this.file);
-      }
-      let converted = false;
-      if (this.method === "local") {
-        if (!(this.file instanceof Blob)) {
-          this.set(this.file.data);
-          await this.sync();
-          converted = true;
-        }
-        this.storage = await this.getFileData().catch(this.onError);
-        if (!converted) {
-          if (Object.keys(this.storage).length === 0)
-            this.file = await this.createFile(this.storage.buffer);
-          else
-            console.warn(`No buffer created for ${this.path}...`);
-        }
-      }
-      await this.setupByteGetters();
-    });
-    __publicField(this, "setOriginal", () => {
-      const tic = performance.now();
-      if (this.rangeSupported) {
-        this[`#original`] = null;
-        console.warn("Will not stringify bodies that support range requests.");
-      } else if (isClass(this["#body"])) {
-        this[`#original`] = null;
-        console.warn("Will not deep clone file bodies that are class instances");
-      } else {
-        try {
-          if (typeof this[`#body`] === "object")
-            this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]));
-          else
-            this[`#original`] = this[`#body`];
-        } catch (e) {
-          this[`#original`] = null;
-          console.warn("Could not deep clone", e);
-        }
-      }
-      const toc = performance.now();
-      if (this.debug)
-        console.warn(`Time to Deep Clone (${this.path}): ${toc - tic}ms`);
-    });
-    __publicField(this, "get", async () => {
-      try {
-        if (!this[`#body`]) {
-          const ticDecode = performance.now();
-          const storageExists = Object.keys(this.storage).length > 0;
-          if (!storageExists && !this.rangeSupported)
-            this.storage = await this.getFileData();
-          this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError);
-          const tocDecode = performance.now();
-          if (this.debug)
-            console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`);
-        }
-        if (this["#original"] === void 0)
-          this.setOriginal();
-        return this[`#body`];
-      } catch (e) {
-        const msg = `Decoder failed for ${this.path} - ${this.type || "No file type recognized"}`;
-        console.warn(msg, e);
-        return {};
-      }
-    });
-    __publicField(this, "set", (o2) => this[`#body`] = o2);
-    __publicField(this, "sync", async (force, createInSystem) => {
-      if (this.rangeSupported) {
-        console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`);
-        return true;
-      } else {
-        const bodyString = JSON.stringify(this[`#body`]);
-        const ogString = JSON.stringify(this[`#original`]);
-        const different = bodyString !== ogString;
-        if (force || different) {
-          console.warn(`Synching file contents with buffer (${this.path})`, different ? `${ogString} > ${bodyString}` : bodyString);
-          try {
-            const ticEncode = performance.now();
-            this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError);
-            const tocEncode = performance.now();
-            if (this.debug)
-              console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`);
-          } catch (e) {
-            console.error("Could not encode as a buffer", o, this.mimeType, this.zipped);
-            this.onError(e);
-          }
-          const newFile = await this.createFile(this.storage.buffer, this.file, createInSystem);
-          if (newFile)
-            this.file = newFile;
-          else {
-            console.warn(`New file not created for ${this.path}`);
-            return;
-          }
-          this.setOriginal();
-          return this.file;
-        } else
-          return true;
-      }
-    });
-    __publicField(this, "save", async (force = !!this.remote) => {
-      const file = await this.sync(force, true);
-      if (file instanceof Blob) {
-        if (this.fileSystemHandle.size == file.size)
-          return;
-        const writable = await this.fileSystemHandle.createWritable();
-        const stream = file.stream();
-        const tic = performance.now();
-        await stream.pipeTo(writable);
-        const toc = performance.now();
-        if (this.debug)
-          console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`);
-      }
-    });
-    __publicField(this, "onError", (e) => {
-      console.error(e);
-    });
-    __publicField(this, "getFromBytes", async (key, property = this.config.properties[key], parent, i) => {
-      if (property) {
-        let start = await this.getProperty(property.start, parent, i);
-        const length = await this.getProperty(property.length, parent, i);
-        let bytes = [];
-        if (this.method === "remote") {
-          bytes = await this.getRemote({ key, start, length }).catch(console.error);
-        } else {
-          let tempBytes = [];
-          if (!Array.isArray(start))
-            start = [start];
-          start.forEach((i2) => tempBytes.push(this.storage.buffer.slice(i2, i2 + length)));
-          const totalLen = tempBytes.reduce((a, b) => a + b.length, 0);
-          const tic2 = performance.now();
-          let offset = 0;
-          bytes = new Uint8Array(totalLen);
-          tempBytes.forEach((arr) => {
-            bytes.set(arr, offset);
-            offset += arr.length;
-          });
-          const toc2 = performance.now();
-          if (this.debug && start.length > 1)
-            console.warn(`Time to merge arrays (${this.path}): ${toc2 - tic2}ms`);
-        }
-        const tic = performance.now();
-        let output = property.ignoreGlobalPostprocess ? bytes : this.config.preprocess(bytes);
-        if (property.postprocess instanceof Function)
-          output = await property.postprocess(output, this["#body"], i);
-        const toc = performance.now();
-        if (this.debug)
-          console.warn(`Time to postprocess bytes (${this.path}, ${key}, ${start}-${start + length}): ${toc - tic}ms`);
-        return output;
-      } else {
-        console.warn(`No getter for ${key}`);
-      }
-    });
-    __publicField(this, "getProperty", async (property, parent, i) => {
-      if (property instanceof Function) {
-        try {
-          return property(this["#body"], parent, i).catch((e) => console.error(e));
-        } catch {
-          return property(this["#body"], parent, i);
-        }
-      } else
-        return property;
-    });
-    __publicField(this, "defineProperty", async (key, property, parent, i) => {
-      if ("start" in property && property.length) {
-        Object.defineProperties(parent, {
-          [key]: {
-            enumerable: true,
-            get: () => {
-              if (!parent[`#${key}`])
-                parent[`#${key}`] = this.getFromBytes(key, property, parent, i);
-              return parent[`#${key}`];
-            }
-          },
-          [`#${key}`]: {
-            writable: true,
-            enumerable: false
-          }
-        });
-      } else if (property.n && property.properties) {
-        this["#body"][key] = [];
-        const n = await this.getProperty(property.n, property);
-        for (let i2 = 0; i2 < n; i2++) {
-          const value = {};
-          Object.defineProperty(value, "n", { get: () => n });
-          for (let prop in property.properties) {
-            await this.defineProperty(prop, property.properties[prop], value, i2);
-          }
-          this["#body"][key].push(value);
-        }
-      }
-    });
-    __publicField(this, "setupByteGetters", async () => {
-      Object.defineProperties(this, {
-        ["body"]: {
-          enumerable: true,
-          get: async () => this.get(),
-          set: (o2) => this.set(o2)
-        },
-        [`#body`]: {
-          writable: true,
-          enumerable: false
-        }
-      });
-      if (this.rangeSupported) {
-        this[`#body`] = {};
-        for (let key in this.config.properties)
-          await this.defineProperty(key, this.config.properties[key], this["#body"]);
-        if (this.config.metadata instanceof Function)
-          await this.config.metadata(this["#body"], this.config);
-      }
-    });
-    __publicField(this, "request", request_default);
-    __publicField(this, "getRemote", async (property = {}) => {
-      let { start, length } = property;
-      const options = Object.assign({}, this.options);
-      if (!Array.isArray(start))
-        start = [start];
-      if (start.length < 1)
-        return new Int8Array();
-      else {
-        const isDefined = start[0] != void 0;
-        if (isDefined) {
-          let Range = `bytes=${start.map((val) => `${length ? `${val}-${val + length - 1}` : val}`).join(", ")}`;
-          const maxHeaderLength = 15e3;
-          if (Range.length > maxHeaderLength) {
-            const splitRange = Range.slice(0, maxHeaderLength).split(", ");
-            console.warn(`Only sending ${splitRange.length - 1} from ${start.length} range requests to remain under the --max-http-header-size=${1600} limit`);
-            Range = splitRange.slice(0, splitRange.length - 1).join(", ");
-          }
-          options.headers = Object.assign({ Range }, options.headers);
-        }
-        const o2 = await request_default(`${this.remote.origin}/${this.file.path}`, options);
-        return o2.buffer;
-      }
-    });
-    __publicField(this, "getFileData", () => {
-      return new Promise(async (resolve, reject) => {
-        if (this.method === "remote") {
-          const buffer = await this.getRemote();
-          this.file = await this.createFile(buffer);
-          resolve({ file: this.file, buffer });
-        } else {
-          const reader = new FileReader();
-          const methods = {
-            "dataurl": "readAsDataURL",
-            "buffer": "readAsArrayBuffer"
-          };
-          let method = "buffer";
-          if (this.file.type && (this.file.type.includes("image/") || this.file.type.includes("video/")))
-            method = "dataurl";
-          reader.onloadend = (e) => {
-            if (e.target.readyState == FileReader.DONE) {
-              if (!e.target.result)
-                return reject(`No result returned using the ${method} method on ${this.file.name}`);
-              let data = e.target.result;
-              if (data.length === 0) {
-                console.warn(`${this.file.name} appears to be empty`);
-                reject(false);
-              } else if (method === "buffer" && !useRawArrayBuffer.includes(this.extension))
-                data = new Uint8Array(data);
-              resolve({ file: this.file, [method]: data });
-            }
-          };
-          reader[methods[method]](this.file);
-        }
-      });
-    });
-    if (file instanceof FileSystemFileHandle)
-      this.fileSystemHandle = file;
-    if (options.parent)
-      this.parent = options.parent;
-    this.file = file;
-    this.debug = options.debug;
-    this.manager = options.manager;
-    this.directory = options.directory ?? "";
-    this.path = options.path;
-    this.method = file.origin != void 0 && file.path != void 0 ? "remote" : "local";
-    if (this.method === "remote") {
-      this.remote = file;
-      const split = file.path.split("/");
-      file.name = split[split.length - 1];
-      this.options = file.options;
-      this.type = null;
-    }
-    this.loadFileInfo(this.file);
-    this.storage = {};
-    this.rangeSupported = false;
-    this[`#original`] = void 0;
-  }
-};
-
-// node_modules/safari-14-idb-fix/dist/index.js
-function idbReady() {
-  var isSafari = !navigator.userAgentData && /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
-  if (!isSafari || !indexedDB.databases)
-    return Promise.resolve();
-  var intervalId;
-  return new Promise(function(resolve) {
-    var tryIdb = function() {
-      return indexedDB.databases().finally(resolve);
-    };
-    intervalId = setInterval(tryIdb, 100);
-    tryIdb();
-  }).finally(function() {
-    return clearInterval(intervalId);
-  });
-}
-var dist_default = idbReady;
-
-// node_modules/idb-keyval/dist/index.js
-function promisifyRequest(request) {
-  return new Promise((resolve, reject) => {
-    request.oncomplete = request.onsuccess = () => resolve(request.result);
-    request.onabort = request.onerror = () => reject(request.error);
-  });
-}
-function createStore(dbName, storeName) {
-  const dbp = dist_default().then(() => {
-    const request = indexedDB.open(dbName);
-    request.onupgradeneeded = () => request.result.createObjectStore(storeName);
-    return promisifyRequest(request);
-  });
-  return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
-}
-var defaultGetStoreFunc;
-function defaultGetStore() {
-  if (!defaultGetStoreFunc) {
-    defaultGetStoreFunc = createStore("keyval-store", "keyval");
-  }
-  return defaultGetStoreFunc;
-}
-function get(key, customStore = defaultGetStore()) {
-  return customStore("readonly", (store) => promisifyRequest(store.get(key)));
-}
-function set(key, value, customStore = defaultGetStore()) {
-  return customStore("readwrite", (store) => {
-    store.put(value, key);
-    return promisifyRequest(store.transaction);
-  });
-}
-
-// src/utils/parse.utils.js
-var objToString = (obj) => {
-  let ret = "{";
-  for (let k in obj) {
-    let v = obj[k];
-    if (typeof v === "function") {
-      v = v.toString();
-    } else if (v instanceof Array) {
-      v = JSON.stringify(v);
-    } else if (typeof v === "object" && !!v) {
-      v = objToString(v);
-    } else if (typeof v === "string") {
-      v = `"${v}"`;
-    } else {
-      v = `${v}`;
-    }
-    ret += `
-  ${k}: ${v},`;
-  }
-  ret += "\n}";
-  return ret;
-};
-
-// src/common/defaults/text.js
-var text_exports = {};
-__export(text_exports, {
-  decode: () => decode,
-  encode: () => encode,
-  extension: () => extension,
-  mimeType: () => mimeType
-});
-var mimeType = "text/plain";
-var extension = "txt";
-var encode = (o2) => new TextEncoder().encode(o2 ? o2.toString() : "");
-var decode = (o2) => new TextDecoder().decode(o2.buffer);
-
-// src/common/defaults/gzip.js
+// ../core/codecs/library/gzip.ts
 var gzip_exports = {};
 __export(gzip_exports, {
-  decode: () => decode2,
-  encode: () => encode2,
-  extension: () => extension2,
-  mimeType: () => mimeType2
+  decode: () => decode,
+  encode: () => encode,
+  suffixes: () => suffixes,
+  type: () => type
 });
 
-// node_modules/pako/dist/pako.esm.mjs
+// ../../node_modules/pako/dist/pako.esm.mjs
 var Z_FIXED$1 = 4;
 var Z_BINARY = 0;
 var Z_TEXT = 1;
@@ -2874,7 +2439,7 @@ var dext = new Uint8Array([
   64,
   64
 ]);
-var inflate_table = (type, lens, lens_index, codes, table, table_index, work, opts) => {
+var inflate_table = (type7, lens, lens_index, codes, table, table_index, work, opts) => {
   const bits = opts.bits;
   let len = 0;
   let sym = 0;
@@ -2935,7 +2500,7 @@ var inflate_table = (type, lens, lens_index, codes, table, table_index, work, op
       return -1;
     }
   }
-  if (left > 0 && (type === CODES$1 || max !== 1)) {
+  if (left > 0 && (type7 === CODES$1 || max !== 1)) {
     return -1;
   }
   offs[1] = 0;
@@ -2947,10 +2512,10 @@ var inflate_table = (type, lens, lens_index, codes, table, table_index, work, op
       work[offs[lens[lens_index + sym]]++] = sym;
     }
   }
-  if (type === CODES$1) {
+  if (type7 === CODES$1) {
     base = extra = work;
     end = 19;
-  } else if (type === LENS$1) {
+  } else if (type7 === LENS$1) {
     base = lbase;
     base_index -= 257;
     extra = lext;
@@ -2970,7 +2535,7 @@ var inflate_table = (type, lens, lens_index, codes, table, table_index, work, op
   low = -1;
   used = 1 << root;
   mask = used - 1;
-  if (type === LENS$1 && used > ENOUGH_LENS$1 || type === DISTS$1 && used > ENOUGH_DISTS$1) {
+  if (type7 === LENS$1 && used > ENOUGH_LENS$1 || type7 === DISTS$1 && used > ENOUGH_DISTS$1) {
     return 1;
   }
   for (; ; ) {
@@ -3025,7 +2590,7 @@ var inflate_table = (type, lens, lens_index, codes, table, table_index, work, op
         left <<= 1;
       }
       used += 1 << curr;
-      if (type === LENS$1 && used > ENOUGH_LENS$1 || type === DISTS$1 && used > ENOUGH_DISTS$1) {
+      if (type7 === LENS$1 && used > ENOUGH_LENS$1 || type7 === DISTS$1 && used > ENOUGH_DISTS$1) {
         return 1;
       }
       low = huff & mask;
@@ -4442,630 +4007,1270 @@ var pako = {
   constants: constants_1
 };
 
-// src/common/defaults/gzip.js
-var decode2 = (o2) => {
+// ../core/codecs/library/gzip.ts
+var decode = (o) => {
   return new Promise((resolve, reject) => {
     try {
-      o2.buffer = pako.inflate(o2.buffer).buffer;
-      resolve(o2);
+      o.buffer = pako.inflate(o.buffer).buffer;
+      resolve(o);
     } catch (e) {
       console.error(e);
       return reject(false);
     }
   });
 };
-var encode2 = (o2) => pako.deflate(o2);
-var mimeType2 = "application/x-gzip";
-var extension2 = "gz";
+var encode = (o) => pako.deflate(o);
+var type = "application/x-gzip";
+var suffixes = "gz";
 
-// src/common/defaults/json.js
+// ../core/codecs/library/text.ts
+var text_exports = {};
+__export(text_exports, {
+  decode: () => decode2,
+  encode: () => encode2,
+  suffixes: () => suffixes2,
+  type: () => type2
+});
+var type2 = "text/plain";
+var suffixes2 = "txt";
+var encode2 = (o) => new TextEncoder().encode(o ? o.toString() : "");
+var decode2 = (o) => new TextDecoder().decode(o.buffer);
+
+// ../core/codecs/decode.ts
+var decode3 = async (o, type7, name2, config, defaultCodec = text_exports, codecs) => {
+  const { mimeType, zipped: zipped2 } = get(type7, name2, codecs);
+  if (zipped2)
+    o = await decode(o);
+  if (mimeType && (mimeType.includes("image/") || mimeType.includes("video/")))
+    return o.dataurl;
+  const codec = codecs ? codecs.get(mimeType) : null;
+  if (codec && codec.decode instanceof Function)
+    return codec.decode(o, config);
+  else {
+    console.warn(`No decoder for ${mimeType}. Defaulting to ${defaultCodec.type}...`);
+    return defaultCodec.decode(o, config);
+  }
+};
+var decode_default = decode3;
+
+// ../core/codecs/library/datauri.ts
+var encode3 = (o) => {
+  var byteString = atob(o.split(",")[1]);
+  const ab = new ArrayBuffer(byteString.length);
+  var iab = new Uint8Array(ab);
+  for (var i = 0; i < byteString.length; i++) {
+    iab[i] = byteString.charCodeAt(i);
+  }
+  return iab;
+};
+
+// ../core/codecs/encode.ts
+var encode4 = async (o, type7, name2, config, defaultCodec = text_exports, codecs) => {
+  let buffer = new ArrayBuffer(0);
+  const { mimeType, zipped: zipped2 } = get(type7, name2, codecs);
+  if (mimeType && (mimeType.includes("image/") || mimeType.includes("video/")))
+    return encode3(o);
+  const codec = codecs ? codecs.get(mimeType) : null;
+  if (codec && codec.encode instanceof Function)
+    buffer = codec.encode(o, config);
+  else {
+    console.warn(`No encoder for ${mimeType}. Defaulting to ${defaultCodec.type}...`);
+    buffer = defaultCodec.encode(o, config);
+  }
+  if (zipped2)
+    buffer = await encode(buffer);
+  return buffer;
+};
+var encode_default = encode4;
+
+// ../core/system/core/transfer.ts
+var transferEach = async (f, system) => {
+  const path = f.path;
+  if (!f.storage.buffer)
+    f.storage.buffer = await f.getFileData();
+  const blob = new Blob([f.storage.buffer]);
+  blob.name = f.name;
+  const newFile = await system.load(blob, path);
+  console.log(f.method, f, newFile);
+  if (f.method === "remote")
+    f.parent = newFile.parent;
+};
+var transfer = async (previousSystem, targetSystem, transferList) => {
+  if (!targetSystem) {
+    const SystemConstructor = previousSystem.constructor;
+    targetSystem = new SystemConstructor(void 0, { writable: true });
+    await targetSystem.init();
+  }
+  if (!transferList)
+    transferList = Array.from(previousSystem.files.list.values());
+  await Promise.all(transferList.map(async (f) => transferEach(f, targetSystem)));
+  await targetSystem.save(true);
+  console.log("Target System", targetSystem);
+};
+var transfer_default = transfer;
+
+// ../core/utils/classes.js
+function isClass(obj = {}) {
+  const isCtorClass = obj.constructor && obj.constructor.toString().substring(0, 5) === "class";
+  if (obj.prototype === void 0) {
+    return isCtorClass;
+  }
+  const isPrototypeCtorClass = obj.prototype.constructor && obj.prototype.constructor.toString && obj.prototype.constructor.toString().substring(0, 5) === "class";
+  return isCtorClass || isPrototypeCtorClass;
+}
+
+// ../core/utils/path.js
+var get2 = (path, rel = "") => {
+  if (rel[rel.length - 1] === "/")
+    rel = rel.slice(0, -1);
+  let dirTokens = rel.split("/");
+  if (dirTokens.length === 1 && dirTokens[0] === "")
+    dirTokens = [];
+  const potentialFile = dirTokens.pop();
+  if (potentialFile && !potentialFile.includes("."))
+    dirTokens.push(potentialFile);
+  const extensionTokens = path.split("/").filter((str) => {
+    if (str === "..") {
+      if (dirTokens.length == 0)
+        console.error("Derived path is going out of the valid filesystem!");
+      dirTokens.pop();
+      return false;
+    } else if (str === ".")
+      return false;
+    else
+      return true;
+  });
+  const newPath = [...dirTokens, ...extensionTokens].join("/");
+  return newPath;
+};
+
+// ../core/system/remote/request.ts
+var getURL = (path) => {
+  let url;
+  try {
+    url = new URL(path).href;
+  } catch {
+    url = get2(path, window.location.href);
+  }
+  return url;
+};
+var handleFetch = async (path, options = {}, progressCallback) => {
+  if (!options.mode)
+    options.mode = "cors";
+  const url = getURL(path);
+  const response = await fetchRemote(url, options, progressCallback);
+  if (!response)
+    throw new Error("No response received.");
+  const type7 = response.type.split(";")[0];
+  return {
+    url,
+    type: type7,
+    buffer: response.buffer
+  };
+};
+var fetchRemote = async (url, options = {}, progressCallback) => {
+  options.timeout = 3e3;
+  const response = await fetchWithTimeout(url, options);
+  return new Promise((resolve) => {
+    if (response) {
+      const reader = response.body.getReader();
+      const bytes = parseInt(response.headers.get("Content-Length"), 10);
+      const type7 = response.headers.get("Content-Type");
+      let bytesReceived = 0;
+      let buffer = [];
+      const processBuffer = async ({ done, value }) => {
+        if (done) {
+          const config = {};
+          if (typeof type7 === "string")
+            config.type = type7;
+          const blob = new Blob(buffer, config);
+          const ab = await blob.arrayBuffer();
+          resolve({ buffer: new Uint8Array(ab), type: type7 });
+          return;
+        }
+        bytesReceived += value.length;
+        const chunk = value;
+        buffer.push(chunk);
+        if (progressCallback instanceof Function)
+          progressCallback(response.headers.get("Range"), bytesReceived / bytes, bytes);
+        return reader.read().then(processBuffer);
+      };
+      reader.read().then(processBuffer);
+    } else {
+      console.warn("Response not received!", options.headers);
+      resolve();
+    }
+  });
+};
+async function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 8e3 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => {
+    console.warn(`Request to ${resource} took longer than ${(timeout / 1e3).toFixed(2)}s`);
+    controller.abort();
+  }, timeout);
+  const response = await fetch(resource, {
+    ...options,
+    signal: controller.signal
+  });
+  clearTimeout(id);
+  return response;
+}
+
+// ../core/RangeFile.ts
+var useRawArrayBuffer = ["nii", "nwb"];
+var RangeFile = class {
+  constructor(file, options) {
+    this.rangeConfig = null;
+    this.rangeSupported = false;
+    this.createFile = async (buffer, oldFile = this.file, create = false) => {
+      let newFile = new Blob([buffer], oldFile);
+      newFile.lastModified = oldFile.lastModified;
+      newFile.name = oldFile.name;
+      newFile.webkitRelativePath = oldFile.webkitRelativePath || get2(this.path || this.name, this.system.root);
+      if (create && !this.fileSystemHandle) {
+        if (!this.parent) {
+          console.warn(`Directory for file ${this.path} does not exist. Choosing a filesystem to mount...`);
+          await transfer_default(this.system);
+          return;
+        } else
+          this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create });
+      }
+      return newFile;
+    };
+    this.loadFileInfo = (file = this.file) => {
+      if (file) {
+        this.name = file.name;
+        this.type = file.type;
+        const { mimeType, zipped: zipped2, suffix: suffix2 } = get(file.type, file.name, this.system.codecs);
+        this.mimeType = mimeType;
+        this.zipped = zipped2;
+        this.suffix = suffix2;
+      } else
+        console.warn("Valid file object not provided...");
+    };
+    this.init = async () => {
+      if (!this.file && this.fileSystemHandle) {
+        this.file = await this.fileSystemHandle.getFile();
+        this.loadFileInfo(this.file);
+      }
+      const loader = this.system.codecs.get(this.mimeType);
+      const rangeConfig = loader?.config;
+      if (rangeConfig)
+        this.rangeConfig = rangeConfig;
+      else {
+        if (!loader)
+          console.warn(`Cannot find a configuration file for ${this.path}. Please provide the correct codec.`);
+      }
+      this.rangeSupported = !!this.rangeConfig;
+      let converted = false;
+      if (this.method === "native") {
+        this.storage = await this.getFileData().catch(this.onError);
+        if (!converted) {
+          if (this.storage?.buffer)
+            this.file = await this.createFile(this.storage.buffer);
+          else if (this.debug)
+            console.warn(`No buffer created for ${this.path}...`);
+        }
+      }
+      await this.setupByteGetters();
+    };
+    this.setOriginal = (reference = "body") => {
+      if (this.rangeSupported) {
+        this[`#original${reference}`] = null;
+        if (this.debug)
+          console.warn("Will not stringify bodies that support range requests.");
+      } else if (isClass(this[`#${reference}`])) {
+        this[`#original${reference}`] = null;
+        if (this.debug)
+          console.warn("Will not deep clone file bodies that are class instances");
+      } else {
+        try {
+          const tic = performance.now();
+          if (typeof this[`#${reference}`] === "object")
+            this[`#original${reference}`] = JSON.parse(JSON.stringify(this[`#${reference}`]));
+          else
+            this[`#original${reference}`] = this[`#${reference}`];
+          const toc = performance.now();
+          if (this.debug)
+            console.warn(`Time to Deep Clone (${this.path}): ${toc - tic}ms`);
+        } catch (e) {
+          this[`#original${reference}`] = null;
+          if (this.debug)
+            console.warn("Could not deep clone", e);
+        }
+      }
+    };
+    this.get = async (ref = "body", codec) => {
+      try {
+        if (!this[`#${ref}`]) {
+          const ticDecode = performance.now();
+          const storageExists = Object.keys(this.storage).length > 0;
+          if (!storageExists && !this.rangeSupported)
+            this.storage = await this.getFileData();
+          this[`#${ref}`] = codec ? codec.decode(this.storage, this.config) : await this.system.codecs.decode(this.storage, this.mimeType, this.file.name, this.config).catch(this.onError);
+          console.log(`New ${ref}`, this[`#${ref}`]);
+          const tocDecode = performance.now();
+          if (this.debug)
+            console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`);
+        }
+        if (this[`#original${ref}`] === void 0)
+          this.setOriginal(ref);
+        return this[`#${ref}`];
+      } catch (e) {
+        const msg = `Decoder failed for ${this.path} - ${this.mimeType || "No file type recognized"}`;
+        if (this.debug)
+          console.warn(msg, e);
+        return {};
+      }
+    };
+    this.set = (val, ref = "body") => this[`#${ref}`] = val;
+    this.reencode = async (ref = "body", codec) => {
+      try {
+        const modifiedString = JSON.stringify(this[`#${ref}`]);
+        const ogString = JSON.stringify(this[`#original${ref}`]);
+        const different = modifiedString !== ogString;
+        if (different) {
+          if (this.debug)
+            console.warn(`Synching file contents with buffer (${this.path})`, different ? `${ogString} > ${modifiedString}` : modifiedString);
+          const toEncode = this[`#${ref}`] ?? "";
+          try {
+            const ticEncode = performance.now();
+            const buffer = codec ? await codec.encode(toEncode, this.config) : await this.system.codecs.encode(toEncode, this.mimeType, this.file.name, this.config);
+            const tocEncode = performance.now();
+            if (this.debug)
+              console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`);
+            return buffer;
+          } catch (e) {
+            console.error("Could not encode as a buffer", toEncode, this.mimeType, this.zipped, codec);
+            this.onError(e);
+          }
+        }
+      } catch (e) {
+        console.warn(e, this[`#${ref}`], this[`#original${ref}`]);
+      }
+    };
+    this.sync = async (force = !(this.file instanceof Blob), create = void 0) => {
+      if (this.rangeSupported) {
+        if (this.debug)
+          console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`);
+        return true;
+      } else {
+        const bodyEncoded = await this.reencode();
+        const textEncoded = await this.reencode("text", text_exports);
+        const toSave = bodyEncoded ?? textEncoded;
+        if (force || toSave) {
+          this.storage.buffer = toSave;
+          const newFile = await this.createFile(this.storage.buffer, this.file, create);
+          if (newFile)
+            this.file = newFile;
+          else {
+            if (this.debug)
+              console.warn(`New file not created for ${this.path}`);
+            return;
+          }
+          if (textEncoded) {
+            this["#body"] = null;
+            await this.body;
+            await this.text;
+          } else {
+            this.setOriginal();
+            this.setOriginal("text");
+          }
+          return this.file;
+        } else
+          return true;
+      }
+    };
+    this.save = async (force = !!this.remote) => {
+      const file = await this.sync(force, true);
+      if (file instanceof Blob) {
+        const writable = await this.fileSystemHandle.createWritable();
+        const stream = file.stream();
+        const tic = performance.now();
+        await stream.pipeTo(writable);
+        const toc = performance.now();
+        if (this.debug)
+          console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`, this.storage.buffer, this.file, this);
+      }
+    };
+    this.onError = (e) => {
+      console.error(e);
+    };
+    this.getFromBytes = async (key, property = this.rangeConfig.properties[key], parent, i) => {
+      if (property) {
+        let start = await this.getProperty(property.start, parent, i);
+        const length = await this.getProperty(property.length, parent, i);
+        let bytes = new Uint8Array();
+        if (this.method === "remote") {
+          bytes = await this.getRemote({ start, length });
+        } else {
+          let tempBytes = [];
+          if (!Array.isArray(start))
+            start = [start];
+          start.forEach((i2) => tempBytes.push(this.storage.buffer.slice(i2, i2 + length)));
+          const totalLen = tempBytes.reduce((a, b) => a + b.length, 0);
+          const tic2 = performance.now();
+          let offset = 0;
+          bytes = new Uint8Array(totalLen);
+          tempBytes.forEach((arr) => {
+            bytes.set(arr, offset);
+            offset += arr.length;
+          });
+          const toc2 = performance.now();
+          if (this.debug && start.length > 1)
+            console.warn(`Time to merge arrays (${this.path}): ${toc2 - tic2}ms`);
+        }
+        const tic = performance.now();
+        let output = property.ignoreGlobalPostprocess ? bytes : this.rangeConfig.preprocess(bytes);
+        if (property.postprocess instanceof Function)
+          output = await property.postprocess(output, this["#body"], i);
+        const toc = performance.now();
+        if (this.debug)
+          console.warn(`Time to postprocess bytes (${this.path}, ${key}, ${start}-${start + length}): ${toc - tic}ms`);
+        return output;
+      } else {
+        if (this.debug)
+          console.warn(`No getter for ${key}`);
+      }
+    };
+    this.getProperty = async (property, parent, i = void 0) => {
+      if (property instanceof Function) {
+        try {
+          return property(this["#body"], parent, i).catch((e) => console.error(e));
+        } catch {
+          return property(this["#body"], parent, i);
+        }
+      } else
+        return property;
+    };
+    this.defineProperty = async (key, property, parent, i = void 0) => {
+      if ("start" in property && property.length) {
+        Object.defineProperties(parent, {
+          [key]: {
+            enumerable: true,
+            get: () => {
+              if (!parent[`#${key}`])
+                parent[`#${key}`] = this.getFromBytes(key, property, parent, i);
+              return parent[`#${key}`];
+            }
+          },
+          [`#${key}`]: {
+            writable: true,
+            enumerable: false
+          }
+        });
+      } else if (property.n && property.properties) {
+        this["#body"][key] = [];
+        const n = await this.getProperty(property.n, property);
+        for (let i2 = 0; i2 < n; i2++) {
+          const value = {};
+          Object.defineProperty(value, "n", { get: () => n });
+          for (let prop in property.properties) {
+            await this.defineProperty(prop, property.properties[prop], value, i2);
+          }
+          this["#body"][key].push(value);
+        }
+      }
+    };
+    this.setupByteGetters = async () => {
+      Object.defineProperties(this, {
+        ["body"]: {
+          enumerable: true,
+          get: async () => this.get(),
+          set: (val) => this.set(val)
+        },
+        [`#body`]: {
+          writable: true,
+          enumerable: false
+        }
+      });
+      Object.defineProperties(this, {
+        ["text"]: {
+          enumerable: true,
+          get: async () => this.get("text", text_exports),
+          set: (val) => this.set(val, "text")
+        },
+        [`#text`]: {
+          writable: true,
+          enumerable: false
+        }
+      });
+      if (this.rangeSupported) {
+        this[`#body`] = {};
+        for (let key in this.rangeConfig.properties)
+          await this.defineProperty(key, this.rangeConfig.properties[key], this["#body"]);
+        if (this.rangeConfig.metadata instanceof Function)
+          await this.rangeConfig.metadata(this["#body"], this.rangeConfig);
+      }
+    };
+    this.getRemote = async (property = {}) => {
+      let { start, length } = property;
+      const options = Object.assign({}, this.remoteOptions);
+      if (!Array.isArray(start))
+        start = [start];
+      if (start.length < 1)
+        return new Uint8Array();
+      else {
+        const isDefined = start[0] != void 0;
+        if (isDefined) {
+          let Range = `bytes=${start.map((val) => `${length ? `${val}-${val + length - 1}` : val}`).join(", ")}`;
+          const maxHeaderLength = 15e3;
+          if (Range.length > maxHeaderLength) {
+            const splitRange = Range.slice(0, maxHeaderLength).split(", ");
+            console.warn(`Only sending ${splitRange.length - 1} from ${start.length} range requests to remain under the --max-http-header-size=${1600} limit`);
+            Range = splitRange.slice(0, splitRange.length - 1).join(", ");
+          }
+          options.headers = Object.assign({ Range }, options.headers);
+        }
+        const o = await fetchRemote(get2(this.remote.path, this.remote.origin), options);
+        return o.buffer;
+      }
+    };
+    this.getFileData = () => {
+      return new Promise(async (resolve, reject) => {
+        if (this.method === "remote") {
+          const buffer = await this.getRemote();
+          this.file = await this.createFile(buffer);
+          resolve({ file: this.file, buffer });
+        } else {
+          const reader = new FileReader();
+          const methods = {
+            "dataurl": "readAsDataURL",
+            "buffer": "readAsArrayBuffer"
+          };
+          let method = "buffer";
+          if (this.file.type && (this.file.type.includes("image/") || this.file.type.includes("video/")))
+            method = "dataurl";
+          reader.onloadend = (e) => {
+            if (e.target.readyState == FileReader.DONE) {
+              if (!e.target.result)
+                return reject(`No result returned using the ${method} method on ${this.file.name}`);
+              let data = e.target.result;
+              if ((data["byteLength"] ?? data["length"]) === 0) {
+                if (this.debug)
+                  console.warn(`${this.file.name} appears to be empty`);
+                resolve({ file: this.file, [method]: new Uint8Array() });
+              } else if (data instanceof ArrayBuffer && !useRawArrayBuffer.includes(this.suffix))
+                data = new Uint8Array(data);
+              resolve({ file: this.file, [method]: data });
+            } else if (e.target.readyState == FileReader.EMPTY) {
+              if (this.debug)
+                console.warn(`${this.file.name} is empty`);
+              resolve({ file: this.file, [method]: new Uint8Array() });
+            }
+          };
+          reader[methods[method]](this.file);
+        }
+      });
+    };
+    if (file instanceof FileSystemFileHandle) {
+      this.fileSystemHandle = file;
+    } else
+      this.file = file;
+    this.config = options;
+    if (options.parent)
+      this.parent = options.parent;
+    this.debug = options.debug;
+    this.system = options.system;
+    this.path = options.path;
+    this.method = file.origin != void 0 && file.path != void 0 ? "remote" : "native";
+    if (this.method === "remote") {
+      this.remote = file;
+      const split = file.path.split("/");
+      file.name = split[split.length - 1];
+      this.remoteOptions = file.options;
+      this.type = null;
+    }
+    if (this.file)
+      this.loadFileInfo(this.file);
+    this.storage = {};
+    this.rangeSupported = false;
+    this[`#originalbody`] = void 0;
+    this[`#originaltext`] = void 0;
+  }
+};
+`#body`, `#originalbody`, `#text`, `#originaltext`;
+
+// ../core/codecs/index.ts
+var codecs_exports = {};
+__export(codecs_exports, {
+  csv: () => csv_exports,
+  gzip: () => gzip_exports,
+  js: () => js_exports,
+  json: () => json_exports,
+  text: () => text_exports,
+  tsv: () => tsv_exports
+});
+
+// ../core/codecs/library/json.ts
 var json_exports = {};
 __export(json_exports, {
-  decode: () => decode3,
-  encode: () => encode3,
-  extension: () => extension3,
-  mimeType: () => mimeType3
+  decode: () => decode4,
+  encode: () => encode5,
+  suffixes: () => suffixes3,
+  type: () => type3
 });
-var mimeType3 = "application/json";
-var extension3 = "json";
-var encode3 = (o2) => encode(JSON.stringify(o2));
-var decode3 = (o2) => JSON.parse(!o2.text ? decode(o2) : o2.text);
+var type3 = "application/json";
+var suffixes3 = "json";
+var encode5 = (o) => encode2(JSON.stringify(o));
+var decode4 = (o) => {
+  const textContent = !o.text ? decode2(o) : o.text;
+  return JSON.parse(textContent || `{}`);
+};
 
-// src/common/defaults/tsv.js
+// ../core/codecs/library/tsv.ts
 var tsv_exports = {};
 __export(tsv_exports, {
-  decode: () => decode5,
-  encode: () => encode5,
-  extension: () => extension5,
-  mimeType: () => mimeType5
+  decode: () => decode6,
+  encode: () => encode7,
+  suffixes: () => suffixes5,
+  type: () => type5
 });
 
-// src/common/defaults/csv.js
+// ../core/codecs/library/csv.ts
 var csv_exports = {};
 __export(csv_exports, {
-  decode: () => decode4,
-  encode: () => encode4,
-  extension: () => extension4,
-  mimeType: () => mimeType4
+  decode: () => decode5,
+  encode: () => encode6,
+  suffixes: () => suffixes4,
+  type: () => type4
 });
 var stripBOM = (str) => str.replace(/^\uFEFF/, "");
 var normalizeEOL = (str) => str.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 var isContentfulRow = (row) => row && !/^\s*$/.test(row);
 var addBOM = (str) => `\uFEFF${str}`;
-var extension4 = "csv";
-var mimeType4 = "text/csv";
-var encode4 = (arr, separator) => {
-  const rows = arr.length ? [Object.keys(arr[0]), ...arr.map((o2) => Object.values(o2))] : [];
-  let content2 = rows.map((row) => row.join(separator)).join("\n");
-  content2 = addBOM(content2);
-  return new TextEncoder().encode(content2);
+var suffixes4 = "csv";
+var type4 = "text/csv";
+var encode6 = (arr, separator) => {
+  const rows = arr.length ? [Object.keys(arr[0]), ...arr.map((o) => Object.values(o))] : [];
+  let content = rows.map((row) => row.join(separator)).join("\n");
+  content = addBOM(content);
+  return new TextEncoder().encode(content);
 };
-var decode4 = (o2, separator = ",") => {
-  if (!o2.text)
-    o2.text = new TextDecoder().decode(o2.buffer);
-  let contents = o2.text;
+var decode5 = (o, separator = ",") => {
+  if (!o.text)
+    o.text = new TextDecoder().decode(o.buffer);
+  let contents = o.text;
   const collection = [];
   contents = stripBOM(contents);
   const rows = normalizeEOL(contents).split("\n").filter(isContentfulRow).map((str) => str.split(separator));
   const headers = rows.length ? rows.splice(0, 1)[0] : [];
   rows.forEach((arr, i) => {
     let strObject = `{`;
-    strObject += arr.map((val, j) => `"${headers[j]}":${typeof val === "string" ? `"${val}"` : val}`).join(",");
+    strObject += arr.map((val, j) => {
+      try {
+        const parsed = JSON.parse(val);
+        return `"${headers[j]}":${parsed}`;
+      } catch {
+        return `"${headers[j]}":"${val}"`;
+      }
+    }).join(",");
     strObject += "}";
     collection.push(strObject);
   });
-  return collection.map(JSON.parse);
+  return collection.map((v) => JSON.parse(v));
 };
 
-// src/common/defaults/tsv.js
-var mimeType5 = "text/tab-separated-values";
-var extension5 = "tsv";
-var encode5 = (arr) => encode4(arr, "	");
-var decode5 = (arr) => decode4(arr, "	");
+// ../core/codecs/library/tsv.ts
+var type5 = "text/tab-separated-values";
+var suffixes5 = "tsv";
+var encode7 = (arr) => encode6(arr, "	");
+var decode6 = (arr) => decode5(arr, "	");
 
-// src/common/defaults/datauri.js
-var encode6 = (o2) => {
-  var byteString = atob(o2.split(",")[1]);
-  const ab = new ArrayBuffer(byteString.length);
-  var ia = new Uint8Array(ab);
-  for (var i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
+// ../core/codecs/library/js/index.ts
+var js_exports = {};
+__export(js_exports, {
+  decode: () => decode7,
+  encode: () => encode8,
+  suffixes: () => suffixes6,
+  type: () => type6
+});
+
+// ../core/utils/parse.utils.js
+var objToString = (obj) => {
+  let ret = "{";
+  for (let k in obj) {
+    let v = obj[k];
+    if (typeof v === "function") {
+      v = v.toString();
+    } else if (v instanceof Array) {
+      v = JSON.stringify(v);
+    } else if (typeof v === "object" && !!v) {
+      v = objToString(v);
+    } else if (typeof v === "string") {
+      v = `"${v}"`;
+    } else {
+      v = `${v}`;
+    }
+    ret += `
+  ${k}: ${v},`;
   }
-  return iab;
+  ret += "\n}";
+  return ret;
 };
 
-// src/common/FileHandler.js
-var FileHandler = class {
-  constructor(options = {}) {
-    __publicField(this, "encode", async (o2, fileInfo) => {
-      const { mimeType: mimeType6, zipped } = this.getInfo(fileInfo);
-      let buffer = "";
-      if (mimeType6 && (mimeType6.includes("image/") || mimeType6.includes("video/")))
-        content = encode6(o2);
-      const extension6 = Object.values(this.extensions).find((o3) => o3.mimeType === mimeType6);
-      if (extension6 && extension6.encode instanceof Function)
-        buffer = extension6.encode(o2);
-      else {
-        console.warn(`No encoder for ${mimeType6}. Defaulting to text...`);
-        buffer = encode(o2);
+// ../core/codecs/library/js/import.ts
+var esmImport = async (text) => {
+  const moduleDataURI = "data:text/javascript;base64," + btoa(text);
+  let imported = await import(moduleDataURI);
+  if (imported.default && Object.keys(imported).length === 1)
+    imported = imported.default;
+  return imported;
+};
+var safeESMImport = async (text, config = {}, onBlob) => {
+  try {
+    return await esmImport(text);
+  } catch (e) {
+    console.warn(`${config.path} contains ES6 imports. Manually importing these modules...`);
+    const base = get2("", config.path);
+    let childBase = config.system.root ? get2(base, config.system.root) : base;
+    const importInfo = {};
+    var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+    let m;
+    do {
+      m = re.exec(text);
+      if (m == null)
+        m = re.exec(text);
+      if (m) {
+        text = text.replace(m[0], ``);
+        const variables = m[1].trim().split(",");
+        importInfo[m[3]] = variables;
       }
-      if (zipped)
-        buffer = await encode2(buffer);
-      return buffer;
-    });
-    __publicField(this, "getInfo", (file) => {
-      let [name, ...extension6] = (file.name ?? "").split(".");
-      let mimeType6 = file.type;
-      const zipped = mimeType6 === this.registry["gz"] || extension6.includes("gz");
-      if (zipped)
-        extension6.pop();
-      if (zipped || !mimeType6)
-        mimeType6 = this.registry[extension6[0]];
-      return { mimeType: mimeType6, zipped, extension: extension6.join(".") };
-    });
-    __publicField(this, "decode", async (o2, fileInfo) => {
-      const { mimeType: mimeType6, zipped } = this.getInfo(fileInfo);
-      if (zipped)
-        o2 = await decode2(o2, mimeType6);
-      if (mimeType6 && (mimeType6.includes("image/") || mimeType6.includes("video/")))
-        return o2.dataurl;
-      const extension6 = Object.values(this.extensions).find((o3) => o3.mimeType === mimeType6);
-      if (extension6 && extension6.decode instanceof Function)
-        return extension6.decode(o2);
-      else {
-        console.warn(`No decoder for ${mimeType6}. Defaulting to text...`);
-        return decode(o2);
+    } while (m);
+    for (let path in importInfo) {
+      let correctPath = get2(path, childBase);
+      const variables = importInfo[path];
+      let blob;
+      const info = await handleFetch(correctPath);
+      blob = new Blob([info.buffer], { type: info.type });
+      await config.system.load(blob, correctPath);
+      const imported = await safeESMImport(await blob.text(), {
+        path: correctPath,
+        system: config.system
+      }, onBlob);
+      if (variables.length > 1) {
+        variables.forEach((str) => {
+          text = `const ${str} = ${objToString(imported[str])}
+${text}`;
+        });
+      } else {
+        text = `const ${variables[0]} = ${objToString(imported)}
+${text}`;
       }
-    });
-    __publicField(this, "extend", (ext) => {
-      this.extensions[ext.mimeType] = ext;
-      const guessExtension = ext.mimeType.split("-").splice(-1)[0];
-      this.registry[ext.extension ?? guessExtension] = ext.mimeType;
-    });
-    this.extensions = {};
-    this.registry = {};
-    this.debug = options.debug;
-    this.extend(json_exports);
-    this.extend(text_exports);
-    this.extend(tsv_exports);
-    this.extend(csv_exports);
-    this.extend(gzip_exports);
+    }
+    const tryImport = await esmImport(text);
+    return tryImport;
+  }
+};
+var import_default = safeESMImport;
+
+// ../core/codecs/library/js/index.ts
+var type6 = "application/javascript";
+var suffixes6 = "js";
+var encode8 = (moduleObject) => moduleObject;
+var decode7 = async (o, config) => {
+  const textContent = !o.text ? await decode2(o) : o.text;
+  const imported = await import_default(textContent, config);
+  if (imported)
+    return imported;
+  else
+    return textContent;
+};
+
+// ../core/codecs/Codecs.ts
+var Codecs = class {
+  constructor(codecs = {}) {
+    this.suffixToType = {};
+    this.add = (codec) => {
+      this.collection.set(codec.type, codec);
+      let suffixes7 = codec.suffixes ? codec.suffixes : codec.type.split("-").splice(-1)[0];
+      if (!Array.isArray(suffixes7))
+        suffixes7 = [suffixes7];
+      suffixes7.forEach((suffix2) => this.suffixToType[suffix2] = codec.type);
+    };
+    this.get = (mimeType) => this.collection.get(mimeType);
+    this.getType = (suffix2) => this.suffixToType[suffix2];
+    this.decode = (o, type7, name2, config) => decode_default(o, type7, name2, config, void 0, this);
+    this.encode = (o, type7, name2, config) => encode_default(o, type7, name2, config, void 0, this);
+    if (codecs instanceof Codecs)
+      this.collection = codecs.collection;
+    else {
+      this.collection = /* @__PURE__ */ new Map();
+      for (let key in codecs)
+        this.add(codecs[key]);
+    }
   }
 };
 
-// src/FileManager.js
-var FileManager = class extends FileHandler {
-  constructor(options = {}) {
-    super(options);
-    __publicField(this, "create", (name, native, switchSystem) => {
-      const systemInfo = this.reset(name, native);
-      if (switchSystem)
-        this.switch(systemInfo.name);
-      return systemInfo;
-    });
-    __publicField(this, "switch", (name) => {
-      if (name) {
-        this.changelog = this.mounted[name].changelog;
-        this.files = this.mounted[name].files;
-        this.native = this.mounted[name].native;
-        this.directoryName = name;
-        if (this.onswitch instanceof Function)
-          this.onswitch(name, this.files);
-      } else
-        console.warn("No name provided for a directory to switch to.");
-    });
-    __publicField(this, "onswitch", null);
-    __publicField(this, "reset", (name = this.directoryName, native = this.native) => {
-      if (!this.mounted[name])
-        this.mounted[name] = {};
-      this.mounted[name].name = name;
-      this.mounted[name].changelog = [];
-      this.mounted[name].files = this.createFileSystemInfo();
-      this.mounted[name].native = native;
-      return this.mounted[name];
-    });
-    __publicField(this, "get", async (file, options = {}) => {
-      if (!options.directory)
-        options.directory = this.directoryName;
-      const rangeFile = new RangeFile(file, Object.assign({ manager: this, debug: this.debug }, options));
-      await rangeFile.init();
-      return rangeFile;
-    });
-    __publicField(this, "toLoad", (name) => {
-      return this.ignore.reduce((a, b) => a * !name?.includes(b), true);
-    });
-    __publicField(this, "load", async (file, options = {}) => {
-      let path = options.path;
-      let type = options.type;
-      const directory = options.directory ?? options.system.name ?? this.directoryName;
-      const mounted = this.mounted[directory];
-      const files = options.files ?? mounted?.files ?? this.files;
-      const toLoad = this.toLoad(file.name ?? file.path);
-      if (toLoad) {
-        if (!path)
-          path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? "";
-        const fileOptions = { path, directory };
-        if (!(file instanceof RangeFile)) {
-          let addToLog;
-          if (type === "remote") {
-            const directoryPath = new URL(fileOptions.directory).pathname.split("/");
-            const url = new URL(fileOptions.path);
-            path = file.path = fileOptions.path = url.pathname.split("/").filter((str, i) => directoryPath?.[i] != str).join("/");
-          } else {
-            if (!(file instanceof FileSystemFileHandle)) {
-              const pathWithoutName = path.split("/").slice(0, -1).join("/");
-              fileOptions.parent = await this.open(pathWithoutName, mounted, false);
-              addToLog = true;
-            }
-          }
-          file = await this.get(file, fileOptions);
-          if (addToLog)
-            this.changelog.push(file);
-        }
-        if (files.list.has(file.path)) {
-          console.warn(`Overwriting existing ${file.path} file`);
-          files.list.delete(file.path);
-        }
-        this.groupConditions.forEach((func) => func(file, path, files));
-        return file;
-      } else
-        console.warn(`Ignoring ${file.name}`);
-    });
-    __publicField(this, "createFileSystemInfo", () => {
-      const files = {};
-      for (let group in this.groups) {
-        const groupInfo = this.groups[group];
-        if (groupInfo.initial instanceof Map)
-          files[group] = new Map(groupInfo.initial);
-        else
-          files[group] = JSON.parse(JSON.stringify(groupInfo.initial));
+// ../core/utils/clone.ts
+var deepClone = (o = {}) => {
+  return JSON.parse(JSON.stringify(o));
+};
+var clone_default = deepClone;
+
+// ../core/system/core/open.ts
+var open = async (path, config) => {
+  config = Object.assign({}, config);
+  const useNative = !!config.system?.native;
+  let file = config.system.files.list.get(path);
+  if (file)
+    return file;
+  else {
+    if (useNative && config.system.openNative instanceof Function)
+      file = await config.system.openNative(path, config);
+    else {
+      try {
+        file = await config.system.openRemote(path, config);
+      } catch (e) {
+        console.warn("Remote failed", e);
       }
-      return files;
+    }
+    if (file)
+      return file;
+    else
+      console.error(`Could not open ${path}...`);
+  }
+};
+var open_default = open;
+
+// ../core/system/remote/index.ts
+var createFile = (file = {}, path, system) => {
+  return Object.assign(file, {
+    origin: system.root,
+    path,
+    options: {
+      mode: "cors"
+    }
+  });
+};
+
+// ../core/system/core/load.ts
+var load = async (file, config) => {
+  let { path, system, codecs, debug } = config;
+  if (!path)
+    path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? "";
+  config.path = path;
+  let fileConfig = config;
+  console.log("Loading file", file);
+  if (!(file instanceof RangeFile)) {
+    console.log("System native", system.native);
+    if (system.native) {
+      if (!(file instanceof FileSystemFileHandle)) {
+        const pathWithoutName = path.split("/").slice(0, -1).join("/");
+        const openInfo = await open_default(pathWithoutName, {
+          path: pathWithoutName,
+          system,
+          create: config.create,
+          codecs,
+          debug,
+          type: "directory"
+        });
+        console.log("Getting parent", pathWithoutName, openInfo);
+        if (openInfo && openInfo instanceof FileSystemDirectoryHandle)
+          fileConfig.parent = openInfo;
+      }
+    } else {
+      if (fileConfig.system.root) {
+        const directoryPath = new URL(fileConfig.system.root).pathname.split("/");
+        const url = new URL(fileConfig.path);
+        path = file.path = fileConfig.path = url.pathname.split("/").filter((str, i) => directoryPath?.[i] != str).join("/");
+      } else
+        path = file.path = fileConfig.path;
+    }
+    file = new RangeFile(file, fileConfig);
+    await file.init();
+    system.add(file);
+  }
+  return file;
+};
+var createFile2 = (file = {}, path, system) => {
+  if (system.native)
+    return file;
+  else
+    return createFile(file, path, system);
+};
+
+// ../core/utils/iterate.ts
+var iterAsync = async (iterable, asyncCallback) => {
+  const promises = [];
+  let i = 0;
+  for await (const entry of iterable) {
+    promises.push(asyncCallback(entry, i));
+    i++;
+  }
+  const arr = await Promise.all(promises);
+  return arr;
+};
+var iterate_default = iterAsync;
+
+// ../core/system/core/save.ts
+var saveEach = async (rangeFile, config, counter, length) => {
+  await rangeFile.save(config.force);
+  counter = counter + 1;
+  if (config.progressCallback instanceof Function)
+    config.progressCallback(config.name, counter / length, length);
+};
+var save = (name2, files, force, progressCallback) => {
+  let length = files;
+  return new Promise(async (resolve, reject) => {
+    let i = 0;
+    const firstFile = files.shift();
+    await saveEach(firstFile, { progressCallback, name: name2, force }, i, length);
+    await iterate_default(files, (f) => saveEach(f, { progressCallback, name: name2, force }, i, length));
+    resolve();
+  });
+};
+var save_default = save;
+
+// ../core/system/remote/open.ts
+var openRemote = async (path, config) => {
+  let {
+    system,
+    codecs,
+    debug
+  } = config;
+  return await handleFetch(path).then(async (info) => {
+    const splitURL = info.url.split("/");
+    const fileName = splitURL.pop();
+    let blob = new Blob([info.buffer], { type: info.type });
+    blob.name = fileName;
+    const file = createFile(blob, info.url, system);
+    const rangeFile = await load(file, {
+      path: info.url,
+      system,
+      codecs,
+      debug
     });
-    __publicField(this, "addGroup", (name, initial, condition) => {
-      this.files[name] = initial;
-      this.groups[name] = {
-        initial,
-        condition
+    return rangeFile;
+  });
+};
+var open_default2 = openRemote;
+
+// ../core/system/remote/mount.ts
+var mountRemote = async (url, config) => {
+  let filePath;
+  await handleFetch(url, void 0, config.progress).then(async (response) => {
+    if (response.type === "application/json") {
+      filePath = response.url;
+      const datasets = JSON.parse(new TextDecoder().decode(response.buffer));
+      const drill = (o) => {
+        for (let key in o) {
+          const target = o[key];
+          if (typeof target === "string") {
+            const path = `${response.url}/${target}`;
+            const file = createFile(void 0, path, config.system);
+            config.system.load(file, path);
+          } else
+            drill(target);
+        }
       };
+      drill(datasets);
+    } else
+      throw "Endpoint is not a freerange filesystem!";
+  }).catch((e) => {
+    throw "Unable to connect to freerange filesystem!";
+  });
+  return filePath;
+};
+var mount_default = mountRemote;
+
+// ../core/utils/url.ts
+var isURL = (path) => {
+  try {
+    const url = new URL(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// ../core/system/System.ts
+var System = class {
+  constructor(name2, systemInfo = {}) {
+    this.changelog = [];
+    this.files = {};
+    this.groups = {};
+    this.groupConditions = /* @__PURE__ */ new Set();
+    this.init = async () => {
+      let mountConfig = {
+        system: this,
+        progress: this.progress
+      };
+      if (this.isNative(this.name)) {
+        const native = await this.mountNative(this.name, mountConfig);
+        if (native) {
+          this.name = this.native.name;
+        } else
+          console.error("Unable to mount native filesystem!");
+      }
+      if (this.native)
+        this.root = this.name;
+      else {
+        const path = this.name;
+        const isURL2 = isURL(path);
+        const fileName = name(path);
+        const suffix2 = suffix(path);
+        if (isURL2) {
+          if (fileName && suffix2) {
+            const path2 = this.name;
+            this.root = directory(path2);
+            const file = await this.open(fileName);
+            await file.body;
+          } else {
+            const root = await this.mountRemote(this.name, mountConfig).catch((e) => console.warn("System initialization failed.", e));
+            if (root)
+              this.root = root;
+          }
+        } else if (this.name)
+          this.root = "";
+      }
+    };
+    this.addGroup = (name2, initial, condition) => {
+      this.files[name2] = initial;
+      this.groups[name2] = this.cloneGroup({ initial, condition });
       this.groupConditions.add(condition);
-    });
-    __publicField(this, "addDefaultGroups", () => {
-      this.addGroup("system", {}, (file, path, files) => {
-        let target = files.system;
-        let split = path.split("/");
-        split = split.slice(0, split.length - 1);
-        if (path)
-          split.forEach((k, i) => {
-            if (!target[k])
-              target[k] = {};
-            target = target[k];
-          });
-        target[file.name] = file;
-      });
-      this.addGroup("types", {}, (file, _, files) => {
-        const extension6 = file.extension ?? file.name;
-        if (extension6) {
-          if (!files.types[extension6])
-            files.types[extension6] = [];
-          files.types[extension6].push(file);
-        }
-      });
-      this.addGroup("n", 0, (_, __, files) => {
-        files.n++;
-      });
-      this.addGroup("list", /* @__PURE__ */ new Map(), (file, _, files) => {
-        files.list.set(file.path, file);
-      });
-    });
-    __publicField(this, "request", request_default);
-    __publicField(this, "verifyPermission", async (fileHandle, withWrite) => {
-      const opts = {};
-      if (withWrite)
-        opts.mode = "readwrite";
-      const state = await fileHandle.queryPermission(opts);
-      if (await state === "granted")
-        return true;
-      const requestState = await fileHandle.requestPermission(opts);
-      if (requestState === "granted")
-        return true;
-      return false;
-    });
-    __publicField(this, "mountCache", async (progressCallback) => {
-      let dirHandle = await get(this.directoryCacheName);
-      if (dirHandle) {
-        console.log(`Loaded cached mount "${dirHandle.name}" from IndexedDB.`);
-        return await this.mount(dirHandle, progressCallback);
-      } else
-        return;
-    });
-    __publicField(this, "getSubsystem", async (path, systemName = this.directoryName) => {
+    };
+    this.cloneGroup = (o) => {
+      let newO = { condition: o.condition };
+      if (o.initial instanceof Map)
+        newO.initial = new Map(o.initial);
+      else
+        newO.initial = clone_default(o.initial);
+      return newO;
+    };
+    this.subsystem = async (path) => {
       const files = this.createFileSystemInfo();
       const split = path.split("/");
+      const name2 = split[split.length - 1];
       const subDir = split.shift();
       path = split.join("/");
-      const systemInfo = this.mounted[systemName];
-      let target = systemInfo.system[subDir];
+      let target = this.files.system[subDir];
       split.forEach((str) => target = target[str]);
+      const system = new System(name2);
+      await system.init();
       let drill = async (target2, base) => {
         for (let key in target2) {
           const newBase = base ? base + "/" + key : key;
           const file = target2[key];
           if (file instanceof RangeFile)
-            await this.load(...this.createFileInfo(file, newBase, systemInfo));
+            await system.load(file, newBase);
           else
             await drill(file, newBase);
         }
       };
       await drill(target, path);
       return files;
-    });
-    __publicField(this, "mount", async (fileSystemInfo, switchSystem = true, progressCallback) => {
-      if (!fileSystemInfo)
-        fileSystemInfo = await window.showDirectoryPicker();
-      await set(this.directoryCacheName, fileSystemInfo);
-      let fileSystemName = fileSystemInfo.name;
-      if (fileSystemInfo instanceof FileSystemDirectoryHandle) {
-        await this.createLocalFilesystem(fileSystemInfo, progressCallback);
-      } else if (typeof fileSystemInfo === "string") {
-        let url;
-        try {
-          url = new URL(fileSystemInfo).href;
-        } catch {
-          url = this.getPath(fileSystemInfo, window.location.href);
-        }
-        await this.request(url, { mode: "cors" }, progressCallback).then(async (o2) => {
-          const type = o2.type.split(";")[0];
-          if (type === "application/json") {
-            this.directoryName = url;
-            const datasets = JSON.parse(new TextDecoder().decode(o2.buffer));
-            const drill = (o3) => {
-              for (let key in o3) {
-                const target = o3[key];
-                const toLoad = this.toLoad(key);
-                if (toLoad) {
-                  if (typeof target === "string") {
-                    const arr = this.createRemoteFileInfo(void 0, `${url}/${target}`);
-                    this.load(...arr);
-                  } else
-                    drill(target);
-                }
-              }
-            };
-            drill(datasets);
-          } else {
-            const splitURL = url.split("/");
-            const fileName = splitURL.pop();
-            fileSystemName = splitURL.join("/");
-            this.create(fileSystemName);
-            const blob = new Blob([o2.buffer], { type });
-            blob.name = fileName;
-            const arr = this.createRemoteFileInfo(blob, url);
-            await this.load(...arr);
-          }
-        }).catch((e) => {
-          console.error("File System Load Error", e);
-        });
-      } else {
-        this.create(fileSystemName);
-        await this.load(this.createFileInfo(fileSystemInfo));
-      }
-      if (Object.keys(this.mounted).length === 1)
-        switchSystem = true;
-      if (switchSystem)
-        this.switch(fileSystemName);
-      else
-        console.warn(`FileManager has not globally switched to the ${fileSystemName} filesystem`);
-      return this.mounted[fileSystemName];
-    });
-    __publicField(this, "createFileInfo", (file = {}, path, system = this.mounted[this.directoryName], type) => {
-      if (type === "remote")
-        return this.createRemoteFileInfo(file, path, system);
-      else {
-        return [file, { path, system }];
-      }
-    });
-    __publicField(this, "createRemoteFileInfo", (file = {}, path, system) => {
-      const directory = this.directoryName ?? path.split("/").slice(0, -1).join("/");
-      if (!system) {
-        system = this.mounted[directory];
-        console.warn(`Got system info for remote files`, system);
-      }
-      if (!system)
-        system = {};
-      file = Object.assign(file, {
-        origin: directory,
-        path,
-        options: {
-          mode: "cors"
-        }
-      });
-      let options = {
-        type: "remote",
-        directory,
-        system
-      };
-      return [file, options];
-    });
-    __publicField(this, "iterAsync", async (iterable, asyncCallback) => {
-      const promises = [];
-      let i = 0;
-      for await (const entry of iterable) {
-        promises.push(asyncCallback(entry, i));
-        i++;
-      }
-      const arr = await Promise.all(promises);
-      return arr;
-    });
-    __publicField(this, "onhandle", async (handle, base = "", systemInfo, progressCallback) => {
-      await this.verifyPermission(handle);
-      if (handle.name != systemInfo.name)
-        base = base ? `${base}/${handle.name}` : handle.name;
-      const files = [];
-      if (handle.kind === "file") {
-        if (progressCallback instanceof Function)
-          files.push({ handle, base });
-        else
-          await this.load(...this.createFileInfo(handle, base, systemInfo));
-      } else if (handle.kind === "directory") {
-        const toLoad = this.toLoad(handle.name);
-        if (toLoad) {
-          const arr = await this.iterAsync(handle.values(), (entry) => {
-            return this.onhandle(entry, base, systemInfo, progressCallback);
-          });
-          files.push(...arr.flat());
-        }
-      }
-      if (!base) {
-        let count = 0;
-        await this.iterAsync(files, async (o2) => {
-          await this.load(...this.createFileInfo(o2.handle, o2.base, systemInfo.files));
-          count++;
-          progressCallback(systemInfo.name, count / files.length, files.length);
-        });
+    };
+    this.reset = () => {
+      this.changelog = [];
+      this.files = this.createFileSystemInfo();
+    };
+    this.createFileSystemInfo = () => {
+      const files = {};
+      for (let name2 in this.groups) {
+        let group = this.groups[name2];
+        const groupInfo = this.cloneGroup(group);
+        files[name2] = groupInfo.initial;
       }
       return files;
-    });
-    __publicField(this, "createLocalFilesystem", async (handle, progressCallback) => {
-      const systemInfo = this.create(handle.name, handle);
-      await this.onhandle(handle, null, systemInfo, progressCallback);
-    });
-    __publicField(this, "sync", async (mountedName = this.directoryName) => {
-      const files = this.mounted[mountedName].files;
-      return await this.iterAsync(Array.from(files.list.values()), async (entry) => await entry.sync());
-    });
-    __publicField(this, "save", (mountedName = this.directoryName, force, progressCallback) => {
-      return new Promise(async (resolve, reject) => {
-        let i = 0;
-        const files = this.mounted[mountedName].files;
-        await this.iterAsync(Array.from(files.list.values()), async (rangeFile, j) => {
-          await rangeFile.save(force);
-          i++;
-          if (progressCallback instanceof Function)
-            progressCallback(mountedName, i / files.list.size, files.list.size);
-        });
-        this.changelog = [];
-        resolve();
-      });
-    });
-    __publicField(this, "dragHandler", async (e) => {
-      e.preventDefault();
-      const fileHandlesPromises = [...e.dataTransfer.items].filter((item) => item.kind === "file").map((item) => item.getAsFileSystemHandle());
-      for await (const handle of fileHandlesPromises) {
-        this.createLocalFilesystem(handle);
-      }
-    });
-    __publicField(this, "delete", async (name, parent) => {
-      return await parent.removeEntry(name, { recursive: true });
-    });
-    __publicField(this, "transfer", async (targetName, toTransfer = this.files) => {
-      let transferList = Array.from(toTransfer.list.values());
-      if (!targetName) {
-        const info = await this.mount(void 0, false);
-        targetName = info.name;
-      }
-      await Promise.all(transferList.map(async (f) => {
-        const path = f.path;
-        const newFile = await this.load(...this.createFileInfo({
-          name: f.name,
-          data: f[`#body`]
-        }, path, this.mounted[targetName]));
-        if (f.method === "remote")
-          f.parent = newFile.parent;
-      }));
-      await this.save(targetName, true);
-      await this.switch(targetName);
-      return this.mounted[targetName].files;
-    });
-    __publicField(this, "open", async (path, systemInfo = this.mounted[this.directoryName], create = true) => {
-      let lastHandle = systemInfo.native;
-      if (!lastHandle) {
-        console.error("No native filesystem mounted...");
-        return;
-      }
-      let system = systemInfo.files.system;
-      let pathTokens = path.split("/");
-      pathTokens = pathTokens.filter((f) => !!f);
-      let fileHandle;
-      if (pathTokens.length > 0) {
-        for (const token of pathTokens) {
-          const handle = await lastHandle.getDirectoryHandle(token, { create: true }).catch((e) => {
-            const existingFile = system[token];
-            if (existingFile)
-              fileHandle = existingFile;
-            else
-              fileHandle = directoryHandle.getFileHandle(filename, { create });
+    };
+    this.checkToLoad = (name2) => {
+      return this.ignore.reduce((a, b) => a * (name2?.includes(b) ? 0 : 1), 1);
+    };
+    this.load = async (file, path) => {
+      const existingFile = this.files.list.get(path);
+      if (existingFile)
+        return existingFile;
+      else {
+        if (!file.name)
+          file.name = name(path);
+        if (!this.native)
+          file = createFile(file, path, this);
+        const toLoad = this.checkToLoad(file.name ?? file.path ?? path);
+        if (toLoad) {
+          return await load(file, {
+            path,
+            system: this,
+            debug: this.debug,
+            codecs: this.codecs,
+            create: this.writable
           });
-          if (handle)
-            lastHandle = handle;
-          if (fileHandle) {
-            if (fileHandle instanceof FileSystemDirectoryHandle)
-              return await this.load(...this.createFileSystemInfo(fileHandle));
-            else
-              return fileHandle;
-          } else {
-            if (!system[token])
-              system[token] = {};
-            system = system[token];
-          }
-        }
+        } else
+          console.warn(`Ignoring ${file.name}`);
       }
-      return lastHandle;
-    });
-    __publicField(this, "getPath", (path, ref = "") => {
-      const dirTokens = ref.split("/");
-      dirTokens.pop();
-      const extensionTokens = path.split("/").filter((str) => {
-        if (str === "..") {
-          if (dirTokens.length == 0)
-            console.error("Derived path is going out of the valid filesystem!");
-          dirTokens.pop();
-          return false;
-        } else if (str === ".")
-          return false;
-        else
-          return true;
+    };
+    this.add = (file) => {
+      if (!this.files.list.has(file.path)) {
+        this.groupConditions.forEach((func) => func(file, file.path, this.files));
+      } else
+        console.warn(`${this.name}/${file.path} already exists!`);
+    };
+    this.isNative = () => false;
+    this.openRemote = open_default2;
+    this.mountRemote = mount_default;
+    this.open = async (path, create) => {
+      if (!this.native)
+        path = get2(path, this.root);
+      console.log("Opening", this.writable, this.name);
+      return await open_default(path, {
+        path,
+        debug: this.debug,
+        system: this,
+        create: create ?? this.writable,
+        codecs: this.codecs
       });
-      const newPath = [...dirTokens, ...extensionTokens].join("/");
-      return newPath;
+    };
+    this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
+    this.sync = async () => await iterate_default(Array.from(this.files.list.values()), async (entry) => await entry.sync());
+    this.transfer = async (target) => await transfer_default(this, target);
+    this.name = name2;
+    this.native = systemInfo.native;
+    this.debug = systemInfo.debug;
+    this.ignore = systemInfo.ignore ?? [];
+    this.writable = systemInfo.writable;
+    this.progress = systemInfo.progress;
+    this.codecs = new Codecs(Object.assign(codecs_exports, systemInfo.codecs));
+    this.addGroup("system", {}, (file, path, files) => {
+      let target = files.system;
+      let split = path.split("/");
+      split = split.slice(0, split.length - 1);
+      if (path)
+        split.forEach((k, i) => {
+          if (!target[k])
+            target[k] = {};
+          target = target[k];
+        });
+      target[file.name] = file;
     });
-    __publicField(this, "#import", async (text) => {
-      const moduleDataURI = "data:text/javascript;base64," + btoa(text);
-      let imported = await import(moduleDataURI);
-      if (imported.default && Object.keys(imported).length === 1)
-        imported = imported.default;
-      return imported;
+    this.addGroup("types", {}, (file, _, files) => {
+      const suffix2 = file.suffix ?? file.name;
+      if (suffix2) {
+        if (!files.types[suffix2])
+          files.types[suffix2] = [];
+        files.types[suffix2].push(file);
+      }
     });
-    __publicField(this, "import", async (file) => {
-      if (!file) {
-        console.error("Improper file passed to import()...");
+    this.addGroup("n", 0, (_, __, files) => files.n++);
+    this.addGroup("list", /* @__PURE__ */ new Map(), (file, _, files) => files.list.set(file.path, file));
+  }
+};
+
+// src/native/open.ts
+var openNative = async (path, config) => {
+  let nativeHandle = config.system.native;
+  let fileSystem = config.system?.files?.["system"];
+  let { system, create } = config;
+  let pathTokens = path.split("/");
+  let fileName = config.type === "directory" ? null : pathTokens.pop();
+  pathTokens = pathTokens.filter((f) => !!f);
+  if (pathTokens.length > 0) {
+    for (const token of pathTokens) {
+      const handle = await nativeHandle.getDirectoryHandle(token, { create }).catch((e) => {
+        if (create)
+          console.warn(`${token} is an invalid file system handle`, e);
+        else
+          console.warn(`Directory ${token} does not already exist.`);
+      });
+      if (handle) {
+        nativeHandle = handle;
+        if (!fileSystem[token])
+          fileSystem[token] = {};
+        if (!(fileSystem[token] instanceof RangeFile))
+          fileSystem = fileSystem[token];
+      }
+    }
+  }
+  if (fileName) {
+    let existingFile = fileSystem[fileName];
+    if (!(existingFile instanceof RangeFile)) {
+      const fileHandle = await nativeHandle.getFileHandle(fileName, { create }).catch((e) => {
+        if (config.create)
+          console.warn(`Could not create ${fileName}. There may be a directory of the same name...`, e);
+        else
+          console.warn(`No file found at ${path}.`);
+      });
+      if (!fileHandle)
         return;
-      }
-      {
-        let text = await file.body;
-        try {
-          return await this["#import"](text);
-        } catch (e) {
-          console.warn(`${file.path} contains ES6 imports. Manually importing these modules...`);
-          const importInfo = {};
-          var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
-          let m;
-          do {
-            m = re.exec(text);
-            if (m == null)
-              m = re.exec(text);
-            if (m) {
-              text = text.replace(m[0], ``);
-              const variables = m[1].trim().split(",");
-              importInfo[m[3]] = variables;
-            }
-          } while (m);
-          for (let path in importInfo) {
-            let correctPath = this.getPath(path);
-            const variables = importInfo[path];
-            let importFile = this.files.list.get(correctPath);
-            if (!importFile) {
-              const isRemote = file.method === "remote";
-              let basePath = isRemote ? `${file.directory}/${file.path}` : file.path;
-              correctPath = this.getPath(path, basePath);
-              const name = path.split("/").slice(-1)[0];
-              importFile = isRemote ? await this.load(...this.createFileInfo({ name }, correctPath, void 0, file.method)) : await this.open(correctPath);
-            }
-            if (importFile) {
-              const imported = await this.import(importFile);
-              if (variables.length > 1) {
-                variables.forEach((str) => {
-                  text = `const ${str} = ${objToString(imported[str], false)}
-        ${text}`;
-                });
-              } else {
-                text = `const ${variables[0]} = ${objToString(imported, false)}
-        ${text}`;
-              }
-            } else {
-              console.error(`${correctPath} not found. Aborting import...`);
-              return;
-            }
-          }
-          const tryImport = await this["#import"](text);
-          return tryImport;
-        }
-      }
+      const file = createFile2(fileHandle, path, system);
+      existingFile = await system.load(file, path);
+    }
+    return existingFile;
+  } else
+    return nativeHandle;
+};
+var open_default3 = openNative;
+
+// src/native/verify.ts
+var verifyPermission = async (fileHandle, withWrite = false) => {
+  const opts = {};
+  if (withWrite)
+    opts.mode = "readwrite";
+  const state = await fileHandle.queryPermission(opts);
+  if (await state === "granted")
+    return true;
+  const requestState = await fileHandle.requestPermission(opts);
+  if (requestState === "granted")
+    return true;
+  return false;
+};
+var verify_default = verifyPermission;
+
+// src/native/mount.ts
+var onhandle = async (handle, base = "", system, progressCallback = void 0) => {
+  await verify_default(handle, true);
+  if (handle.name != system.name)
+    base = base ? get2(handle.name, base) : handle.name;
+  const files = [];
+  if (handle.kind === "file") {
+    if (progressCallback instanceof Function)
+      files.push({ handle, base });
+    else
+      await system.load(handle, base);
+  } else if (handle.kind === "directory") {
+    const arr = await iterate_default(handle.values(), (entry) => {
+      return onhandle(entry, base, system, progressCallback);
     });
-    this.native = null;
-    this.ignore = options.ignore ?? [];
-    this.directoryCacheName = "freerangeCache";
-    this.groupConditions = /* @__PURE__ */ new Set();
-    this.groups = {};
-    this.mounted = {};
-    this.files = {};
-    this.changelog = [];
-    this.directoryName = void 0;
-    this.addDefaultGroups();
+    files.push(...arr.flat());
+  }
+  if (!base) {
+    let count = 0;
+    await iterate_default(files, async (o) => {
+      await system.load(o.handle, o.base);
+      count++;
+      progressCallback(system.name, count / files.length, files.length);
+    });
+  }
+  return files;
+};
+var mountNative = async (handle, config) => {
+  if (!handle)
+    handle = await window.showDirectoryPicker();
+  if (config?.system) {
+    config.system.name = handle.name;
+    config.system.native = handle;
+  }
+  await onhandle(handle, null, config?.system, config?.progress);
+  return handle;
+};
+var mount_default2 = mountNative;
+
+// src/LocalSystem.ts
+var LocalSystem = class extends System {
+  constructor(name2, info) {
+    super(name2, info);
+    this.isNative = (info) => !info || info instanceof FileSystemDirectoryHandle;
+    this.openNative = open_default3;
+    this.mountNative = mount_default2;
   }
 };
 export {
-  FileManager,
-  RangeFile
+  Codecs,
+  RangeFile,
+  LocalSystem as System,
+  codecs_exports as codecs,
+  decode_default as decode,
+  encode_default as encode,
+  transfer_default as transfer
 };
 /*! pako 2.0.4 https://github.com/nodeca/pako @license (MIT AND Zlib) */

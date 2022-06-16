@@ -5,15 +5,48 @@ import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
 
-// Get Remote App by Default
+// -------------- File System Generator--------------
+let systems = {}
+
+const createSystem = async (input) => {
+    console.log('Creating system', input)
+
+    let system = new freerange.System(input, {
+        debug: true,
+        ignore: ['DS_Store']
+    })
+
+    await system.init()
+    systems[system.name] = system
+
+    console.log('Created system', system.name)
+    return system
+}
+
+// -------------- Remote App --------------
 const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js'
 // const appPath = `./app/index.js` // Automatically relative to window.location.href
 
-// -------------- Setup File Manager --------------
-const manager = new freerange.FileManager({
-    debug: true,
-    ignore: ['DS_Store']
+
+// -------------- Plugin Registry --------------
+const pluginURL = 'https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js'
+
+createSystem('remote').then(remoteSystem => {
+    remoteSystem.open(pluginURL).then(async file => {
+        console.log('File', file)
+        const plugins = await file.body
+        console.log('Plugins', plugins)
+        for (let key in plugins){
+            const url = plugins[key]
+            Object.defineProperty(plugins, key, {
+                get: async () => (await freerange.open(url)).contents,
+                enumerable: true
+            })
+        }
+        console.log('Plugin Registry', plugins)
+    })
 })
+
 
 // -------------- Setup Elememts --------------
 // const displayName = document.querySelector('#name')
@@ -31,7 +64,10 @@ nav.primary = {options: [
         "content": "Select Project",
         "id": "select",
         "type": "button",
-        onClick: () => manager.mount()
+        onClick: async () => {
+            const system = await createSystem()
+            startApp(system)
+        }
     }
 ]}
 
@@ -39,16 +75,9 @@ nav.primary = {options: [
 let app = new App()
 editor.setApp(app)
 
-manager.mount(appPath) // Mount specified file
+// -------------- Create System --------------
+createSystem(appPath).then((system) => startApp(system))
 .catch(e => console.error('Remote app not available', e))
-
-// -------------- Handle Filesystem Mount / Switch --------------
-manager.onswitch = (name, files) => {
-    console.log(`${name} File System Selected`, files)
-    const indexFile = files.list.get('index.js') // Get index.js file
-    startApp(indexFile)
-}
-
 
 // -------------- Setup Keyboard Shortcuts --------------
 document.onkeydown = async (e) => {
@@ -58,17 +87,26 @@ document.onkeydown = async (e) => {
     }
 };
 
-const startApp = (file) => {
+const startApp = (system) => {
+
+    console.log(`File System Selected (${system.name})`, system.files)
 
     // TODO: Make it so that only new information is fully re-imported
-    app.onsave = async () => await manager.save()
+    app.onsave = async () => {
+        await system.save()
+        app.init()
+    }
 
 
     app.oncompile = async () => {
-        const file = manager.files.list.get('index.js')
-        const imported = await manager.import(file)
-        editor.setFiles(Array.from(manager.files.list.values()))
-        return imported
+        const files = system.files.list
+        const file = files.get('index.js')
+        if (file) {
+            editor.setFiles(Array.from(files.values()))
+            const imported = await file.body
+            console.log(imported)
+            return imported
+        }
     }
 
     app.onstart = () => {
@@ -76,7 +114,6 @@ const startApp = (file) => {
         const ui = new TimeSeries()
         editor.setUI(ui)
 
-        console.log('App Started', app)
         app.graph.nodes.forEach(n => {
             if (n.tag === 'sine') n.subscribe((data) => {
                 ui.data = [data]

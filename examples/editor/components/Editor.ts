@@ -82,7 +82,7 @@ export class Editor extends LitElement {
       await Promise.all(files.map(async f => {
 
         let tabInfo = this.fileHistory[f.path]
-        const plugin = await f.manager.import(f)
+        const plugin = await f.body
         previousTabs.delete(f.path)
 
         if (!tabInfo) {
@@ -133,8 +133,10 @@ export class Editor extends LitElement {
         }
 
         // Code Editor
-        tabInfo.code.value = await f.body
-        tabInfo.code.onInput = (ev) => f.body = (ev.target as HTMLTextAreaElement).value,
+        const fileText = await f.text
+        tabInfo.code.value = fileText
+
+        tabInfo.code.onInput = (ev) => f.text = (ev.target as HTMLTextAreaElement).value,
         tabInfo.code.onSave = async () => {
             await f.save()
             await this.app.init()
