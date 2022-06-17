@@ -60,6 +60,7 @@ export class Nav extends LitElement {
       width: 100%;
       grid-area: nav;
       z-index: 100;
+      overflow: hidden;
     }
 
     header {
@@ -76,7 +77,7 @@ export class Nav extends LitElement {
 
     nav {
       width: 100%;
-      padding:  0px 25px;
+      padding:  25px;
       display: flex;
       align-items: center;
     }
@@ -85,7 +86,6 @@ export class Nav extends LitElement {
       position: sticky; 
       top: 0;
       left: 0;
-      height: 70px;
       max-height: 100px;
       justify-content: space-between;
       font-size: 80%;

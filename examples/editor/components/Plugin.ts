@@ -3,7 +3,8 @@ import { LitElement, html, css } from 'lit';
 import {getFnParamNames} from '../external/brainsatplay/Graph'
 
 export type PluginProps = {
-  tag?: string
+  // tag?: string,
+  plugin?:any
 }
 
 export class Plugin extends LitElement {
@@ -99,35 +100,45 @@ export class Plugin extends LitElement {
         //   type: Object,
         //   reflect: false,
         // },
-        tag: {
-          type: String,
+        metadata: {
+          type: Object,
           reflect: true,
         },
       };
     }
 
-    tag: PluginProps['tag']
-    plugin: {[x:string]: any}
+    // tag: string
+    // plugin: {[x:string]: any}
+    module: any = {}
+    metadata: any = {}
 
     constructor(props={}) {
       super();
-      if (props.plugin) this.set(props.plugin)
     }
 
-    set = (plugin) => {
-      this.plugin = plugin
-      this.tag = plugin.tag
+    set = (imported, metadata) => {
+      this.module = imported
+      this.metadata = metadata
     }
 
     render() {
-
+      const operator = this.module.operator ?? this.module.looper ?? this.module.animation
       return html`
         <div>
           <div class="header separate">
-            <span>${this.tag ?? 'Tag'}</span>
+            <span>${this.metadata.name ?? 'Tag'}</span>
           </div>
           <div class="container">
-          ${getFnParamNames(this.plugin.operator ?? this.plugin.looper ?? this.plugin.animation).map(str => html`<p>${str}</p>`)}
+            <h4>Author</h4>
+            <p>${this.metadata.author}</p>
+
+            <h4>Description</h4>
+            <p>${this.metadata.description}</p>
+
+            ${operator ? html`
+              <h4>Operator Arguments</h4> 
+              ${getFnParamNames(operator).map(str => html`<p>${str}</p>`)}
+              ` : ''}
           </div>
         </div>
       `

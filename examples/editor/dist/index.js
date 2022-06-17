@@ -2612,6 +2612,7 @@
       width: 100%;
       grid-area: nav;
       z-index: 100;
+      overflow: hidden;
     }
 
     header {
@@ -2628,7 +2629,7 @@
 
     nav {
       width: 100%;
-      padding:  0px 25px;
+      padding:  25px;
       display: flex;
       align-items: center;
     }
@@ -2637,7 +2638,6 @@
       position: sticky; 
       top: 0;
       left: 0;
-      height: 70px;
       max-height: 100px;
       justify-content: space-between;
       font-size: 80%;
@@ -5244,14 +5244,11 @@ opacity: 0.5;
       };
     }
     render() {
-      const content = this.keys?.map((key) => this.getElement(key, this.tree));
-      return c2(Promise.all(content).then((data) => {
-        return $`
+      return $`
           <div class="container">
-                ${data}
+                ${this.tree}
           </div>
       `;
-      }), $`<span>Loading...</span>`);
     }
   };
   customElements.define("visualscript-graph-editor", GraphEditor);
@@ -13436,12 +13433,12 @@ ${text}`;
   var Plugin = class extends s9 {
     constructor(props = {}) {
       super();
-      this.set = (plugin) => {
-        this.plugin = plugin;
-        this.tag = plugin.tag;
+      this.module = {};
+      this.metadata = {};
+      this.set = (imported, metadata) => {
+        this.module = imported;
+        this.metadata = metadata;
       };
-      if (props.plugin)
-        this.set(props.plugin);
     }
     static get styles() {
       return r7`
@@ -13529,26 +13526,92 @@ ${text}`;
     }
     static get properties() {
       return {
-        tag: {
-          type: String,
+        metadata: {
+          type: Object,
           reflect: true
         }
       };
     }
     render() {
+      const operator = this.module.operator ?? this.module.looper ?? this.module.animation;
       return $2`
         <div>
           <div class="header separate">
-            <span>${this.tag ?? "Tag"}</span>
+            <span>${this.metadata.name ?? "Tag"}</span>
           </div>
           <div class="container">
-          ${getFnParamNames(this.plugin.operator ?? this.plugin.looper ?? this.plugin.animation).map((str) => $2`<p>${str}</p>`)}
+            <h4>Author</h4>
+            <p>${this.metadata.author}</p>
+
+            <h4>Description</h4>
+            <p>${this.metadata.description}</p>
+
+            ${operator ? $2`
+              <h4>Operator Arguments</h4> 
+              ${getFnParamNames(operator).map((str) => $2`<p>${str}</p>`)}
+              ` : ""}
           </div>
         </div>
       `;
     }
   };
   customElements.define("visualscript-plugin", Plugin);
+
+  // examples/editor/Plugins.ts
+  var Plugins = class {
+    constructor(source = "https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js") {
+      this.readyState = false;
+      this.list = /* @__PURE__ */ new Set();
+      this.init = async () => {
+        if (!this.filesystem) {
+          this.filesystem = new LocalSystem("plugins", {
+            ignore: ["DS_Store"]
+          });
+          await this.filesystem.init();
+          const file = await this.filesystem.open(this.source);
+          const plugins = await file.body;
+          for (let key in plugins) {
+            this.list.add(key);
+            const path = plugins[key];
+            this.plugins[key] = { path };
+          }
+        } else {
+          this.filesystem.files.list.forEach((f3) => {
+            this.list.add(f3.path);
+            this.plugins[f3.path] = {
+              path: f3.path,
+              module: f3
+            };
+          });
+          const metadata = await this.metadata(`index.js`);
+          console.log("metadata", metadata);
+        }
+        this.readyState = true;
+      };
+      this.get = async (url) => {
+        return await this.filesystem.open(url);
+      };
+      this.metadata = async (name2) => {
+        const path = this.plugins[name2].path ?? name2;
+        const splitPath = path.split("/").slice(0, -1);
+        splitPath.push(".brainsatplay/metadata.js");
+        this.plugins[name2].metadata = this.plugins[name2].metadata ?? await this.get(splitPath.join("/"));
+        return await this.plugins[name2].metadata.body;
+      };
+      this.module = async (name2) => {
+        const path = this.plugins[name2].path ?? name2;
+        this.plugins[name2].module = this.plugins[name2].module ?? await this.get(path);
+        return await this.plugins[name2].module.body;
+      };
+      if (typeof source === "string")
+        this.source = source;
+      else {
+        this.source = source.name;
+        this.filesystem = source;
+      }
+      this.plugins = {};
+    }
+  };
 
   // examples/editor/components/Editor.ts
   var Editor = class extends s9 {
@@ -13559,18 +13622,26 @@ ${text}`;
       this.info = new TabContainer();
       this.fileHistory = {};
       this.fileUpdate = 0;
+      this.graph = new GraphEditor();
+      this.properties = new ObjectEditor();
       this.setApp = (app2) => {
         this.app = app2;
+        this.graph.set(this.app);
       };
       this.setUI = (ui) => {
         this.ui.innerHTML = "";
         this.ui.appendChild(ui);
       };
-      this.setFiles = async (files) => {
+      this.setSystem = async (system) => {
+        this.filesystem = system;
+        const files = Array.from(system.files.list.values());
+        this.plugins = new Plugins(this.filesystem);
+        await this.plugins.init();
         const previousTabs = new Set(Object.keys(this.fileHistory));
+        const allProperties = {};
         await Promise.all(files.map(async (f3) => {
           let tabInfo = this.fileHistory[f3.path];
-          const plugin = await f3.body;
+          const plugin = this.plugins.plugins[f3.path];
           previousTabs.delete(f3.path);
           if (!tabInfo) {
             const tab = new Tab();
@@ -13578,7 +13649,7 @@ ${text}`;
             tab.name = `${f3.path}`;
             let container = new TabContainer();
             const codeTab = new Tab({ name: "Code" });
-            if (plugin.tag) {
+            if (plugin.module) {
               const infoTab = new Tab({ name: "Info" });
               tabInfo.plugin = new Plugin();
               infoTab.appendChild(tabInfo.plugin);
@@ -13595,12 +13666,14 @@ ${text}`;
             this.files.addTab(tab);
             this.fileHistory[f3.path] = tabInfo;
           }
-          if (tabInfo.plugin) {
-            tabInfo.plugin.set(plugin);
-          }
+          const imported = await this.plugins.module(f3.path);
+          const metadata = await this.plugins.metadata(f3.path);
+          if (tabInfo.plugin)
+            tabInfo.plugin.set(imported, metadata);
           if (tabInfo.object) {
-            tabInfo.object.set(plugin);
-            tabInfo.object.header = plugin.tag;
+            tabInfo.object.set(imported);
+            tabInfo.object.header = metadata.name;
+            allProperties[metadata.name] = imported;
           }
           const fileText = await f3.text;
           tabInfo.code.value = fileText;
@@ -13609,6 +13682,7 @@ ${text}`;
             await this.app.init();
           };
         }));
+        this.properties.set(allProperties);
         previousTabs.forEach((str) => {
           const info = this.fileHistory[str];
           info.tab.remove();
@@ -13621,8 +13695,8 @@ ${text}`;
         this.setApp(props.app);
       if (props.ui)
         this.setUI(props.ui);
-      if (props.files)
-        this.setFiles(props.files);
+      if (props.filesystem)
+        this.setSystem(props.filesystem);
     }
     static get styles() {
       return r7`
@@ -13658,12 +13732,10 @@ ${text}`;
           ${this.ui}
           <visualscript-tab-container>
             <visualscript-tab name="Properties">
-              <visualscript-object-editor>
-              </visualscript-object-editor>
+              ${this.properties}
             </visualscript-tab>
               <visualscript-tab name="Graph">
-                <visualscript-graph-editor>
-                </visualscript-graph-editor>
+               ${this.graph}
               </visualscript-tab>
               <visualscript-tab name="Files">${this.files}</visualscript-tab>
           </visualscript-tab-container>
@@ -13675,33 +13747,16 @@ ${text}`;
   // examples/editor/index.js
   var systems = {};
   var createSystem = async (input) => {
-    console.log("Creating system", input);
     let system = new LocalSystem(input, {
       debug: true,
       ignore: ["DS_Store"]
     });
     await system.init();
     systems[system.name] = system;
-    console.log("Created system", system.name);
+    console.log(`----------------------- New System (${system.name}) -----------------------`);
     return system;
   };
   var appPath = "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js";
-  var pluginURL = "https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js";
-  createSystem("remote").then((remoteSystem) => {
-    remoteSystem.open(pluginURL).then(async (file) => {
-      console.log("File", file);
-      const plugins = await file.body;
-      console.log("Plugins", plugins);
-      for (let key in plugins) {
-        const url = plugins[key];
-        Object.defineProperty(plugins, key, {
-          get: async () => (await (void 0)(url)).contents,
-          enumerable: true
-        });
-      }
-      console.log("Plugin Registry", plugins);
-    });
-  });
   var nav = document.querySelector("visualscript-nav");
   var editor = document.querySelector("visualscript-editor");
   nav.primary = { options: [
@@ -13730,11 +13785,9 @@ ${text}`;
       await system.save();
     };
     app.oncompile = async () => {
-      console.error("Compiling!");
-      const files = system.files.list;
-      const file = files.get("index.js");
+      const file = system.files.list.get("index.js");
       if (file) {
-        editor.setFiles(Array.from(files.values()));
+        editor.setSystem(system);
         const imported = await file.body;
         return imported;
       } else

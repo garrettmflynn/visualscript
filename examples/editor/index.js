@@ -4,13 +4,12 @@ import * as freerange from './external/freerange/index.esm.js'
 import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
+import Plugins from './Plugins';
 
 // -------------- File System Generator--------------
 let systems = {}
 
 const createSystem = async (input) => {
-    console.log('Creating system', input)
-
     let system = new freerange.System(input, {
         debug: true,
         ignore: ['DS_Store']
@@ -19,40 +18,31 @@ const createSystem = async (input) => {
     await system.init()
     systems[system.name] = system
 
-    console.log('Created system', system.name)
+    console.log(`----------------------- New System (${system.name}) -----------------------`)
     return system
 }
+
+// const createPlugins = async (src) => {
+//     const plugins = new Plugins(src)
+//     await plugins.init()
+//     console.log(`----------------------- Plugins -----------------------`)
+//     for await (let str of plugins.list){
+//         console.log(await plugins.metadata(str))
+//     }
+
+//     return plugins
+// }
 
 // -------------- Remote App --------------
 const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js'
 // const appPath = `./app/index.js` // Automatically relative to window.location.href
 
-
-// -------------- Plugin Registry --------------
-const pluginURL = 'https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js'
-
-createSystem('remote').then(remoteSystem => {
-    remoteSystem.open(pluginURL).then(async file => {
-        console.log('File', file)
-        const plugins = await file.body
-        console.log('Plugins', plugins)
-        for (let key in plugins){
-            const url = plugins[key]
-            Object.defineProperty(plugins, key, {
-                get: async () => (await freerange.open(url)).contents,
-                enumerable: true
-            })
-        }
-        console.log('Plugin Registry', plugins)
-    })
-})
-
-
+// createPlugins()
 // -------------- Setup Elememts --------------
 // const displayName = document.querySelector('#name')
 
 const nav = document.querySelector('visualscript-nav')
-// nav.primary= {"menu": [{"content": "Products"}], "options": [{"content": "Products"}]}
+// nav.primary= {"menu": [{"content": "Products"}], "options": [{"content": "Test"}]}
 
 // <visualscript-button id=select primary>Select Project</visualscript-control>
 
@@ -98,12 +88,9 @@ const startApp = (system) => {
 
 
     app.oncompile = async () => {
-
-        console.error('Compiling!')
-        const files = system.files.list
-        const file = files.get('index.js')
+        const file = system.files.list.get('index.js')
         if (file) {
-            editor.setFiles(Array.from(files.values()))
+            editor.setSystem(system)
             const imported = await file.body
             return imported
         } else console.error('Not a valid Brains@Play project...')

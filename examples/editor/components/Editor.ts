@@ -6,11 +6,12 @@ import { Tab, TabContainer } from '../../../src/components/dashboard/tabs';
 
 import { Plugin } from './Plugin';
 import App from '../App';
-import { CodeEditor, ObjectEditor } from '../../../src/components/editors';
+import { CodeEditor, ObjectEditor, GraphEditor} from '../../../src/components/editors';
+import Plugins from '../Plugins';
 
 export type EditorProps = {
   app?: App,
-  files?: any[]
+  filesystem?: any;
   plugins?: any[]
   ui?: HTMLElement
 }
@@ -54,6 +55,12 @@ export class Editor extends LitElement {
     info: TabContainer = new TabContainer()
     fileHistory: {[x:string]: any} = {}
     fileUpdate: number = 0
+    graph: GraphEditor = new GraphEditor()
+    properties: ObjectEditor = new ObjectEditor()
+
+
+    plugins: Plugins
+    filesystem: any;
 
 
     constructor(props:EditorProps={}) {
@@ -62,11 +69,12 @@ export class Editor extends LitElement {
       this.ui.setAttribute('name', 'UI')
       if (props.app) this.setApp(props.app)
       if (props.ui) this.setUI(props.ui)
-      if (props.files) this.setFiles(props.files)
+      if (props.filesystem) this.setSystem(props.filesystem)
     }
 
     setApp = (app) => {
       this.app = app
+      this.graph.set(this.app)
     }
 
     setUI = (ui) => {
@@ -74,15 +82,23 @@ export class Editor extends LitElement {
       this.ui.appendChild(ui)
     }
 
-    setFiles = async (files) => {
+    setSystem = async (system: any) => {
       // for (let child of this.files.children) child.remove()
+
+      this.filesystem = system
+      const files = Array.from(system.files.list.values())
+
+      this.plugins = new Plugins(this.filesystem)
+      await this.plugins.init()
 
       const previousTabs = new Set(Object.keys(this.fileHistory))
 
+      const allProperties = {}
       await Promise.all(files.map(async f => {
 
         let tabInfo = this.fileHistory[f.path]
-        const plugin = await f.body
+        const plugin = this.plugins.plugins[f.path]
+  
         previousTabs.delete(f.path)
 
         if (!tabInfo) {
@@ -96,7 +112,7 @@ export class Editor extends LitElement {
           const codeTab = new Tab({name: "Code"});
 
           // Conditionally Show Information
-          if (plugin.tag){
+          if (plugin.module){
             const infoTab = new Tab({name: 'Info'})
             tabInfo.plugin = new Plugin()
             infoTab.appendChild(tabInfo.plugin)
@@ -122,14 +138,15 @@ export class Editor extends LitElement {
         // ---------- Update Editors ----------
 
         // Plugin Info
-        if (tabInfo.plugin){
-          tabInfo.plugin.set(plugin)
-        }
+        const imported = await this.plugins.module(f.path)
+        const metadata = await this.plugins.metadata(f.path)
+        if (tabInfo.plugin) tabInfo.plugin.set( imported, metadata )
 
         // Object Editor
         if (tabInfo.object){
-          tabInfo.object.set(plugin)
-          tabInfo.object.header = plugin.tag
+          tabInfo.object.set(imported)
+          tabInfo.object.header = metadata.name
+          allProperties[metadata.name] = imported
         }
 
         // Code Editor
@@ -142,6 +159,9 @@ export class Editor extends LitElement {
             await this.app.init()
         }
       }))  
+
+
+      this.properties.set(allProperties)
 
       // Remove Tabs That No Longer Exist
       previousTabs.forEach(str => {
@@ -160,12 +180,10 @@ export class Editor extends LitElement {
           ${this.ui}
           <visualscript-tab-container>
             <visualscript-tab name="Properties">
-              <visualscript-object-editor>
-              </visualscript-object-editor>
+              ${this.properties}
             </visualscript-tab>
               <visualscript-tab name="Graph">
-                <visualscript-graph-editor>
-                </visualscript-graph-editor>
+               ${this.graph}
               </visualscript-tab>
               <visualscript-tab name="Files">${this.files}</visualscript-tab>
           </visualscript-tab-container>

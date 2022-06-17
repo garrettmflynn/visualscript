@@ -146,16 +146,16 @@ export class GraphEditor extends LitElement {
   
     render() {
 
-      const content = this.keys?.map(key => this.getElement(key, this.tree)) 
+      // const content = this.keys?.map(key => this.getElement(key, this.tree)) 
 
-      return until(Promise.all(content).then((data) => {
+      // return until(Promise.all(content).then((data) => {
 
         return html`
           <div class="container">
-                ${data}
+                ${this.tree}
           </div>
       `
-      }), html`<span>Loading...</span>`)
+      // }), html`<span>Loading...</span>`)
 
     }
   }
