@@ -136,7 +136,7 @@ export class GraphEditor extends LitElement {
           <span class="name">${key}</span><br>
           <span class="value">${(
             isObject
-            ? (Object.keys(val).length ? val.constructor.name : html`Empty ${val.constructor.name}`)
+            ? (Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`)
             : '')}</span>
         </div>
           ${key}${o}

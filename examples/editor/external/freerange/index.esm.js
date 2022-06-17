@@ -14,8 +14,8 @@ var suffix = (fileName = "") => {
     suffix2.pop();
   return suffix2.join(".");
 };
-var name = (path) => path.split("/").slice(-1)[0];
-var directory = (path) => path.split("/").slice(0, -1).join("/");
+var name = (path) => path ? path.split("/").slice(-1)[0] : void 0;
+var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0;
 var esm = (suffix2) => suffix2 === "js" || suffix2 === "mjs";
 var get = (type7, name2, codecs) => {
   let mimeType = type7;
@@ -4091,21 +4091,31 @@ var transferEach = async (f, system) => {
   const blob = new Blob([f.storage.buffer]);
   blob.name = f.name;
   const newFile = await system.load(blob, path);
-  console.log(f.method, f, newFile);
-  if (f.method === "remote")
-    f.parent = newFile.parent;
+  if (!f.fileSystemHandle) {
+    f.fileSystemHandle = newFile.fileSystemHandle;
+    f.method = "transferred";
+  }
 };
 var transfer = async (previousSystem, targetSystem, transferList) => {
   if (!targetSystem) {
     const SystemConstructor = previousSystem.constructor;
-    targetSystem = new SystemConstructor(void 0, { writable: true });
+    targetSystem = new SystemConstructor(void 0, {
+      native: previousSystem.native,
+      debug: previousSystem.debug,
+      ignore: previousSystem.ignore,
+      writable: true,
+      progress: previousSystem.progress,
+      codecs: previousSystem.codecs
+    });
     await targetSystem.init();
   }
   if (!transferList)
     transferList = Array.from(previousSystem.files.list.values());
+  console.warn(`Starting transfer of ${transferList.length} files from ${previousSystem.name} to ${targetSystem.name}`);
+  const tic = performance.now();
   await Promise.all(transferList.map(async (f) => transferEach(f, targetSystem)));
-  await targetSystem.save(true);
-  console.log("Target System", targetSystem);
+  const toc = performance.now();
+  console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
 };
 var transfer_default = transfer;
 
@@ -4171,31 +4181,36 @@ var handleFetch = async (path, options = {}, progressCallback) => {
 var fetchRemote = async (url, options = {}, progressCallback) => {
   options.timeout = 3e3;
   const response = await fetchWithTimeout(url, options);
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     if (response) {
-      const reader = response.body.getReader();
-      const bytes = parseInt(response.headers.get("Content-Length"), 10);
       const type7 = response.headers.get("Content-Type");
-      let bytesReceived = 0;
-      let buffer = [];
-      const processBuffer = async ({ done, value }) => {
-        if (done) {
-          const config = {};
-          if (typeof type7 === "string")
-            config.type = type7;
-          const blob = new Blob(buffer, config);
-          const ab = await blob.arrayBuffer();
-          resolve({ buffer: new Uint8Array(ab), type: type7 });
-          return;
-        }
-        bytesReceived += value.length;
-        const chunk = value;
-        buffer.push(chunk);
-        if (progressCallback instanceof Function)
-          progressCallback(response.headers.get("Range"), bytesReceived / bytes, bytes);
-        return reader.read().then(processBuffer);
-      };
-      reader.read().then(processBuffer);
+      if (globalThis.FREERANGE_NODE) {
+        const buffer = await response.arrayBuffer();
+        resolve({ buffer, type: type7 });
+      } else {
+        const reader = response.body.getReader();
+        const bytes = parseInt(response.headers.get("Content-Length"), 10);
+        let bytesReceived = 0;
+        let buffer = [];
+        const processBuffer = async ({ done, value }) => {
+          if (done) {
+            const config = {};
+            if (typeof type7 === "string")
+              config.type = type7;
+            const blob = new Blob(buffer, config);
+            const ab = await blob.arrayBuffer();
+            resolve({ buffer: new Uint8Array(ab), type: type7 });
+            return;
+          }
+          bytesReceived += value.length;
+          const chunk = value;
+          buffer.push(chunk);
+          if (progressCallback instanceof Function)
+            progressCallback(response.headers.get("Range"), bytesReceived / bytes, bytes);
+          return reader.read().then(processBuffer);
+        };
+        reader.read().then(processBuffer);
+      }
     } else {
       console.warn("Response not received!", options.headers);
       resolve();
@@ -4209,13 +4224,26 @@ async function fetchWithTimeout(resource, options = {}) {
     console.warn(`Request to ${resource} took longer than ${(timeout / 1e3).toFixed(2)}s`);
     controller.abort();
   }, timeout);
-  const response = await fetch(resource, {
+  const response = await globalThis.fetch(resource, {
     ...options,
     signal: controller.signal
   });
   clearTimeout(id);
   return response;
 }
+
+// ../core/utils/iterate.ts
+var iterAsync = async (iterable, asyncCallback) => {
+  const promises = [];
+  let i = 0;
+  for await (const entry of iterable) {
+    promises.push(asyncCallback(entry, i));
+    i++;
+  }
+  const arr = await Promise.all(promises);
+  return arr;
+};
+var iterate_default = iterAsync;
 
 // ../core/RangeFile.ts
 var useRawArrayBuffer = ["nii", "nwb"];
@@ -4229,12 +4257,9 @@ var RangeFile = class {
       newFile.name = oldFile.name;
       newFile.webkitRelativePath = oldFile.webkitRelativePath || get2(this.path || this.name, this.system.root);
       if (create && !this.fileSystemHandle) {
-        if (!this.parent) {
-          console.warn(`Directory for file ${this.path} does not exist. Choosing a filesystem to mount...`);
-          await transfer_default(this.system);
-          return;
-        } else
-          this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create });
+        console.warn(`Native file handle for ${this.path} does not exist. Choosing a filesystem to mount...`);
+        await transfer_default(this.system);
+        return;
       }
       return newFile;
     };
@@ -4275,7 +4300,7 @@ var RangeFile = class {
       }
       await this.setupByteGetters();
     };
-    this.setOriginal = (reference = "body") => {
+    this.setOriginal = async (reference = "body") => {
       if (this.rangeSupported) {
         this[`#original${reference}`] = null;
         if (this.debug)
@@ -4287,10 +4312,11 @@ var RangeFile = class {
       } else {
         try {
           const tic = performance.now();
+          const value = await this[`#${reference}`];
           if (typeof this[`#${reference}`] === "object")
-            this[`#original${reference}`] = JSON.parse(JSON.stringify(this[`#${reference}`]));
+            this[`#original${reference}`] = JSON.parse(JSON.stringify(value));
           else
-            this[`#original${reference}`] = this[`#${reference}`];
+            this[`#original${reference}`] = value;
           const toc = performance.now();
           if (this.debug)
             console.warn(`Time to Deep Clone (${this.path}): ${toc - tic}ms`);
@@ -4305,17 +4331,16 @@ var RangeFile = class {
       try {
         if (!this[`#${ref}`]) {
           const ticDecode = performance.now();
-          const storageExists = Object.keys(this.storage).length > 0;
+          const storageExists = this.storage.buffer;
           if (!storageExists && !this.rangeSupported)
             this.storage = await this.getFileData();
-          this[`#${ref}`] = codec ? codec.decode(this.storage, this.config) : await this.system.codecs.decode(this.storage, this.mimeType, this.file.name, this.config).catch(this.onError);
-          console.log(`New ${ref}`, this[`#${ref}`]);
+          this[`#${ref}`] = codec ? await codec.decode(this.storage, this.config) : await this.system.codecs.decode(this.storage, this.mimeType, this.file.name, this.config).catch(this.onError);
           const tocDecode = performance.now();
           if (this.debug)
             console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`);
         }
         if (this[`#original${ref}`] === void 0)
-          this.setOriginal(ref);
+          await this.setOriginal(ref);
         return this[`#${ref}`];
       } catch (e) {
         const msg = `Decoder failed for ${this.path} - ${this.mimeType || "No file type recognized"}`;
@@ -4327,13 +4352,14 @@ var RangeFile = class {
     this.set = (val, ref = "body") => this[`#${ref}`] = val;
     this.reencode = async (ref = "body", codec) => {
       try {
-        const modifiedString = JSON.stringify(this[`#${ref}`]);
+        const value = await this[`${ref}`];
+        const modifiedString = JSON.stringify(value);
         const ogString = JSON.stringify(this[`#original${ref}`]);
         const different = modifiedString !== ogString;
         if (different) {
           if (this.debug)
             console.warn(`Synching file contents with buffer (${this.path})`, different ? `${ogString} > ${modifiedString}` : modifiedString);
-          const toEncode = this[`#${ref}`] ?? "";
+          const toEncode = value ?? "";
           try {
             const ticEncode = performance.now();
             const buffer = codec ? await codec.encode(toEncode, this.config) : await this.system.codecs.encode(toEncode, this.mimeType, this.file.name, this.config);
@@ -4360,7 +4386,8 @@ var RangeFile = class {
         const textEncoded = await this.reencode("text", text_exports);
         const toSave = bodyEncoded ?? textEncoded;
         if (force || toSave) {
-          this.storage.buffer = toSave;
+          if (toSave)
+            this.storage.buffer = toSave;
           const newFile = await this.createFile(this.storage.buffer, this.file, create);
           if (newFile)
             this.file = newFile;
@@ -4369,13 +4396,14 @@ var RangeFile = class {
               console.warn(`New file not created for ${this.path}`);
             return;
           }
-          if (textEncoded) {
-            this["#body"] = null;
-            await this.body;
-            await this.text;
+          if (toSave) {
+            if (textEncoded)
+              this["#body"] = null;
+            if (bodyEncoded)
+              this["#text"] = null;
           } else {
-            this.setOriginal();
-            this.setOriginal("text");
+            await this.setOriginal();
+            await this.setOriginal("text");
           }
           return this.file;
         } else
@@ -4391,8 +4419,11 @@ var RangeFile = class {
         await stream.pipeTo(writable);
         const toc = performance.now();
         if (this.debug)
-          console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`, this.storage.buffer, this.file, this);
+          console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`);
       }
+      const dependents = this.system.dependents[this.path];
+      if (dependents)
+        await iterate_default(dependents.values(), async (f) => f["#body"] = null);
     };
     this.onError = (e) => {
       console.error(e);
@@ -4401,7 +4432,7 @@ var RangeFile = class {
       if (property) {
         let start = await this.getProperty(property.start, parent, i);
         const length = await this.getProperty(property.length, parent, i);
-        let bytes = new Uint8Array();
+        let bytes = new ArrayBuffer(0);
         if (this.method === "remote") {
           bytes = await this.getRemote({ start, length });
         } else {
@@ -4412,11 +4443,12 @@ var RangeFile = class {
           const totalLen = tempBytes.reduce((a, b) => a + b.length, 0);
           const tic2 = performance.now();
           let offset = 0;
-          bytes = new Uint8Array(totalLen);
+          let uBytes = new Uint8Array(totalLen);
           tempBytes.forEach((arr) => {
-            bytes.set(arr, offset);
+            uBytes.set(arr, offset);
             offset += arr.length;
           });
+          bytes = uBytes;
           const toc2 = performance.now();
           if (this.debug && start.length > 1)
             console.warn(`Time to merge arrays (${this.path}): ${toc2 - tic2}ms`);
@@ -4534,43 +4566,54 @@ var RangeFile = class {
           this.file = await this.createFile(buffer);
           resolve({ file: this.file, buffer });
         } else {
-          const reader = new FileReader();
-          const methods = {
-            "dataurl": "readAsDataURL",
-            "buffer": "readAsArrayBuffer"
-          };
           let method = "buffer";
           if (this.file.type && (this.file.type.includes("image/") || this.file.type.includes("video/")))
             method = "dataurl";
-          reader.onloadend = (e) => {
-            if (e.target.readyState == FileReader.DONE) {
-              if (!e.target.result)
-                return reject(`No result returned using the ${method} method on ${this.file.name}`);
-              let data = e.target.result;
-              if ((data["byteLength"] ?? data["length"]) === 0) {
+          if (globalThis.FREERANGE_NODE) {
+            const methods = {
+              "dataurl": "dataURL",
+              "buffer": "arrayBuffer"
+            };
+            const data = await this.file[methods[method]]();
+            resolve({ file: this.file, [method]: this.handleData(data) });
+          } else {
+            const methods = {
+              "dataurl": "readAsDataURL",
+              "buffer": "readAsArrayBuffer"
+            };
+            const reader = new FileReader();
+            reader.onloadend = (e) => {
+              if (e.target.readyState == FileReader.DONE) {
+                if (!e.target.result)
+                  return reject(`No result returned using the ${method} method on ${this.file.name}`);
+                let data = e.target.result;
+                resolve({ file: this.file, [method]: this.handleData(data) });
+              } else if (e.target.readyState == FileReader.EMPTY) {
                 if (this.debug)
-                  console.warn(`${this.file.name} appears to be empty`);
+                  console.warn(`${this.file.name} is empty`);
                 resolve({ file: this.file, [method]: new Uint8Array() });
-              } else if (data instanceof ArrayBuffer && !useRawArrayBuffer.includes(this.suffix))
-                data = new Uint8Array(data);
-              resolve({ file: this.file, [method]: data });
-            } else if (e.target.readyState == FileReader.EMPTY) {
-              if (this.debug)
-                console.warn(`${this.file.name} is empty`);
-              resolve({ file: this.file, [method]: new Uint8Array() });
-            }
-          };
-          reader[methods[method]](this.file);
+              }
+            };
+            reader[methods[method]](this.file);
+          }
         }
       });
     };
-    if (file instanceof FileSystemFileHandle) {
+    this.handleData = (data) => {
+      if ((data["byteLength"] ?? data["length"]) === 0) {
+        if (this.debug)
+          console.warn(`${this.file.name} appears to be empty`);
+        return new Uint8Array();
+      } else if (data instanceof ArrayBuffer && !useRawArrayBuffer.includes(this.suffix))
+        return new Uint8Array(data);
+      else
+        return data;
+    };
+    if (file.constructor.name === "FileSystemFileHandle") {
       this.fileSystemHandle = file;
     } else
       this.file = file;
     this.config = options;
-    if (options.parent)
-      this.parent = options.parent;
     this.debug = options.debug;
     this.system = options.system;
     this.path = options.path;
@@ -4741,11 +4784,15 @@ var safeESMImport = async (text, config = {}, onBlob) => {
     for (let path in importInfo) {
       let correctPath = get2(path, childBase);
       const variables = importInfo[path];
-      let blob;
-      const info = await handleFetch(correctPath);
-      blob = new Blob([info.buffer], { type: info.type });
-      await config.system.load(blob, correctPath);
-      const imported = await safeESMImport(await blob.text(), {
+      const existingFile = config.system.files.list.get(get2(path));
+      let blob = existingFile?.file;
+      if (!blob) {
+        const info = await handleFetch(correctPath);
+        blob = new Blob([info.buffer], { type: info.type });
+        await config.system.load(blob, correctPath, config.path);
+      }
+      let thisText = await blob.text();
+      const imported = await safeESMImport(thisText, {
         path: correctPath,
         system: config.system
       }, onBlob);
@@ -4768,7 +4815,7 @@ var import_default = safeESMImport;
 // ../core/codecs/library/js/index.ts
 var type6 = "application/javascript";
 var suffixes6 = "js";
-var encode8 = (moduleObject) => moduleObject;
+var encode8 = () => void 0;
 var decode7 = async (o, config) => {
   const textContent = !o.text ? await decode2(o) : o.text;
   const imported = await import_default(textContent, config);
@@ -4780,8 +4827,9 @@ var decode7 = async (o, config) => {
 
 // ../core/codecs/Codecs.ts
 var Codecs = class {
-  constructor(codecs = {}) {
+  constructor(codecsInput) {
     this.suffixToType = {};
+    this.collection = /* @__PURE__ */ new Map();
     this.add = (codec) => {
       this.collection.set(codec.type, codec);
       let suffixes7 = codec.suffixes ? codec.suffixes : codec.type.split("-").splice(-1)[0];
@@ -4793,13 +4841,18 @@ var Codecs = class {
     this.getType = (suffix2) => this.suffixToType[suffix2];
     this.decode = (o, type7, name2, config) => decode_default(o, type7, name2, config, void 0, this);
     this.encode = (o, type7, name2, config) => encode_default(o, type7, name2, config, void 0, this);
-    if (codecs instanceof Codecs)
-      this.collection = codecs.collection;
-    else {
-      this.collection = /* @__PURE__ */ new Map();
-      for (let key in codecs)
-        this.add(codecs[key]);
-    }
+    this.hasDependencies = (file) => {
+      return file.mimeType === "application/javascript";
+    };
+    if (!Array.isArray(codecsInput))
+      codecsInput = [codecsInput];
+    codecsInput.forEach((codecs) => {
+      if (codecs instanceof Codecs)
+        codecs.collection.forEach(this.add);
+      else
+        for (let key in codecs)
+          this.add(codecs[key]);
+    });
   }
 };
 
@@ -4852,23 +4905,19 @@ var load = async (file, config) => {
     path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? "";
   config.path = path;
   let fileConfig = config;
-  console.log("Loading file", file);
   if (!(file instanceof RangeFile)) {
-    console.log("System native", system.native);
     if (system.native) {
-      if (!(file instanceof FileSystemFileHandle)) {
-        const pathWithoutName = path.split("/").slice(0, -1).join("/");
-        const openInfo = await open_default(pathWithoutName, {
-          path: pathWithoutName,
+      if (file.constructor.name !== "FileSystemFileHandle") {
+        const openInfo = await open_default(path, {
+          path,
           system,
           create: config.create,
           codecs,
-          debug,
-          type: "directory"
+          debug
         });
-        console.log("Getting parent", pathWithoutName, openInfo);
-        if (openInfo && openInfo instanceof FileSystemDirectoryHandle)
-          fileConfig.parent = openInfo;
+        if (openInfo && openInfo.constructor.name === "FileSystemDirectoryHandle") {
+          file = openInfo;
+        }
       }
     } else {
       if (fileConfig.system.root) {
@@ -4880,8 +4929,8 @@ var load = async (file, config) => {
     }
     file = new RangeFile(file, fileConfig);
     await file.init();
-    system.add(file);
   }
+  system.add(file);
   return file;
 };
 var createFile2 = (file = {}, path, system) => {
@@ -4890,19 +4939,6 @@ var createFile2 = (file = {}, path, system) => {
   else
     return createFile(file, path, system);
 };
-
-// ../core/utils/iterate.ts
-var iterAsync = async (iterable, asyncCallback) => {
-  const promises = [];
-  let i = 0;
-  for await (const entry of iterable) {
-    promises.push(asyncCallback(entry, i));
-    i++;
-  }
-  const arr = await Promise.all(promises);
-  return arr;
-};
-var iterate_default = iterAsync;
 
 // ../core/system/core/save.ts
 var saveEach = async (rangeFile, config, counter, length) => {
@@ -4926,9 +4962,7 @@ var save_default = save;
 // ../core/system/remote/open.ts
 var openRemote = async (path, config) => {
   let {
-    system,
-    codecs,
-    debug
+    system
   } = config;
   return await handleFetch(path).then(async (info) => {
     const splitURL = info.url.split("/");
@@ -4936,12 +4970,7 @@ var openRemote = async (path, config) => {
     let blob = new Blob([info.buffer], { type: info.type });
     blob.name = fileName;
     const file = createFile(blob, info.url, system);
-    const rangeFile = await load(file, {
-      path: info.url,
-      system,
-      codecs,
-      debug
-    });
+    const rangeFile = await system.load(file, info.url);
     return rangeFile;
   });
 };
@@ -4952,20 +4981,23 @@ var mountRemote = async (url, config) => {
   let filePath;
   await handleFetch(url, void 0, config.progress).then(async (response) => {
     if (response.type === "application/json") {
-      filePath = response.url;
+      config.system.name = config.system.root = filePath = response.url;
       const datasets = JSON.parse(new TextDecoder().decode(response.buffer));
+      let files = [];
       const drill = (o) => {
         for (let key in o) {
           const target = o[key];
           if (typeof target === "string") {
             const path = `${response.url}/${target}`;
             const file = createFile(void 0, path, config.system);
-            config.system.load(file, path);
+            files.push({ file, path });
           } else
             drill(target);
         }
       };
       drill(datasets);
+      let filesIterable = files.entries();
+      await iterate_default(filesIterable, async ([i, { file, path }]) => await config.system.load(file, path));
     } else
       throw "Endpoint is not a freerange filesystem!";
   }).catch((e) => {
@@ -4988,6 +5020,8 @@ var isURL = (path) => {
 // ../core/system/System.ts
 var System = class {
   constructor(name2, systemInfo = {}) {
+    this.dependencies = {};
+    this.dependents = {};
     this.changelog = [];
     this.files = {};
     this.groups = {};
@@ -4999,14 +5033,9 @@ var System = class {
       };
       if (this.isNative(this.name)) {
         const native = await this.mountNative(this.name, mountConfig);
-        if (native) {
-          this.name = this.native.name;
-        } else
+        if (!native)
           console.error("Unable to mount native filesystem!");
-      }
-      if (this.native)
-        this.root = this.name;
-      else {
+      } else {
         const path = this.name;
         const isURL2 = isURL(path);
         const fileName = name(path);
@@ -5018,9 +5047,7 @@ var System = class {
             const file = await this.open(fileName);
             await file.body;
           } else {
-            const root = await this.mountRemote(this.name, mountConfig).catch((e) => console.warn("System initialization failed.", e));
-            if (root)
-              this.root = root;
+            await this.mountRemote(this.name, mountConfig).catch((e) => console.warn("System initialization failed.", e));
           }
         } else if (this.name)
           this.root = "";
@@ -5040,27 +5067,34 @@ var System = class {
       return newO;
     };
     this.subsystem = async (path) => {
-      const files = this.createFileSystemInfo();
       const split = path.split("/");
       const name2 = split[split.length - 1];
       const subDir = split.shift();
       path = split.join("/");
       let target = this.files.system[subDir];
       split.forEach((str) => target = target[str]);
-      const system = new System(name2);
+      const systemConstructor = this.constructor;
+      const system = new systemConstructor(name2, {
+        native: this.native,
+        debug: this.debug,
+        ignore: this.ignore,
+        writable: this.writable,
+        progress: this.progress,
+        codecs: this.codecs
+      });
       await system.init();
       let drill = async (target2, base) => {
         for (let key in target2) {
-          const newBase = base ? base + "/" + key : key;
+          const newBase = get2(key, base);
           const file = target2[key];
           if (file instanceof RangeFile)
-            await system.load(file, newBase);
+            await system.load(file, get2(key, base));
           else
             await drill(file, newBase);
         }
       };
       await drill(target, path);
-      return files;
+      return system;
     };
     this.reset = () => {
       this.changelog = [];
@@ -5078,7 +5112,7 @@ var System = class {
     this.checkToLoad = (name2) => {
       return this.ignore.reduce((a, b) => a * (name2?.includes(b) ? 0 : 1), 1);
     };
-    this.load = async (file, path) => {
+    this.load = async (file, path, dependent) => {
       const existingFile = this.files.list.get(path);
       if (existingFile)
         return existingFile;
@@ -5089,13 +5123,23 @@ var System = class {
           file = createFile(file, path, this);
         const toLoad = this.checkToLoad(file.name ?? file.path ?? path);
         if (toLoad) {
-          return await load(file, {
+          const rangeFile = await load(file, {
             path,
             system: this,
             debug: this.debug,
             codecs: this.codecs,
             create: this.writable
           });
+          if (dependent) {
+            if (!this.dependencies[dependent])
+              this.dependencies[dependent] = /* @__PURE__ */ new Map();
+            this.dependencies[dependent].set(rangeFile.path, rangeFile);
+            if (!this.dependents[rangeFile.path])
+              this.dependents[rangeFile.path] = /* @__PURE__ */ new Map();
+            const file2 = this.files.list.get(dependent);
+            this.dependents[rangeFile.path].set(file2.path, file2);
+          }
+          return rangeFile;
         } else
           console.warn(`Ignoring ${file.name}`);
       }
@@ -5112,17 +5156,17 @@ var System = class {
     this.open = async (path, create) => {
       if (!this.native)
         path = get2(path, this.root);
-      console.log("Opening", this.writable, this.name);
-      return await open_default(path, {
+      const rangeFile = await open_default(path, {
         path,
         debug: this.debug,
         system: this,
         create: create ?? this.writable,
         codecs: this.codecs
       });
+      return rangeFile;
     };
     this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
-    this.sync = async () => await iterate_default(Array.from(this.files.list.values()), async (entry) => await entry.sync());
+    this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
     this.transfer = async (target) => await transfer_default(this, target);
     this.name = name2;
     this.native = systemInfo.native;
@@ -5130,7 +5174,7 @@ var System = class {
     this.ignore = systemInfo.ignore ?? [];
     this.writable = systemInfo.writable;
     this.progress = systemInfo.progress;
-    this.codecs = new Codecs(Object.assign(codecs_exports, systemInfo.codecs));
+    this.codecs = new Codecs([codecs_exports, systemInfo.codecs]);
     this.addGroup("system", {}, (file, path, files) => {
       let target = files.system;
       let split = path.split("/");
@@ -5247,7 +5291,7 @@ var mountNative = async (handle, config) => {
   if (!handle)
     handle = await window.showDirectoryPicker();
   if (config?.system) {
-    config.system.name = handle.name;
+    config.system.name = config.system.root = handle.name;
     config.system.native = handle;
   }
   await onhandle(handle, null, config?.system, config?.progress);

@@ -94,19 +94,19 @@ const startApp = (system) => {
     // TODO: Make it so that only new information is fully re-imported
     app.onsave = async () => {
         await system.save()
-        app.init()
     }
 
 
     app.oncompile = async () => {
+
+        console.error('Compiling!')
         const files = system.files.list
         const file = files.get('index.js')
         if (file) {
             editor.setFiles(Array.from(files.values()))
             const imported = await file.body
-            console.log(imported)
             return imported
-        }
+        } else console.error('Not a valid Brains@Play project...')
     }
 
     app.onstart = () => {
