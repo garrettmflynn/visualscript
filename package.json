@@ -7,8 +7,9 @@
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/src/index.d.ts",
+  "type": "module",
   "scripts": {
-    "start": "cd examples/editor && tinybuild",
+    "start": "tinybuild",
     "lint": "eslint ./src --ext .ts,.tsx",
     "build": "rollup -c && tsc",
     "pub": "yarn run lint && node scripts clean:dist && yarn build:npm && npm publish"
