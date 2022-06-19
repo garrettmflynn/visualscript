@@ -4905,7 +4905,7 @@ opacity: 0.5;
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
+        background-color: rgb(40, 40, 40);
         box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
       }
 
@@ -5023,8 +5023,9 @@ opacity: 0.5;
       
       width: 100%; 
       height: 100%; 
-      z-index: 100000; 
       overflow: scroll;
+      background: rgb(205,205,205);
+
     }
 
     :host * {
@@ -5033,10 +5034,13 @@ opacity: 0.5;
     }
 
     :host > * {
-      background: white;
-      border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
+    }
+
+    #editorContainer {
+      position: relative;
+       width: 100%; 
+       height: 100%;
     }
 
     h3 {
@@ -5064,10 +5068,7 @@ opacity: 0.5;
   }
   
   #editor {
-      // color: transparent;
       background: transparent;
-      opacity: 0.5;
-      caret-color: black;
       z-index: 1;
   }
   
@@ -5101,6 +5102,16 @@ opacity: 0.5;
       box-sizing: border-box !important;
   }
   
+  @media (prefers-color-scheme: dark) {
+
+    #editorContainer {
+      background-color: rgb(20, 20, 20);
+    }
+
+    #editor {
+      caret-color: white;
+    }
+  }
 
     `;
     }
@@ -5119,7 +5130,7 @@ opacity: 0.5;
       this.textArea.placeholder = `Write your ${language} code...`;
       this.textArea.value = this.value;
       return $`
-      <div id='editorContainer' style="position: relative; width: 100%; height: 100%;">
+      <div id='editorContainer'>
         ${this.textArea}"
           <pre id="highlight" aria-hidden="true">
             <code class="language-${language}"></code>
@@ -5176,7 +5187,6 @@ opacity: 0.5;
       background: white;
       border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
       height: 100%;
       width: 100%;
     }
@@ -5225,8 +5235,7 @@ opacity: 0.5;
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
-        box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
+        background-color: rgb(40, 40, 40);
       }
     }
 
@@ -6487,14 +6496,19 @@ slot {
     }
     static get styles() {
       return r`
+
+    :host  * {
+      box-sizing: border-box;
+    }
+
     div {
-      padding: 7px;
+      padding: 0px 7px;
     }
 
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: 15px;
+      height: 15px;
       fill: black;
     }
 
@@ -6553,7 +6567,7 @@ slot {
     li > div > div {
         display: flex;
         font-size: 12px;
-        padding: 5px;
+        padding: 6px;
         flex-grow: 1;
         align-items: center;
         flex-wrap: wrap;
@@ -6699,7 +6713,7 @@ slot {
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
+        background-color: rgb(40, 40, 40);
       }
     }
 
@@ -13771,7 +13785,7 @@ ${text}`;
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
+        background-color: rgb(40, 40, 40);
         box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
       }
 

@@ -25,8 +25,9 @@ export class CodeEditor extends LitElement {
       
       width: 100%; 
       height: 100%; 
-      z-index: 100000; 
       overflow: scroll;
+      background: rgb(205,205,205);
+
     }
 
     :host * {
@@ -35,10 +36,13 @@ export class CodeEditor extends LitElement {
     }
 
     :host > * {
-      background: white;
-      border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
+    }
+
+    #editorContainer {
+      position: relative;
+       width: 100%; 
+       height: 100%;
     }
 
     h3 {
@@ -66,10 +70,7 @@ export class CodeEditor extends LitElement {
   }
   
   #editor {
-      // color: transparent;
       background: transparent;
-      opacity: 0.5;
-      caret-color: black;
       z-index: 1;
   }
   
@@ -103,6 +104,16 @@ export class CodeEditor extends LitElement {
       box-sizing: border-box !important;
   }
   
+  @media (prefers-color-scheme: dark) {
+
+    #editorContainer {
+      background-color: rgb(20, 20, 20);
+    }
+
+    #editor {
+      caret-color: white;
+    }
+  }
 
     `;
   }
@@ -174,7 +185,7 @@ export class CodeEditor extends LitElement {
       this.textArea.value = this.value
 
       return html`
-      <div id='editorContainer' style="position: relative; width: 100%; height: 100%;">
+      <div id='editorContainer'>
         ${this.textArea}"
           <pre id="highlight" aria-hidden="true">
             <code class="language-${language}"></code>

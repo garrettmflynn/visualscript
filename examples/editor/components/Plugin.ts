@@ -82,7 +82,7 @@ export class Plugin extends LitElement {
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
+        background-color: rgb(40, 40, 40);
         box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
       }
 

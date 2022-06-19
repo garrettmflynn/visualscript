@@ -27,7 +27,7 @@ export class TreeItem extends LitElement {
     li > div > div {
         display: flex;
         font-size: 12px;
-        padding: 5px;
+        padding: 6px;
         flex-grow: 1;
         align-items: center;
         flex-wrap: wrap;

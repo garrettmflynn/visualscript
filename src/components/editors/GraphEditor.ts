@@ -26,7 +26,6 @@ export class GraphEditor extends LitElement {
       background: white;
       border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
       height: 100%;
       width: 100%;
     }
@@ -75,8 +74,7 @@ export class GraphEditor extends LitElement {
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
-        box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
+        background-color: rgb(40, 40, 40);
       }
     }
 

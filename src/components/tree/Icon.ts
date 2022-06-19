@@ -9,14 +9,19 @@ export class Icon extends LitElement {
 
   static get styles() {
     return css`
+
+    :host  * {
+      box-sizing: border-box;
+    }
+
     div {
-      padding: 7px;
+      padding: 0px 7px;
     }
 
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: 15px;
+      height: 15px;
       fill: black;
     }
 

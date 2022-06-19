@@ -55,7 +55,7 @@ export class Tree extends LitElement {
 
     @media (prefers-color-scheme: dark) {
       :host > * {
-        background-color: rgb(60, 60, 60);
+        background-color: rgb(40, 40, 40);
       }
     }
 
