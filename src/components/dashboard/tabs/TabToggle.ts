@@ -110,7 +110,7 @@ export class TabToggle extends LitElement {
 
         if (!toggles){
           const parent = this.parentNode // ASSUMPTION: Always within a tabBar
-          const tabContainer = parent.getRootNode().host as TabContainer // ASSUMPTION: Always within a tabBar
+          const tabContainer = (parent.getRootNode() as any).host as TabContainer // ASSUMPTION: Always within a tabBar
           toggles = Array.from(tabContainer.tabs.values()).map(tab => tab.toggle)
         }
        

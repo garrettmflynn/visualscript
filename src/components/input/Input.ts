@@ -9,6 +9,8 @@ export interface InputProps {
     type?: string;
     label?: string;
     persist?: boolean;
+    onChange?: Function;
+    onInput?: Function;
   }
 
 export class Input extends LitElement {
@@ -19,12 +21,14 @@ export class Input extends LitElement {
     type: InputProps['type']
     label: InputProps['label']
     persist: InputProps['persist']
+    onChange: InputProps['onChange']
+    onInput: InputProps['onInput']
 
     // properties getter
     static get properties() {
         return Object.assign(PersistableProps, {
             disabled: { type: Boolean, reflect: true },
-            outline: { type: Boolean, reflect: true }
+            outline: { type: Boolean, reflect: true },
         });
     }
     constructor(props:InputProps = {}) {
@@ -34,6 +38,8 @@ export class Input extends LitElement {
         this.disabled = props.disabled ?? false;
         this.label = props.label;
         this.persist = props.persist;
+        this.onChange = props.onChange;
+        this.onInput = props.onInput;
 
         const val =  getPersistent(props)
         if (val) this.value = val
@@ -133,6 +139,11 @@ opacity: 0.5;
 
                 @change=${(ev) => {
                     this.value = ev.target.value
+                    if (this.onChange instanceof Function) this.onChange(ev)
+                }}
+
+                @input=${(ev) => {
+                    if (this.onInput instanceof Function) this.onInput(ev)
                 }}
                 />
                 <label>${this.label}</label>

@@ -6,6 +6,7 @@ import { Tab, TabContainer } from '../../../src/components/dashboard/tabs';
 
 import { Plugin } from './Plugin';
 import App from '../App';
+import { Tree } from '../../../src/components/tree';
 import { CodeEditor, ObjectEditor, GraphEditor} from '../../../src/components/editors';
 import Plugins from '../Plugins';
 
@@ -57,6 +58,7 @@ export class Editor extends LitElement {
     fileUpdate: number = 0
     graph: GraphEditor = new GraphEditor()
     properties: ObjectEditor = new ObjectEditor()
+    tree: Tree = new Tree()
 
 
     plugins: Plugins
@@ -86,6 +88,7 @@ export class Editor extends LitElement {
       // for (let child of this.files.children) child.remove()
 
       this.filesystem = system
+      this.tree.set(system.files.system)
       const files = Array.from(system.files.list.values())
 
       this.plugins = new Plugins(this.filesystem)
@@ -181,6 +184,9 @@ export class Editor extends LitElement {
           <visualscript-tab-container>
             <visualscript-tab name="Properties">
               ${this.properties}
+            </visualscript-tab>
+            <visualscript-tab name="Tree">
+              ${this.tree}
             </visualscript-tab>
               <visualscript-tab name="Graph">
                ${this.graph}

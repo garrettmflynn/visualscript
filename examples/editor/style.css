@@ -6,11 +6,13 @@ html, body {
     overflow: hidden;
 }
 
+:root {
+    color-scheme: light dark;
+  }
+
 * {
     box-sizing: border-box;
 }
-
-
 
 visualscript-main {
     display: flex; 

@@ -45,7 +45,7 @@ export class CodeEditor extends LitElement {
       margin: 0;
     }
 
-    #controls {
+    #actions {
       display: flex; 
       align-items: center; 
       justify-content: space-between; 
@@ -148,21 +148,6 @@ export class CodeEditor extends LitElement {
 
     }
 
-    getControls = () => {
-
-      let controls = ['Save'] //, 'Reset', 'Close']
-      // let buttonType = ['primary', 'primary', 'primary']
-
-      return html`
-      <div class="actions">
-            ${controls.map((name,i) => html`<visualscript-button primary size="small" @click="${() => {
-              const func = this[`on${name}`]
-              if (func) func()
-          }}">${name}</visualscript-button>`)}
-      </div>
-      `
-    }
-
     text = (text) => {
       const highlight = this.shadowRoot.getElementById('highlight')
       if (highlight){
@@ -189,10 +174,6 @@ export class CodeEditor extends LitElement {
       this.textArea.value = this.value
 
       return html`
-      <div id="controls">
-        <h3>${language[0].toUpperCase() + language.slice(1)} Editor</h3>
-        ${this.getControls()}
-      </div>
       <div id='editorContainer' style="position: relative; width: 100%; height: 100%;">
         ${this.textArea}"
           <pre id="highlight" aria-hidden="true">

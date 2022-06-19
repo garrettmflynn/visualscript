@@ -9,6 +9,10 @@
   var __commonJS = (cb, mod) => function __require() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
+  var __export = (target, all) => {
+    for (var name2 in all)
+      __defProp(target, name2, { get: all[name2], enumerable: true });
+  };
   var __copyProps = (to, from, except, desc) => {
     if (from && typeof from === "object" || typeof from === "function") {
       for (let key of __getOwnPropNames(from))
@@ -3432,6 +3436,8 @@ Phasellus sodales eros at erat elementum, a semper ligula facilisis. Class apten
       this.disabled = props.disabled ?? false;
       this.label = props.label;
       this.persist = props.persist;
+      this.onChange = props.onChange;
+      this.onInput = props.onInput;
       const val = getPersistent(props);
       if (val)
         this.value = val;
@@ -3535,6 +3541,13 @@ opacity: 0.5;
 
                 @change=${(ev) => {
         this.value = ev.target.value;
+        if (this.onChange instanceof Function)
+          this.onChange(ev);
+      }}
+
+                @input=${(ev) => {
+        if (this.onInput instanceof Function)
+          this.onInput(ev);
       }}
                 />
                 <label>${this.label}</label>
@@ -4966,18 +4979,6 @@ opacity: 0.5;
     constructor(props = {}) {
       super();
       this.textArea = document.createElement("textarea");
-      this.getControls = () => {
-        let controls = ["Save"];
-        return $`
-      <div class="actions">
-            ${controls.map((name2, i9) => $`<visualscript-button primary size="small" @click="${() => {
-          const func = this[`on${name2}`];
-          if (func)
-            func();
-        }}">${name2}</visualscript-button>`)}
-      </div>
-      `;
-      };
       this.text = (text) => {
         const highlight = this.shadowRoot.getElementById("highlight");
         if (highlight) {
@@ -5042,7 +5043,7 @@ opacity: 0.5;
       margin: 0;
     }
 
-    #controls {
+    #actions {
       display: flex; 
       align-items: center; 
       justify-content: space-between; 
@@ -5118,10 +5119,6 @@ opacity: 0.5;
       this.textArea.placeholder = `Write your ${language} code...`;
       this.textArea.value = this.value;
       return $`
-      <div id="controls">
-        <h3>${language[0].toUpperCase() + language.slice(1)} Editor</h3>
-        ${this.getControls()}
-      </div>
       <div id='editorContainer' style="position: relative; width: 100%; height: 100%;">
         ${this.textArea}"
           <pre id="highlight" aria-hidden="true">
@@ -5815,7 +5812,6 @@ slot {
   box-sizing: border-box;
   background: inherit;
   display: block;
-  overflow: hidden;
 }
 
 slot {
@@ -6472,9 +6468,271 @@ slot {
   };
   customElements.define("visualscript-sidebar-header", SidebarHeader);
 
+  // src/components/tree/icons/index.js
+  var icons_exports = {};
+  __export(icons_exports, {
+    file: () => file,
+    folder: () => folder,
+    openfolder: () => openfolder
+  });
+  var folder = $`<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
+  var openfolder = $`<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>`;
+  var file = $`<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/><path d="M20.41,8.41l-4.83-4.83C15.21,3.21,14.7,3,14.17,3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V9.83 C21,9.3,20.79,8.79,20.41,8.41z M7,7h7v2H7V7z M17,17H7v-2h10V17z M17,13H7v-2h10V13z"/></g></svg>`;
+
+  // src/components/tree/Icon.ts
+  var Icon = class extends s4 {
+    constructor(props = {}) {
+      super();
+      this.type = props.type ?? "folder";
+    }
+    static get styles() {
+      return r`
+    div {
+      padding: 7px;
+    }
+
+
+    svg {
+      width: 18px;
+      height: 18px;
+      fill: black;
+    }
+
+    @media (prefers-color-scheme: dark) {
+
+      svg {
+        fill: rgb(210, 210, 210);
+      }
+    }
+
+    `;
+    }
+    static get properties() {
+      return {
+        type: {
+          type: String,
+          reflect: true
+        }
+      };
+    }
+    render() {
+      return $`
+      <div>
+       ${icons_exports[this.type]}
+      </div>
+    `;
+    }
+  };
+  customElements.define("visualscript-icon", Icon);
+
+  // src/components/tree/TreeItem.ts
+  var TreeItem = class extends s4 {
+    constructor(props) {
+      super();
+      this.removeLast = () => {
+        if (this.li)
+          this.li.classList.remove("last");
+        window.removeEventListener("click", this.removeLast);
+      };
+      this.key = props.key;
+      this.value = props.value;
+      this.parent = props.parent;
+      this.type = props.type ?? "folder";
+    }
+    static get styles() {
+      return r`
+
+    :host * {
+      box-sizing: border-box;
+    }
+
+    li {
+        width: 100%;
+    }
+
+    li > div > div {
+        display: flex;
+        font-size: 12px;
+        padding: 5px;
+        flex-grow: 1;
+        align-items: center;
+        flex-wrap: wrap;
+        user-select: none;
+    }
+
+    li.last > div { background: #b6e3ff;}
+
+    li.last > div:hover { background: #b6e3ff; }
+
+    li > div:hover {
+        background: rgb(240,240,240);
+        cursor: pointer;
+    }
+
+    @media (prefers-color-scheme: dark) {
+
+      li > div:hover{ background-color: rgb(70, 70, 70) }
+
+      li.last > div { background: #0091ea;}
+
+        li.last > div:hover { background: #0091ea; }
+
+
+    }
+
+    `;
+    }
+    static get properties() {
+      return {
+        type: {
+          type: String,
+          reflect: true
+        },
+        key: {
+          type: String,
+          reflect: true
+        },
+        open: {
+          type: Boolean,
+          reflect: true
+        }
+      };
+    }
+    render() {
+      const icon = new Icon({ type: this.type });
+      const leftPad = 8 * (this.parent.depth ?? 0);
+      return $`
+        <li>
+        <div @click=${() => {
+        this.li = this.shadowRoot.querySelector("li");
+        const icon2 = this.shadowRoot.querySelector("visualscript-icon");
+        this.li.classList.add("last");
+        window.addEventListener("mousedown", this.removeLast);
+        if (this.type === "file") {
+        } else {
+          if (this.type === "folder") {
+            this.type = "openfolder";
+            this.open = true;
+          } else {
+            this.type = "folder";
+            this.open = false;
+          }
+        }
+      }}>
+            <div style="padding-left: ${leftPad}px">
+             ${icon}
+            <span class="name">${this.key}</span>
+            </div>
+          </div>
+          ${this.open ? new Tree({ target: this.value, depth: this.parent.depth + 1 }) : ""}
+        </li>
+      `;
+    }
+  };
+  customElements.define("visualscript-tree-item", TreeItem);
+
+  // src/components/tree/Tree.ts
+  var Tree = class extends s4 {
+    constructor(props = { target: {} }) {
+      super();
+      this.depth = 0;
+      this.set = async (target = {}) => {
+        this.target = target;
+        this.keys = Object.keys(this.target);
+      };
+      this.getElement = async (key, o12) => {
+        const value = o12[key];
+        let type7 = value.constructor.name === "Object" ? "folder" : "file";
+        const treeItem = new TreeItem({
+          key,
+          type: type7,
+          value,
+          parent: this
+        });
+        return treeItem;
+      };
+      if (props.depth)
+        this.depth = props.depth;
+      this.set(props.target);
+    }
+    static get styles() {
+      return r`
+
+    :host * {
+      box-sizing: border-box;
+    }
+
+    :host > * {
+      background: white;
+      height: 100%;
+      width: 100%;
+    }
+
+    ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        font-size: 90%;
+    }
+
+    .container {
+      width: 100%;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: scroll;
+      height: 100%;
+    }
+
+    .info {
+      display: flex;
+      align-items: center;
+    }
+
+    .name {
+      padding-right: 10px;
+    }
+
+    .value {
+      font-size: 80%;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :host > * {
+        background-color: rgb(60, 60, 60);
+      }
+    }
+
+    `;
+    }
+    static get properties() {
+      return {
+        keys: {
+          type: Object,
+          reflect: true
+        },
+        depth: {
+          type: Number,
+          reflect: true
+        }
+      };
+    }
+    render() {
+      const content = this.keys?.map((key) => this.getElement(key, this.target));
+      return c2(Promise.all(content).then((data) => {
+        return $`
+          <ul class="container">
+                ${data}
+          </ul>
+      `;
+      }), $`<span>Loading...</span>`);
+    }
+  };
+  customElements.define("visualscript-tree", Tree);
+
   // examples/editor/external/freerange/index.esm.js
   var __defProp2 = Object.defineProperty;
-  var __export = (target, all) => {
+  var __export2 = (target, all) => {
     for (var name2 in all)
       __defProp2(target, name2, { get: all[name2], enumerable: true });
   };
@@ -6501,7 +6759,7 @@ slot {
     return { mimeType, zipped: isZipped, suffix: sfx };
   };
   var gzip_exports = {};
-  __export(gzip_exports, {
+  __export2(gzip_exports, {
     decode: () => decode,
     encode: () => encode,
     suffixes: () => suffixes,
@@ -10490,7 +10748,7 @@ slot {
   var type = "application/x-gzip";
   var suffixes = "gz";
   var text_exports = {};
-  __export(text_exports, {
+  __export2(text_exports, {
     decode: () => decode2,
     encode: () => encode2,
     suffixes: () => suffixes2,
@@ -10695,7 +10953,7 @@ slot {
   var iterate_default = iterAsync;
   var useRawArrayBuffer = ["nii", "nwb"];
   var RangeFile = class {
-    constructor(file, options) {
+    constructor(file2, options) {
       this.rangeConfig = null;
       this.rangeSupported = false;
       this.createFile = async (buffer, oldFile = this.file, create = false) => {
@@ -10710,11 +10968,11 @@ slot {
         }
         return newFile;
       };
-      this.loadFileInfo = (file2 = this.file) => {
-        if (file2) {
-          this.name = file2.name;
-          this.type = file2.type;
-          const { mimeType, zipped: zipped2, suffix: suffix2 } = get(file2.type, file2.name, this.system.codecs);
+      this.loadFileInfo = (file3 = this.file) => {
+        if (file3) {
+          this.name = file3.name;
+          this.type = file3.type;
+          const { mimeType, zipped: zipped2, suffix: suffix2 } = get(file3.type, file3.name, this.system.codecs);
           this.mimeType = mimeType;
           this.zipped = zipped2;
           this.suffix = suffix2;
@@ -10858,10 +11116,10 @@ slot {
         }
       };
       this.save = async (force = !!this.remote) => {
-        const file2 = await this.sync(force, true);
-        if (file2 instanceof Blob) {
+        const file3 = await this.sync(force, true);
+        if (file3 instanceof Blob) {
           const writable = await this.fileSystemHandle.createWritable();
-          const stream = file2.stream();
+          const stream = file3.stream();
           const tic = performance.now();
           await stream.pipeTo(writable);
           const toc = performance.now();
@@ -11056,20 +11314,20 @@ slot {
         else
           return data;
       };
-      if (file.constructor.name === "FileSystemFileHandle") {
-        this.fileSystemHandle = file;
+      if (file2.constructor.name === "FileSystemFileHandle") {
+        this.fileSystemHandle = file2;
       } else
-        this.file = file;
+        this.file = file2;
       this.config = options;
       this.debug = options.debug;
       this.system = options.system;
       this.path = options.path;
-      this.method = file.origin != void 0 && file.path != void 0 ? "remote" : "native";
+      this.method = file2.origin != void 0 && file2.path != void 0 ? "remote" : "native";
       if (this.method === "remote") {
-        this.remote = file;
-        const split = file.path.split("/");
-        file.name = split[split.length - 1];
-        this.remoteOptions = file.options;
+        this.remote = file2;
+        const split = file2.path.split("/");
+        file2.name = split[split.length - 1];
+        this.remoteOptions = file2.options;
         this.type = null;
       }
       if (this.file)
@@ -11081,7 +11339,7 @@ slot {
     }
   };
   var codecs_exports = {};
-  __export(codecs_exports, {
+  __export2(codecs_exports, {
     csv: () => csv_exports,
     gzip: () => gzip_exports,
     js: () => js_exports,
@@ -11090,7 +11348,7 @@ slot {
     tsv: () => tsv_exports
   });
   var json_exports = {};
-  __export(json_exports, {
+  __export2(json_exports, {
     decode: () => decode4,
     encode: () => encode5,
     suffixes: () => suffixes3,
@@ -11104,14 +11362,14 @@ slot {
     return JSON.parse(textContent || `{}`);
   };
   var tsv_exports = {};
-  __export(tsv_exports, {
+  __export2(tsv_exports, {
     decode: () => decode6,
     encode: () => encode7,
     suffixes: () => suffixes5,
     type: () => type5
   });
   var csv_exports = {};
-  __export(csv_exports, {
+  __export2(csv_exports, {
     decode: () => decode5,
     encode: () => encode6,
     suffixes: () => suffixes4,
@@ -11157,7 +11415,7 @@ slot {
   var encode7 = (arr) => encode6(arr, "	");
   var decode6 = (arr) => decode5(arr, "	");
   var js_exports = {};
-  __export(js_exports, {
+  __export2(js_exports, {
     decode: () => decode7,
     encode: () => encode8,
     suffixes: () => suffixes6,
@@ -11267,8 +11525,8 @@ ${text}`;
       this.getType = (suffix2) => this.suffixToType[suffix2];
       this.decode = (o12, type7, name2, config) => decode_default(o12, type7, name2, config, void 0, this);
       this.encode = (o12, type7, name2, config) => encode_default(o12, type7, name2, config, void 0, this);
-      this.hasDependencies = (file) => {
-        return file.mimeType === "application/javascript";
+      this.hasDependencies = (file2) => {
+        return file2.mimeType === "application/javascript";
       };
       if (!Array.isArray(codecsInput))
         codecsInput = [codecsInput];
@@ -11288,28 +11546,28 @@ ${text}`;
   var open = async (path, config) => {
     config = Object.assign({}, config);
     const useNative = !!config.system?.native;
-    let file = config.system.files.list.get(path);
-    if (file)
-      return file;
+    let file2 = config.system.files.list.get(path);
+    if (file2)
+      return file2;
     else {
       if (useNative && config.system.openNative instanceof Function)
-        file = await config.system.openNative(path, config);
+        file2 = await config.system.openNative(path, config);
       else {
         try {
-          file = await config.system.openRemote(path, config);
+          file2 = await config.system.openRemote(path, config);
         } catch (e11) {
           console.warn("Remote failed", e11);
         }
       }
-      if (file)
-        return file;
+      if (file2)
+        return file2;
       else
         console.error(`Could not open ${path}...`);
     }
   };
   var open_default = open;
-  var createFile = (file = {}, path, system) => {
-    return Object.assign(file, {
+  var createFile = (file2 = {}, path, system) => {
+    return Object.assign(file2, {
       origin: system.root,
       path,
       options: {
@@ -11317,15 +11575,15 @@ ${text}`;
       }
     });
   };
-  var load = async (file, config) => {
+  var load = async (file2, config) => {
     let { path, system, codecs, debug } = config;
     if (!path)
-      path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? "";
+      path = file2.webkitRelativePath ?? file2.relativePath ?? file2.path ?? "";
     config.path = path;
     let fileConfig = config;
-    if (!(file instanceof RangeFile)) {
+    if (!(file2 instanceof RangeFile)) {
       if (system.native) {
-        if (file.constructor.name !== "FileSystemFileHandle") {
+        if (file2.constructor.name !== "FileSystemFileHandle") {
           const openInfo = await open_default(path, {
             path,
             system,
@@ -11334,28 +11592,28 @@ ${text}`;
             debug
           });
           if (openInfo && openInfo.constructor.name === "FileSystemDirectoryHandle") {
-            file = openInfo;
+            file2 = openInfo;
           }
         }
       } else {
         if (fileConfig.system.root) {
           const directoryPath = new URL(fileConfig.system.root).pathname.split("/");
           const url = new URL(fileConfig.path);
-          path = file.path = fileConfig.path = url.pathname.split("/").filter((str, i9) => directoryPath?.[i9] != str).join("/");
+          path = file2.path = fileConfig.path = url.pathname.split("/").filter((str, i9) => directoryPath?.[i9] != str).join("/");
         } else
-          path = file.path = fileConfig.path;
+          path = file2.path = fileConfig.path;
       }
-      file = new RangeFile(file, fileConfig);
-      await file.init();
+      file2 = new RangeFile(file2, fileConfig);
+      await file2.init();
     }
-    system.add(file);
-    return file;
+    system.add(file2);
+    return file2;
   };
-  var createFile2 = (file = {}, path, system) => {
+  var createFile2 = (file2 = {}, path, system) => {
     if (system.native)
-      return file;
+      return file2;
     else
-      return createFile(file, path, system);
+      return createFile(file2, path, system);
   };
   var saveEach = async (rangeFile, config, counter, length) => {
     await rangeFile.save(config.force);
@@ -11383,8 +11641,8 @@ ${text}`;
       const fileName = splitURL.pop();
       let blob = new Blob([info.buffer], { type: info.type });
       blob.name = fileName;
-      const file = createFile(blob, info.url, system);
-      const rangeFile = await system.load(file, info.url);
+      const file2 = createFile(blob, info.url, system);
+      const rangeFile = await system.load(file2, info.url);
       return rangeFile;
     });
   };
@@ -11401,15 +11659,15 @@ ${text}`;
             const target = o12[key];
             if (typeof target === "string") {
               const path = `${response.url}/${target}`;
-              const file = createFile(void 0, path, config.system);
-              files.push({ file, path });
+              const file2 = createFile(void 0, path, config.system);
+              files.push({ file: file2, path });
             } else
               drill(target);
           }
         };
         drill(datasets);
         let filesIterable = files.entries();
-        await iterate_default(filesIterable, async ([i9, { file, path }]) => await config.system.load(file, path));
+        await iterate_default(filesIterable, async ([i9, { file: file2, path }]) => await config.system.load(file2, path));
       } else
         throw "Endpoint is not a freerange filesystem!";
     }).catch((e11) => {
@@ -11452,8 +11710,8 @@ ${text}`;
             if (fileName && suffix2) {
               const path2 = this.name;
               this.root = directory(path2);
-              const file = await this.open(fileName);
-              await file.body;
+              const file2 = await this.open(fileName);
+              await file2.body;
             } else {
               await this.mountRemote(this.name, mountConfig).catch((e11) => console.warn("System initialization failed.", e11));
             }
@@ -11494,11 +11752,11 @@ ${text}`;
         let drill = async (target2, base) => {
           for (let key in target2) {
             const newBase = get2(key, base);
-            const file = target2[key];
-            if (file instanceof RangeFile)
-              await system.load(file, get2(key, base));
+            const file2 = target2[key];
+            if (file2 instanceof RangeFile)
+              await system.load(file2, get2(key, base));
             else
-              await drill(file, newBase);
+              await drill(file2, newBase);
           }
         };
         await drill(target, path);
@@ -11520,18 +11778,18 @@ ${text}`;
       this.checkToLoad = (name22) => {
         return this.ignore.reduce((a5, b3) => a5 * (name22?.includes(b3) ? 0 : 1), 1);
       };
-      this.load = async (file, path, dependent) => {
+      this.load = async (file2, path, dependent) => {
         const existingFile = this.files.list.get(path);
         if (existingFile)
           return existingFile;
         else {
-          if (!file.name)
-            file.name = name(path);
+          if (!file2.name)
+            file2.name = name(path);
           if (!this.native)
-            file = createFile(file, path, this);
-          const toLoad = this.checkToLoad(file.name ?? file.path ?? path);
+            file2 = createFile(file2, path, this);
+          const toLoad = this.checkToLoad(file2.name ?? file2.path ?? path);
           if (toLoad) {
-            const rangeFile = await load(file, {
+            const rangeFile = await load(file2, {
               path,
               system: this,
               debug: this.debug,
@@ -11544,19 +11802,19 @@ ${text}`;
               this.dependencies[dependent].set(rangeFile.path, rangeFile);
               if (!this.dependents[rangeFile.path])
                 this.dependents[rangeFile.path] = /* @__PURE__ */ new Map();
-              const file2 = this.files.list.get(dependent);
-              this.dependents[rangeFile.path].set(file2.path, file2);
+              const file22 = this.files.list.get(dependent);
+              this.dependents[rangeFile.path].set(file22.path, file22);
             }
             return rangeFile;
           } else
-            console.warn(`Ignoring ${file.name}`);
+            console.warn(`Ignoring ${file2.name}`);
         }
       };
-      this.add = (file) => {
-        if (!this.files.list.has(file.path)) {
-          this.groupConditions.forEach((func) => func(file, file.path, this.files));
+      this.add = (file2) => {
+        if (!this.files.list.has(file2.path)) {
+          this.groupConditions.forEach((func) => func(file2, file2.path, this.files));
         } else
-          console.warn(`${this.name}/${file.path} already exists!`);
+          console.warn(`${this.name}/${file2.path} already exists!`);
       };
       this.isNative = () => false;
       this.openRemote = open_default2;
@@ -11583,7 +11841,7 @@ ${text}`;
       this.writable = systemInfo.writable;
       this.progress = systemInfo.progress;
       this.codecs = new Codecs([codecs_exports, systemInfo.codecs]);
-      this.addGroup("system", {}, (file, path, files) => {
+      this.addGroup("system", {}, (file2, path, files) => {
         let target = files.system;
         let split = path.split("/");
         split = split.slice(0, split.length - 1);
@@ -11593,18 +11851,18 @@ ${text}`;
               target[k3] = {};
             target = target[k3];
           });
-        target[file.name] = file;
+        target[file2.name] = file2;
       });
-      this.addGroup("types", {}, (file, _3, files) => {
-        const suffix2 = file.suffix ?? file.name;
+      this.addGroup("types", {}, (file2, _3, files) => {
+        const suffix2 = file2.suffix ?? file2.name;
         if (suffix2) {
           if (!files.types[suffix2])
             files.types[suffix2] = [];
-          files.types[suffix2].push(file);
+          files.types[suffix2].push(file2);
         }
       });
       this.addGroup("n", 0, (_3, __, files) => files.n++);
-      this.addGroup("list", /* @__PURE__ */ new Map(), (file, _3, files) => files.list.set(file.path, file));
+      this.addGroup("list", /* @__PURE__ */ new Map(), (file2, _3, files) => files.list.set(file2.path, file2));
     }
   };
   var openNative = async (path, config) => {
@@ -11642,8 +11900,8 @@ ${text}`;
         });
         if (!fileHandle)
           return;
-        const file = createFile2(fileHandle, path, system);
-        existingFile = await system.load(file, path);
+        const file2 = createFile2(fileHandle, path, system);
+        existingFile = await system.load(file2, path);
       }
       return existingFile;
     } else
@@ -13568,8 +13826,8 @@ ${text}`;
             ignore: ["DS_Store"]
           });
           await this.filesystem.init();
-          const file = await this.filesystem.open(this.source);
-          const plugins = await file.body;
+          const file2 = await this.filesystem.open(this.source);
+          const plugins = await file2.body;
           for (let key in plugins) {
             this.list.add(key);
             const path = plugins[key];
@@ -13624,6 +13882,7 @@ ${text}`;
       this.fileUpdate = 0;
       this.graph = new GraphEditor();
       this.properties = new ObjectEditor();
+      this.tree = new Tree();
       this.setApp = (app2) => {
         this.app = app2;
         this.graph.set(this.app);
@@ -13634,6 +13893,7 @@ ${text}`;
       };
       this.setSystem = async (system) => {
         this.filesystem = system;
+        this.tree.set(system.files.system);
         const files = Array.from(system.files.list.values());
         this.plugins = new Plugins(this.filesystem);
         await this.plugins.init();
@@ -13734,6 +13994,9 @@ ${text}`;
             <visualscript-tab name="Properties">
               ${this.properties}
             </visualscript-tab>
+            <visualscript-tab name="Tree">
+              ${this.tree}
+            </visualscript-tab>
               <visualscript-tab name="Graph">
                ${this.graph}
               </visualscript-tab>
@@ -13785,10 +14048,10 @@ ${text}`;
       await system.save();
     };
     app.oncompile = async () => {
-      const file = system.files.list.get("index.js");
-      if (file) {
+      const file2 = system.files.list.get("index.js");
+      if (file2) {
         editor.setSystem(system);
-        const imported = await file.body;
+        const imported = await file2.body;
         return imported;
       } else
         console.error("Not a valid Brains@Play project...");
