@@ -37,6 +37,15 @@ export class Editor extends LitElement {
       flex-grow: 1;
     }
 
+    #files {
+      display: flex;
+      height: 100%;
+    }
+
+    #files > visualscript-tree {
+      width: 200px;
+    }
+
 
     `;
   }
@@ -97,8 +106,27 @@ export class Editor extends LitElement {
       const previousTabs = new Set(Object.keys(this.fileHistory))
 
       const allProperties = {}
-      await Promise.all(files.map(async f => {
 
+      const importedFileInfo = {}
+      const importedFileMetadata = {}
+
+      // Get All Properties
+      await Promise.all(files.map(async f => {
+        importedFileInfo[f.path] = await this.plugins.module(f.path)
+        importedFileMetadata[f.path] = await this.plugins.metadata(f.path)
+        allProperties[importedFileMetadata[f.path].name] = importedFileInfo[f.path]
+      }))  
+
+
+      const openTabs = {}
+
+      // Add Tab On Click
+      this.tree.onClick = async (key, f) => {
+
+        if (!openTabs[f.path]){
+
+        const metadata = importedFileMetadata[f.path]
+        const imported = importedFileInfo[f.path]
         let tabInfo = this.fileHistory[f.path]
         const plugin = this.plugins.plugins[f.path]
   
@@ -141,15 +169,12 @@ export class Editor extends LitElement {
         // ---------- Update Editors ----------
 
         // Plugin Info
-        const imported = await this.plugins.module(f.path)
-        const metadata = await this.plugins.metadata(f.path)
         if (tabInfo.plugin) tabInfo.plugin.set( imported, metadata )
 
         // Object Editor
         if (tabInfo.object){
           tabInfo.object.set(imported)
           tabInfo.object.header = metadata.name
-          allProperties[metadata.name] = imported
         }
 
         // Code Editor
@@ -161,19 +186,20 @@ export class Editor extends LitElement {
             await f.save()
             await this.app.init()
         }
-      }))  
+      }
+      openTabs[f.path] = true
+    }
 
+    this.properties.set(allProperties)
 
-      this.properties.set(allProperties)
+    // Remove Tabs That No Longer Exist
+    previousTabs.forEach(str => {
+      const info = this.fileHistory[str]
+      info.tab.remove() // Remove
+      delete this.fileHistory[str]
+    })
 
-      // Remove Tabs That No Longer Exist
-      previousTabs.forEach(str => {
-        const info = this.fileHistory[str]
-        info.tab.remove() // Remove
-        delete this.fileHistory[str]
-      })
-
-      this.fileUpdate = this.fileUpdate + 1
+    this.fileUpdate = this.fileUpdate + 1
 
     }
 
@@ -185,13 +211,15 @@ export class Editor extends LitElement {
             <visualscript-tab name="Properties">
               ${this.properties}
             </visualscript-tab>
-            <visualscript-tab name="Tree">
-              ${this.tree}
-            </visualscript-tab>
               <visualscript-tab name="Graph">
                ${this.graph}
               </visualscript-tab>
-              <visualscript-tab name="Files">${this.files}</visualscript-tab>
+              <visualscript-tab name="Files">
+              <div id="files">
+                ${this.tree}
+                ${this.files}
+                </div>
+              </visualscript-tab>
           </visualscript-tab-container>
       `
 

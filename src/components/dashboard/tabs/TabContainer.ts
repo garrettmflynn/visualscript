@@ -35,6 +35,15 @@ export class TabContainer extends LitElement {
     :host * {
       box-sizing: border-box;
     }
+
+    #notabs {
+      width: 100%;
+      height: 100%;
+      display: flex; 
+      align-items: center;
+      justify-content: center;
+      font-size: 80%;
+    }
     `;
   }
     
@@ -101,7 +110,7 @@ export class TabContainer extends LitElement {
 
       return html`
       <visualscript-tab-bar style="${toggles.length < 1 ? 'display: none;' : ''}">${toggles}</visualscript-tab-bar>
-      <slot></slot>
+      <slot><div id="notabs">No Tabs Open</div></slot>
     `
     }
   }

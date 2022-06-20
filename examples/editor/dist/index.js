@@ -4846,6 +4846,7 @@ opacity: 0.5;
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
       height: 100%;
       width: 100%;
+      position: relative;
     }
 
     img {
@@ -4853,11 +4854,9 @@ opacity: 0.5;
     }
 
     .header {
-      padding: 10px 20px;
-      border-top-left-radius: 3px;
-      border-top-right-radius: 3px;
+      padding: 5px 10px;
       font-size: 70%;
-      border-bottom: 1px solid #e3e3e3;
+      text-align: right;
     }
 
     .header span {
@@ -4955,8 +4954,7 @@ opacity: 0.5;
       return c2(Promise.all(content).then((data) => {
         return $`
         <div>
-          <div class="header separate">
-            <span>${this.header}</span>
+          <div class="header">
             ${this.history.length > 0 ? $`<visualscript-button size="extra-small" @click="${() => {
           const historyItem = this.history.pop();
           this.set(historyItem.parent);
@@ -6234,6 +6232,15 @@ slot {
     :host * {
       box-sizing: border-box;
     }
+
+    #notabs {
+      width: 100%;
+      height: 100%;
+      display: flex; 
+      align-items: center;
+      justify-content: center;
+      font-size: 80%;
+    }
     `;
     }
     static get properties() {
@@ -6259,7 +6266,7 @@ slot {
         firstToggle.select(toggles);
       return $`
       <visualscript-tab-bar style="${toggles.length < 1 ? "display: none;" : ""}">${toggles}</visualscript-tab-bar>
-      <slot></slot>
+      <slot><div id="notabs">No Tabs Open</div></slot>
     `;
     }
   };
@@ -6543,6 +6550,7 @@ slot {
   var TreeItem = class extends s4 {
     constructor(props) {
       super();
+      this.type = "folder";
       this.removeLast = () => {
         if (this.li)
           this.li.classList.remove("last");
@@ -6551,7 +6559,9 @@ slot {
       this.key = props.key;
       this.value = props.value;
       this.parent = props.parent;
-      this.type = props.type ?? "folder";
+      this.onClick = props.onClick;
+      if (props.type)
+        this.type = props.type;
     }
     static get styles() {
       return r`
@@ -6619,10 +6629,11 @@ slot {
         <li>
         <div @click=${() => {
         this.li = this.shadowRoot.querySelector("li");
-        const icon2 = this.shadowRoot.querySelector("visualscript-icon");
         this.li.classList.add("last");
         window.addEventListener("mousedown", this.removeLast);
         if (this.type === "file") {
+          if (this.onClick instanceof Function)
+            this.onClick(this.key, this.value);
         } else {
           if (this.type === "folder") {
             this.type = "openfolder";
@@ -6638,7 +6649,7 @@ slot {
             <span class="name">${this.key}</span>
             </div>
           </div>
-          ${this.open ? new Tree({ target: this.value, depth: this.parent.depth + 1 }) : ""}
+          ${this.open ? new Tree({ target: this.value, depth: this.parent.depth + 1, onClick: this.onClick }) : ""}
         </li>
       `;
     }
@@ -6661,12 +6672,15 @@ slot {
           key,
           type: type7,
           value,
-          parent: this
+          parent: this,
+          onClick: this.onClick
         });
         return treeItem;
       };
       if (props.depth)
         this.depth = props.depth;
+      if (props.onClick)
+        this.onClick = props.onClick;
       this.set(props.target);
     }
     static get styles() {
@@ -6727,6 +6741,10 @@ slot {
         },
         depth: {
           type: Number,
+          reflect: true
+        },
+        onClick: {
+          type: Function,
           reflect: true
         }
       };
@@ -13913,49 +13931,59 @@ ${text}`;
         await this.plugins.init();
         const previousTabs = new Set(Object.keys(this.fileHistory));
         const allProperties = {};
+        const importedFileInfo = {};
+        const importedFileMetadata = {};
         await Promise.all(files.map(async (f3) => {
-          let tabInfo = this.fileHistory[f3.path];
-          const plugin = this.plugins.plugins[f3.path];
-          previousTabs.delete(f3.path);
-          if (!tabInfo) {
-            const tab = new Tab();
-            tabInfo = { tab };
-            tab.name = `${f3.path}`;
-            let container = new TabContainer();
-            const codeTab = new Tab({ name: "Code" });
-            if (plugin.module) {
-              const infoTab = new Tab({ name: "Info" });
-              tabInfo.plugin = new Plugin();
-              infoTab.appendChild(tabInfo.plugin);
-              container.addTab(infoTab);
-              const objectTab = new Tab({ name: "Properties" });
-              tabInfo.object = new ObjectEditor();
-              objectTab.appendChild(tabInfo.object);
-              container.addTab(objectTab);
-            }
-            tabInfo.code = new CodeEditor();
-            codeTab.appendChild(tabInfo.code);
-            container.addTab(codeTab);
-            tab.appendChild(container);
-            this.files.addTab(tab);
-            this.fileHistory[f3.path] = tabInfo;
-          }
-          const imported = await this.plugins.module(f3.path);
-          const metadata = await this.plugins.metadata(f3.path);
-          if (tabInfo.plugin)
-            tabInfo.plugin.set(imported, metadata);
-          if (tabInfo.object) {
-            tabInfo.object.set(imported);
-            tabInfo.object.header = metadata.name;
-            allProperties[metadata.name] = imported;
-          }
-          const fileText = await f3.text;
-          tabInfo.code.value = fileText;
-          tabInfo.code.onInput = (ev) => f3.text = ev.target.value, tabInfo.code.onSave = async () => {
-            await f3.save();
-            await this.app.init();
-          };
+          importedFileInfo[f3.path] = await this.plugins.module(f3.path);
+          importedFileMetadata[f3.path] = await this.plugins.metadata(f3.path);
+          allProperties[importedFileMetadata[f3.path].name] = importedFileInfo[f3.path];
         }));
+        const openTabs = {};
+        this.tree.onClick = async (key, f3) => {
+          if (!openTabs[f3.path]) {
+            const metadata = importedFileMetadata[f3.path];
+            const imported = importedFileInfo[f3.path];
+            let tabInfo = this.fileHistory[f3.path];
+            const plugin = this.plugins.plugins[f3.path];
+            previousTabs.delete(f3.path);
+            if (!tabInfo) {
+              const tab = new Tab();
+              tabInfo = { tab };
+              tab.name = `${f3.path}`;
+              let container = new TabContainer();
+              const codeTab = new Tab({ name: "Code" });
+              if (plugin.module) {
+                const infoTab = new Tab({ name: "Info" });
+                tabInfo.plugin = new Plugin();
+                infoTab.appendChild(tabInfo.plugin);
+                container.addTab(infoTab);
+                const objectTab = new Tab({ name: "Properties" });
+                tabInfo.object = new ObjectEditor();
+                objectTab.appendChild(tabInfo.object);
+                container.addTab(objectTab);
+              }
+              tabInfo.code = new CodeEditor();
+              codeTab.appendChild(tabInfo.code);
+              container.addTab(codeTab);
+              tab.appendChild(container);
+              this.files.addTab(tab);
+              this.fileHistory[f3.path] = tabInfo;
+            }
+            if (tabInfo.plugin)
+              tabInfo.plugin.set(imported, metadata);
+            if (tabInfo.object) {
+              tabInfo.object.set(imported);
+              tabInfo.object.header = metadata.name;
+            }
+            const fileText = await f3.text;
+            tabInfo.code.value = fileText;
+            tabInfo.code.onInput = (ev) => f3.text = ev.target.value, tabInfo.code.onSave = async () => {
+              await f3.save();
+              await this.app.init();
+            };
+          }
+          openTabs[f3.path] = true;
+        };
         this.properties.set(allProperties);
         previousTabs.forEach((str) => {
           const info = this.fileHistory[str];
@@ -13990,6 +14018,15 @@ ${text}`;
       flex-grow: 1;
     }
 
+    #files {
+      display: flex;
+      height: 100%;
+    }
+
+    #files > visualscript-tree {
+      width: 200px;
+    }
+
 
     `;
     }
@@ -14008,13 +14045,15 @@ ${text}`;
             <visualscript-tab name="Properties">
               ${this.properties}
             </visualscript-tab>
-            <visualscript-tab name="Tree">
-              ${this.tree}
-            </visualscript-tab>
               <visualscript-tab name="Graph">
                ${this.graph}
               </visualscript-tab>
-              <visualscript-tab name="Files">${this.files}</visualscript-tab>
+              <visualscript-tab name="Files">
+              <div id="files">
+                ${this.tree}
+                ${this.files}
+                </div>
+              </visualscript-tab>
           </visualscript-tab-container>
       `;
     }

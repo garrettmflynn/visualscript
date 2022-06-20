@@ -31,6 +31,7 @@ export class ObjectEditor extends LitElement {
       box-shadow: 0 1px 5px 0 rgb(0 0 0 / 20%);
       height: 100%;
       width: 100%;
+      position: relative;
     }
 
     img {
@@ -38,11 +39,9 @@ export class ObjectEditor extends LitElement {
     }
 
     .header {
-      padding: 10px 20px;
-      border-top-left-radius: 3px;
-      border-top-right-radius: 3px;
+      padding: 5px 10px;
       font-size: 70%;
-      border-bottom: 1px solid #e3e3e3;
+      text-align: right;
     }
 
     .header span {
@@ -247,8 +246,7 @@ export class ObjectEditor extends LitElement {
 
         return html`
         <div>
-          <div class="header separate">
-            <span>${this.header}</span>
+          <div class="header">
             ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
                 const historyItem = this.history.pop()
                 this.set(historyItem.parent)

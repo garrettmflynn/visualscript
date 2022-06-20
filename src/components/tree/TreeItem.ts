@@ -8,7 +8,8 @@ export type TreeItemProps = {
   type?: string | 'folder' | 'openfolder' | 'file',
   key: keyType,
   parent: Tree,
-  value: any
+  value: any,
+  onClick: Function
 }
 
 export class TreeItem extends LitElement {
@@ -74,12 +75,13 @@ export class TreeItem extends LitElement {
       };
     }
 
-    type: TreeItemProps['type']
+    type: TreeItemProps['type'] = 'folder'
     key: TreeItemProps['key']
     li?: HTMLLIElement
     value: TreeItemProps['value'];
     parent: TreeItemProps['parent'];
     open: boolean;
+    onClick: TreeItemProps['onClick'];
 
     constructor(props: TreeItemProps) {
       super();
@@ -87,9 +89,10 @@ export class TreeItem extends LitElement {
       this.key = props.key
       this.value = props.value
       this.parent = props.parent
+      this.onClick = props.onClick
 
     //   this.set(props.target)
-      this.type = props.type ?? 'folder'
+      if (props.type) this.type = props.type 
     }
 
     removeLast = () => {
@@ -107,14 +110,13 @@ export class TreeItem extends LitElement {
         <div @click=${() => {
 
             this.li = this.shadowRoot.querySelector('li')
-            const icon = this.shadowRoot.querySelector('visualscript-icon') as Icon
 
             this.li.classList.add('last')
             window.addEventListener('mousedown', this.removeLast)
     
             // Switch Icons
             if (this.type === 'file'){
-
+                if (this.onClick instanceof Function) this.onClick(this.key, this.value)
             } else {
               if (this.type === 'folder') {
                 this.type = 'openfolder'
@@ -131,7 +133,7 @@ export class TreeItem extends LitElement {
             <span class="name">${this.key}</span>
             </div>
           </div>
-          ${(this.open) ? new Tree({target: this.value, depth: this.parent.depth + 1}) : ''}
+          ${(this.open) ? new Tree({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick}) : ''}
         </li>
       `
     }

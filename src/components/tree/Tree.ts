@@ -6,7 +6,8 @@ import { TreeItem } from './TreeItem';
 type keyType = string
 export type TreeProps = {
   target: {[x:string]: any}
-  depth?: number
+  depth?: number,
+  onClick?: Function
 }
 
 export class Tree extends LitElement {
@@ -75,11 +76,16 @@ export class Tree extends LitElement {
         depth: {
           type: Number,
           reflect: true,
+        },
+        onClick: {
+          type: Function,
+          reflect: true,
         }
       };
     }
 
     target: TreeProps['target']
+    onClick: TreeProps['onClick']
     keys: (keyType)[]
     depth: TreeProps['depth'] = 0
 
@@ -87,6 +93,8 @@ export class Tree extends LitElement {
       super();
 
       if (props.depth) this.depth = props.depth
+      if (props.onClick) this.onClick = props.onClick
+
       this.set(props.target)
     }
 
@@ -104,7 +112,8 @@ export class Tree extends LitElement {
         key,
         type,
         value,
-        parent: this
+        parent: this,
+        onClick: this.onClick
       })
 
       return treeItem
