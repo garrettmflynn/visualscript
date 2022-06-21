@@ -83,6 +83,6 @@ export const dragElement = (container, dragItem, context, onMove, onDown,onUp) =
     function setTranslate(xPos, yPos, el) {
 
       // Add default scale
-      el.style.transform = `scale(${defaultScale}) translate3d(${xPos}px,${yPos}px, 0)`;
+      el.style.transform = `scale(${defaultScale}) translate(${xPos}px,${yPos}px)`;
     }
 }

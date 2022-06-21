@@ -12,6 +12,7 @@ export const tabStyle = css`
   box-sizing: border-box;
   background: inherit;
   display: block;
+  overflow: hidden;
 }
 
 slot {

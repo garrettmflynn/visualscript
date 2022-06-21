@@ -5139,14 +5139,984 @@ opacity: 0.5;
   };
   customElements.define("visualscript-code-editor", CodeEditor);
 
-  // src/components/editors/GraphEditor.ts
+  // src/components/graph/Edge.ts
+  var GraphEdge = class extends s4 {
+    constructor(props = {}) {
+      super();
+      this.svgInfo = {
+        size: 500,
+        radius: 5
+      };
+      this.link = (info) => {
+        if (this.toResolve) {
+          const port = info[this.toResolve.type];
+          if (port) {
+            const res = this.resolveIO(port, this.toResolve.type, this.toResolve.callback);
+            if (res) {
+              this.toResolve.callback(true);
+              this.toResolve = null;
+            } else
+              return false;
+          } else
+            false;
+        } else
+          return false;
+      };
+      this.getOtherType = (type7) => {
+        return type7 === "input" ? "output" : "input";
+      };
+      this.updated = async () => {
+        this.element = this.shadowRoot.querySelector("svg");
+        if (!this.workspace)
+          this.workspace = this.parentNode.parentNode.host;
+        const vb = this.element.getAttribute("viewBox").split(" ").map((v3) => +v3);
+        this.box = {
+          xMin: vb[0],
+          xMax: vb[0] + vb[2] - 1,
+          yMin: vb[1],
+          yMax: vb[1] + vb[3] - 1
+        };
+        const node = {
+          p1: null,
+          p2: null,
+          c1: null,
+          c2: null,
+          c3: null,
+          l1: null,
+          l2: null,
+          curve: null
+        };
+        "p1,p2,c1,c2,c3,l1,l2,curve".split(",").map((s10) => {
+          node[s10] = this.element.getElementsByClassName(s10)[0];
+        });
+        this.node = node;
+        await this.init().catch((e11) => {
+          this.resolveReady.reject(e11);
+        });
+        this.resolveReady.resolve(true);
+      };
+      this.getEdgeName = ({ input, output } = {
+        input: this.input,
+        output: this.output
+      }) => {
+        return `${output.node.id}-${output.tag}_${input.node.id}-${input.tag}`;
+      };
+      this.resolveIO = (el, typeNeeded, callback) => {
+        let hasType = this.getOtherType(typeNeeded);
+        if (el instanceof GraphPort) {
+          const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }));
+          if (expectedID) {
+            console.warn("Edge already exists...");
+            return false;
+          } else if (this[hasType].shadowRoot.contains(el)) {
+            console.warn("Cannot connect to self...");
+            return false;
+          } else {
+            this[typeNeeded] = el;
+            callback(true);
+            return true;
+          }
+        } else {
+          console.error("Edge not completed...");
+          return false;
+        }
+      };
+      this.mouseAsTarget = (type7, upCallback) => {
+        let label = type7 === "output" ? "p1" : "p2";
+        let otherType = this.getOtherType(type7);
+        let onMouseMove = (e11) => {
+          this.resize();
+          let dims = this[otherType].shadowRoot.querySelector(`.${type7}`).getBoundingClientRect();
+          let svgO = this.svgPoint(this.element, dims.left + dims.width / 2, dims.top + dims.height / 2);
+          let svgP = this.svgPoint(this.element, e11.clientX, e11.clientY);
+          if (isNaN(svgP.x))
+            svgP.x = svgO.x;
+          if (isNaN(svgP.y))
+            svgP.y = svgO.y;
+          this.updateElement(this.node[label], {
+            cx: svgP.x,
+            cy: svgP.y
+          });
+          let points = type7 === "output" ? [svgP, svgO] : [svgO, svgP];
+          this.updateControlPoints(...points);
+          this.drawCurve();
+        };
+        this.workspace.element.addEventListener("mousemove", onMouseMove);
+        this.workspace.element.dispatchEvent(new Event("mousemove"));
+        this.toResolve = {
+          type: type7,
+          callback: (res) => {
+            upCallback(res);
+            this.workspace.element.removeEventListener("mouseup", onMouseUp);
+            this.workspace.element.removeEventListener("mousemove", onMouseMove);
+          }
+        };
+        let onMouseUp = (e11) => this.resolveIO(e11.target, type7, this.toResolve.callback);
+        this.workspace.element.addEventListener("mouseup", onMouseUp);
+      };
+      this.init = async () => {
+        return new Promise(async (resolve, reject) => {
+          let res = await this.insert();
+          let match, compatible, outputType, targetType;
+          if (res === true) {
+            let coerceType = (t7) => {
+              if (t7 === "float")
+                return "number";
+              else if (t7 === "int")
+                return "number";
+              else
+                return t7;
+            };
+            outputType = coerceType(this.output.output.getAttribute("data-visualscript-type"));
+            targetType = coerceType(this.input.input.getAttribute("data-visualscript-type"));
+            let checkCompatibility = (output, input) => {
+              return output == input || (output === void 0 || input === void 0) || input instanceof Object && output instanceof Object;
+            };
+            compatible = checkCompatibility(outputType, targetType);
+          }
+          if (res === true && match == null && compatible)
+            resolve(true);
+          else {
+            reject(res);
+          }
+        });
+      };
+      this.insert = () => {
+        return new Promise(async (resolve) => {
+          const workspace = this.workspace ?? this.output?.node?.workspace ?? this.input?.node?.workspace;
+          const types = ["input", "output"];
+          types.forEach((t7) => {
+            if (this[t7] == null) {
+              workspace.editing = this;
+              this.mouseAsTarget(t7, (res) => {
+                if (res === true) {
+                  workspace.editing = null;
+                  resolve(true);
+                } else {
+                  resolve(res);
+                }
+              });
+            }
+          });
+          this.drawCurve();
+          types.forEach((t7) => {
+          });
+          if (this.output && this.input)
+            resolve(true);
+        });
+      };
+      this._activate = async () => {
+        console.log("_activate function not added again...");
+        this.addReactivity();
+      };
+      this.dragHandler = (event) => {
+        event.preventDefault();
+        const target = event.target;
+        const type7 = event.type;
+        const svgP = this.svgPoint(this.element, event.clientX, event.clientY);
+        if (!this.drag && type7 === "pointerdown" && target.classList.contains("control")) {
+          this.drag = {
+            node: target,
+            start: this.getControlPoint(target),
+            cursor: svgP
+          };
+          this.drag.node.classList.add("drag");
+        }
+        if (this.drag && type7 === "pointermove") {
+          this.updateElement(this.drag.node, {
+            cx: Math.max(this.box.xMin, Math.min(this.drag.start.x + svgP.x - this.drag.cursor.x, this.box.xMax)),
+            cy: Math.max(this.box.yMin, Math.min(this.drag.start.y + svgP.y - this.drag.cursor.y, this.box.yMax))
+          });
+          this.drawCurve();
+        }
+        if (this.drag && type7 === "pointerup") {
+          this.drag.node.classList.remove("drag");
+          this.drag = null;
+        }
+      };
+      this.svgPoint = (svg, x3, y3) => {
+        var pt = new DOMPoint(x3, y3);
+        pt.x = x3;
+        pt.y = y3;
+        return pt.matrixTransform(svg.getScreenCTM().inverse());
+      };
+      this.updateElement = (element, attr) => {
+        for (let a5 in attr) {
+          let v3 = attr[a5];
+          element.setAttribute(a5, isNaN(v3) ? v3 : Math.round(v3));
+        }
+      };
+      this.getControlPoint = (circle) => {
+        return {
+          x: Math.round(+circle.getAttribute("cx")),
+          y: Math.round(+circle.getAttribute("cy"))
+        };
+      };
+      this.updateControlPoints = (p1, p22) => {
+        let curveMag = 0.5 * Math.abs(p22.y - p1.y);
+        this.updateElement(this.node["c1"], {
+          cx: p1.x + curveMag,
+          cy: p1.y
+        });
+        this.updateElement(this.node["c2"], {
+          cx: p22.x - curveMag,
+          cy: p22.y
+        });
+        this.updateElement(this.node["c3"], {
+          cx: (p1.x + p22.x) / 2,
+          cy: (p1.y + p22.y) / 2
+        });
+      };
+      this.drawCurve = () => {
+        const p1 = this.getControlPoint(this.node.p1), p22 = this.getControlPoint(this.node.p2), c1 = this.getControlPoint(this.node.c1), c22 = this.getControlPoint(this.node.c2), c32 = this.getControlPoint(this.node.c3);
+        const d4 = `M${p1.x},${p1.y} Q${c1.x},${c1.y} ${c32.x},${c32.y} T${p22.x},${p22.y}` + (this.node.curve.classList.contains("fill") ? " Z" : "");
+        this.updateElement(this.node.curve, { d: d4 });
+      };
+      this.addReactivity = () => {
+        this.node["curve"].addEventListener("mouseover", () => {
+          this._onMouseOverEdge();
+        });
+        this.node["curve"].addEventListener("mouseout", () => {
+          this._onMouseOutEdge();
+        });
+        this.node["curve"].addEventListener("click", () => {
+          this._onClickEdge();
+        });
+      };
+      this._onMouseOverEdge = () => {
+        this.node["curve"].style.opacity = `0.3`;
+      };
+      this._onMouseOutEdge = () => {
+        this.node["curve"].style.opacity = `1`;
+      };
+      this._onClickEdge = () => {
+        this.deinit();
+      };
+      this.deinit = () => {
+        this.remove();
+      };
+      this.resize = () => {
+        let arr = [
+          { type: "output", node: "p1" },
+          { type: "input", node: "p2" }
+        ];
+        let svgPorts = arr.map((o12) => {
+          let port = this[o12.type];
+          if (port) {
+            let portDim = port.shadowRoot.querySelector(`.${o12.type}`).getBoundingClientRect();
+            let svgPort = this.svgPoint(this.element, portDim.left + portDim.width / 2, portDim.top + portDim.height / 2);
+            this.updateElement(this.node[o12.node], {
+              cx: svgPort.x,
+              cy: svgPort.y
+            });
+            return svgPort;
+          }
+        });
+        svgPorts = svgPorts.filter((s10) => s10 != void 0);
+        if (svgPorts.length > 1)
+          this.updateControlPoints(...svgPorts);
+        this.drawCurve();
+      };
+      this.output = props.output;
+      this.input = props.input;
+      this.workspace = props.workspace;
+      this.ready = new Promise((resolve, reject) => {
+        this.resolveReady = {
+          resolve: (arg) => {
+            this.id = this.getEdgeName();
+            this.output.setEdge(this);
+            this.input.setEdge(this);
+            resolve(arg);
+          },
+          reject
+        };
+      });
+    }
+    static get styles() {
+      return r`
+
+    :host {
+      box-sizing: border-box;
+    }
+
+    :host {
+        --grid-color: rgb(210, 210, 210);
+    }
+    
+    :host{
+        display: block;
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        background: transparent;
+        /* z-index: 1; */
+    }
+    
+    :host(.editing) {
+      pointer-events: none;
+    }
+      
+    :host svg{
+        display: block;
+        height: 100%;
+        width: 100%;
+        position: relative;
+        background: transparent;
+        touch-action: none;
+        /* z-index: 1; */
+    }
+    
+      :host path {
+        stroke-width: 2;
+        stroke: rgb(60, 60, 60);
+        stroke-linecap: round;
+        fill: none;
+        transition: stroke 0.5s;
+        transition: stroke-width 0.5s;
+        cursor: pointer;
+      }
+    
+      :host path.updated {
+        /* stroke: rgb(255, 105, 97); */
+        stroke-width: 3;
+        stroke: rgb(129, 218, 250);
+    }
+      
+      :host .control {
+        stroke-width: 3;
+        stroke: transparent;
+        fill: transparent;
+        /* fill: #c00;
+        cursor: move; */
+      }
+      
+      /* :host .control:hover, #mysvg .control.drag
+      {
+        fill: #c00;
+        cursor: move;
+      }
+       */
+      :host line
+      {
+        /* stroke-width: 2;
+        stroke: #999;
+        stroke-linecap: round;
+        stroke-dasharray: 5,5; */
+        stroke: transparent;
+        fill: transparent;
+      }  
+
+      @media (prefers-color-scheme: dark) { 
+
+        :host {
+            --grid-color: rgb(45, 45, 45);
+        }
+
+        :host path {
+          stroke: white;
+        }
+        
+      }
+
+    `;
+    }
+    static get properties() {
+      return {
+        keys: {
+          type: Object,
+          reflect: true
+        }
+      };
+    }
+    render() {
+      return $`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.svgInfo.size} ${this.svgInfo.size}">
+          <circle cx="0" cy="0" r="${this.svgInfo.radius}" class="p1 control" />
+          <circle cx="0" cy="0" r="${this.svgInfo.radius}" class="p2 control" />
+
+          <circle cx="0" cy="0" r="${this.svgInfo.radius}" class="c1 control" />
+          <circle cx="0" cy="0" r="${this.svgInfo.radius}" class="c2 control" />
+          <circle cx="0" cy="0" r="${this.svgInfo.radius}" class="c3 control" />
+
+          <line x1="0" y1="0" x2="0" y2="0" class="l1"/>
+          <line x1="0" y1="0" x2="0" y2="0" class="l2"/>
+
+          <path d="M0,0 Q0,0 0,0" class="curve"/>
+    </svg>`;
+    }
+  };
+  customElements.define("visualscript-graph-edge", GraphEdge);
+
+  // src/components/graph/Port.ts
+  var GraphPort = class extends s4 {
+    constructor(props = {}) {
+      super();
+      this.output = document.createElement("div");
+      this.input = document.createElement("div");
+      this.resolving = false;
+      this.edges = /* @__PURE__ */ new Map();
+      this.setEdge = (edge) => {
+        this.edges.set(edge.id, edge);
+        this.node.setEdge(edge);
+      };
+      this.resolveEdge = async (ev) => {
+        if (!this.resolving) {
+          this.resolving = true;
+          const type7 = ev.path[0].classList.contains("input") ? "input" : "output";
+          if (this.node.workspace)
+            await this.node.workspace.resolveEdge({ [type7]: this });
+          this.resolving = false;
+        }
+      };
+      this.onmousedown = this.resolveEdge;
+      this.onmouseup = (ev) => {
+        if (this.node.workspace.editing instanceof GraphEdge)
+          this.resolveEdge(ev);
+      };
+      this.node = props.node;
+      this.tag = props.tag;
+      this.output.classList.add("port");
+      this.output.classList.add("output");
+      this.input.classList.add("port");
+      this.input.classList.add("input");
+    }
+    static get styles() {
+      return r`
+
+    :host * {
+      box-sizing: border-box;
+    }
+
+    :host {
+        display: block;
+        pointer-events: none;
+        --grid-color: rgb(210, 210, 210);
+    }
+
+    :host > div {
+        width: 100%;
+        display: flex; 
+        align-items: center;
+        justify-content: space-between;
+        color: white;
+        font-size: 8px;
+    }
+
+    .input {
+      transform: translateX(-50%);
+      left: 0;
+    }
+
+    .output {
+      transform: translateX(50%);
+      right: 0;
+    }
+
+    .port {
+      pointer-events: all;
+      width: 10px;
+      height: 10px;
+      background: gray;
+      cursor: pointer;
+      border-radius: 10px;
+      z-index: -1;
+    }
+
+      @media (prefers-color-scheme: dark) { 
+
+        :host {
+            --grid-color: rgb(45, 45, 45);
+        }
+        
+      }
+
+    `;
+    }
+    static get properties() {
+      return {
+        tag: {
+          type: String,
+          reflect: true
+        },
+        keys: {
+          type: Object,
+          reflect: true
+        }
+      };
+    }
+    updated(changedProperties) {
+      this.element = this.shadowRoot.querySelector("div");
+      if (!this.node)
+        this.node = this.parentNode.parentNode.parentNode.host;
+    }
+    render() {
+      return $`
+        <div>
+          ${this.input}
+          ${this.tag}
+          ${this.output}
+        </div>
+      `;
+    }
+  };
+  customElements.define("visualscript-graph-port", GraphPort);
+
+  // src/components/graph/Node.ts
+  var GraphNode = class extends s4 {
+    constructor(props = {}) {
+      super();
+      this.edges = /* @__PURE__ */ new Map();
+      this.ports = /* @__PURE__ */ new Map();
+      this.willUpdate = (updatedProps) => {
+        if (updatedProps.has("x") || updatedProps.has("y")) {
+          this.info.x = this.x;
+          this.info.y = this.y;
+        }
+      };
+      this.setEdge = (edge) => this.edges.set(edge.id, edge);
+      this.addPort = (info) => {
+        const port = new GraphPort(Object.assign({ node: this }, info));
+        this.ports.set(port.tag, port);
+      };
+      this.workspace = props.workspace;
+      this.info = props.info ?? {};
+      this.id = `${this.info.tag}${Math.round(1e4 * Math.random())}`;
+      this.info.x = this.x = props.x ?? this.info.x ?? 0;
+      this.info.y = this.y = props.y ?? this.info.y ?? 0;
+      if (this.info) {
+        this.addPort({
+          tag: "I/O"
+        });
+      }
+    }
+    static get styles() {
+      return r`
+
+    :host {
+      position: absolute;
+      box-sizing: border-box;
+      top: 10px;
+      left: 10px;
+      user-select: none;
+      z-index: 1;
+    }
+
+    :host {
+        --grid-color: rgb(210, 210, 210);
+    }
+
+    :host > div {
+        width: 50px;
+        background: rgb(60,60,60);
+        cursor: move;
+    }
+
+    #header {
+      color: white;
+      font-size: 8px;
+      background: black;
+      padding: 5px;
+      font-weight: 800;
+    }
+
+    #ports visualscript-graph-port{
+      padding: 5px 0px;
+    }
+
+    @media (prefers-color-scheme: dark) { 
+
+      :host {
+          --grid-color: rgb(45, 45, 45);
+      }
+      
+    }
+
+    `;
+    }
+    static get properties() {
+      return {
+        x: {
+          type: Number,
+          reflect: true
+        },
+        y: {
+          type: Number,
+          reflect: true
+        },
+        keys: {
+          type: Object,
+          reflect: true
+        }
+      };
+    }
+    updated(changedProperties) {
+      this.element = this.shadowRoot.querySelector("div");
+      if (!this.workspace)
+        this.workspace = this.parentNode.parentNode.host;
+    }
+    render() {
+      return $`
+
+        <style>
+
+        :host {
+          transform: scale(${1}) translate(${this.x}px, ${this.y}px);
+        }
+
+
+        </style>
+        <div>
+          <div id="header">
+            ${this.info.tag}
+          </div>
+          <div id="ports">
+              ${Array.from(this.ports.values())}
+          </div>
+        </div>
+      `;
+    }
+  };
+  customElements.define("visualscript-graph-node", GraphNode);
+
+  // src/components/graph/utils/drag.ts
+  var dragElement = (workspace, dragItem, onMove, onDown, onUp) => {
+    var active = false;
+    var currentX;
+    var currentY;
+    var initialX;
+    var initialY;
+    var xOffset = 0;
+    var yOffset = 0;
+    var defaultScale = 1;
+    dragItem.shadowRoot.addEventListener("mousedown", dragStart, false);
+    window.addEventListener("mouseup", dragEnd, false);
+    window.addEventListener("mousemove", drag, false);
+    function dragStart(e11) {
+      if (e11.type === "touchstart") {
+        initialX = e11.touches[0].clientX - workspace.context.scale * defaultScale * dragItem.x;
+        initialY = e11.touches[0].clientY - workspace.context.scale * defaultScale * dragItem.y;
+      } else {
+        initialX = e11.clientX - workspace.context.scale * defaultScale * dragItem.x;
+        initialY = e11.clientY - workspace.context.scale * defaultScale * dragItem.y;
+      }
+      if (dragItem.shadowRoot.contains(e11.target)) {
+        if (!(e11.target instanceof GraphPort))
+          active = true;
+        onDown();
+      }
+    }
+    function dragEnd() {
+      initialX = currentX;
+      initialY = currentY;
+      active = false;
+      onUp();
+    }
+    function drag(e11) {
+      if (active) {
+        e11.preventDefault();
+        if (e11.type === "touchmove") {
+          currentX = (e11.touches[0].clientX - initialX) / (workspace.context.scale * defaultScale);
+          currentY = (e11.touches[0].clientY - initialY) / (workspace.context.scale * defaultScale);
+        } else {
+          currentX = (e11.clientX - initialX) / (workspace.context.scale * defaultScale);
+          currentY = (e11.clientY - initialY) / (workspace.context.scale * defaultScale);
+        }
+        dragItem.x = currentX;
+        dragItem.y = currentY;
+        onMove();
+      }
+    }
+  };
+  var drag_default = dragElement;
+
+  // src/components/graph/Workspace.ts
+  var GraphWorkspace = class extends s4 {
+    constructor(props) {
+      super();
+      this.updateCount = 0;
+      this.context = {
+        scale: 1
+      };
+      this.editing = null;
+      this.mouseDown = false;
+      this.translation = { x: 0, y: 0 };
+      this.nodes = /* @__PURE__ */ new Map();
+      this.edges = /* @__PURE__ */ new Map();
+      this.set = async (graph) => {
+        this.graph = graph;
+        this.triggerUpdate();
+      };
+      this.resize = (nodes = Array.from(this.nodes.values())) => {
+        nodes.forEach((node) => node.edges.forEach((e11) => e11.resize()));
+      };
+      this.triggerUpdate = () => {
+        this.updateCount = this.updateCount + 1;
+      };
+      this.resolveEdge = async (info, rerender = true) => {
+        if (!(this.editing instanceof GraphEdge)) {
+          const tempId = `${Math.round(1e4 * Math.random())}`;
+          const edge = new GraphEdge(Object.assign({ workspace: this }, info));
+          this.editing = edge;
+          this.edges.set(tempId, edge);
+          if (rerender)
+            this.triggerUpdate();
+          const res = await edge.ready.catch((e11) => console.error(e11));
+          if (res) {
+            this.edges.delete(tempId);
+            this.edges.set(edge.id, edge);
+            edge.resize();
+          }
+          this.editing = null;
+          return edge;
+        } else
+          this.editing.link(info);
+      };
+      this.autolayout = () => {
+        let count = 0;
+        this.nodes.forEach((n12) => {
+          n12.x = 100 * count;
+          count++;
+        });
+      };
+      this.createUIFromGraph = () => {
+        let nodes = "";
+        let hasMoved = false;
+        if (this.graph) {
+          this.graph.nodes.forEach((n12) => {
+            let gN = this.nodes.get(n12.tag);
+            if (!gN) {
+              gN = new GraphNode({
+                info: n12,
+                workspace: this
+              });
+              this.nodes.set(gN.info.tag, gN);
+            }
+            hasMoved = gN.x !== 0 && gN.y !== 0;
+            return gN;
+          });
+          const nodeArr = Array.from(this.nodes.values());
+          const createEdges = async () => {
+            for (let i9 = 0; i9 < nodeArr.length; i9++) {
+              let n12 = nodeArr[i9];
+              if (n12.info.children) {
+                for (let j = 0; j < n12.info.children.length; j++) {
+                  const node = n12.info.children[j];
+                  const gNParent = this.nodes.get(n12.info.tag);
+                  const output = gNParent.ports.get("I/O");
+                  const gNChild = this.nodes.get(node.tag);
+                  const input = gNChild.ports.get("I/O");
+                  await this.resolveEdge({
+                    input,
+                    output
+                  });
+                }
+              }
+            }
+          };
+          createEdges();
+          if (!hasMoved)
+            this.autolayout();
+        }
+        return nodes;
+      };
+      this._scale = (e11) => {
+        this.context.scale += 0.01 * -e11.deltaY;
+        if (this.context.scale < 0.1)
+          this.context.scale = 0.1;
+        if (this.context.scale > 3)
+          this.context.scale = 3;
+        this._transform();
+      };
+      this._transform = () => {
+        this.element.style["transform"] = `translate(${this.translation.x}px, ${this.translation.y}px) scale(${this.context.scale * 100}%)`;
+      };
+      this._pan = (e11) => {
+        if (!this.editing) {
+          if (e11.target.parentNode) {
+            let rectParent = e11.target.parentNode.getBoundingClientRect();
+            let curXParent = (e11.clientX - rectParent.left) / rectParent.width;
+            let curYParent = (e11.clientY - rectParent.top) / rectParent.height;
+            if (this.mouseDown) {
+              let tX = (curXParent - this.relXParent) * rectParent.width;
+              let tY = (curYParent - this.relYParent) * rectParent.height;
+              if (!isNaN(tX) && isFinite(tX))
+                this.translation.x += tX;
+              if (!isNaN(tY) && isFinite(tY))
+                this.translation.y += tY;
+              this._transform();
+            }
+            this.relXParent = curXParent;
+            this.relYParent = curYParent;
+          }
+        }
+      };
+      if (props?.graph)
+        this.set(props.graph);
+      window.addEventListener("resize", () => {
+        this.resize();
+      });
+      let i9 = 0;
+      window.addEventListener("keydown", (ev) => {
+        switch (ev.code) {
+          case "Enter":
+            const tag = `Node${i9}`;
+            let gN = new GraphNode({
+              info: {
+                tag
+              },
+              workspace: this
+            });
+            this.nodes.set(tag, gN);
+            this.triggerUpdate();
+            i9++;
+            break;
+        }
+      });
+    }
+    static get styles() {
+      return r`
+
+    :host * {
+      box-sizing: border-box;
+    }
+
+    :host {
+        overflow: hidden;
+        --grid-color: rgb(210, 210, 210);
+    }
+
+    :host > div {
+        position: relative;
+        background-image:
+        repeating-linear-gradient(var(--grid-color) 0 1px, transparent 1px 100%),
+        repeating-linear-gradient(90deg, var(--grid-color) 0 1px, transparent 1px 100%);
+        background-size: 20px 20px;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .edge{
+        display: block;
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        background: transparent;
+        /* z-index: 1; */
+        pointer-events: none;
+    }
+      
+    .edge svg{
+        display: block;
+        height: 100%;
+        width: 100%;
+        position: relative;
+        background: transparent;
+        touch-action: none;
+        /* z-index: 1; */
+        pointer-events: none;
+    }
+    
+      .edge path {
+        stroke-width: 2;
+        stroke: white;
+        stroke-linecap: round;
+        fill: none;
+        pointer-events: auto;
+        transition: stroke 0.5s;
+        transition: stroke-width 0.5s;
+      }
+    
+      .edge path.updated {
+        /* stroke: rgb(255, 105, 97); */
+        stroke-width: 3;
+        stroke: rgb(129, 218, 250);
+    }
+      
+      .edge .control {
+        stroke-width: 3;
+        stroke: transparent;
+        fill: transparent;
+        pointer-events: auto;
+        /* fill: #c00;
+        cursor: move; */
+      }
+      
+      /* .edge .control:hover, #mysvg .control.drag
+      {
+        fill: #c00;
+        cursor: move;
+      }
+       */
+      .edge line
+      {
+        /* stroke-width: 2;
+        stroke: #999;
+        stroke-linecap: round;
+        stroke-dasharray: 5,5; */
+        stroke: transparent;
+        fill: transparent;
+      }  
+
+      @media (prefers-color-scheme: dark) { 
+
+        :host {
+            --grid-color: rgb(45, 45, 45);
+        }
+
+      }
+
+    `;
+    }
+    static get properties() {
+      return {
+        updateCount: {
+          type: Number,
+          reflect: true
+        }
+      };
+    }
+    updated() {
+      this.element = this.shadowRoot.querySelector("div");
+      this.addEventListener("mousedown", (e11) => {
+        this.mouseDown = true;
+      });
+      window.addEventListener("mouseup", (e11) => {
+        this.mouseDown = false;
+      });
+      this.addEventListener("wheel", this._scale);
+      this.addEventListener("mousemove", this._pan);
+      this.nodes.forEach((node) => {
+        drag_default(this, node, () => {
+          this.resize([node]);
+        }, () => {
+          if (!this.editing)
+            this.editing = node;
+        }, () => {
+          if (this.editing instanceof GraphNode)
+            this.editing = null;
+        });
+      });
+    }
+    render() {
+      this.createUIFromGraph();
+      return $`
+        <div>
+            ${Array.from(this.nodes.values())}
+            ${Array.from(this.edges.values())}
+        </div>
+      `;
+    }
+  };
+  customElements.define("visualscript-graph-workspace", GraphWorkspace);
+
+  // src/components/graph/Editor.ts
   var GraphEditor = class extends s4 {
-    constructor(props = { tree: {} }) {
+    constructor(props) {
       super();
       this.history = [];
-      this.set = async (tree = {}) => {
-        this.tree = tree;
-        this.keys = Object.keys(this.tree);
+      this.set = async (graph) => {
+        this.graph = graph;
+        this.workspace.set(this.graph);
+        this.keys = Object.keys(this.graph);
       };
       this.getElement = async (key, o12) => {
         let display;
@@ -5172,7 +6142,9 @@ opacity: 0.5;
           ${key}${o12}
         </div>`;
       };
-      this.set(props.tree);
+      this.workspace = new GraphWorkspace(props);
+      if (props?.graph)
+        this.set(props.graph);
     }
     static get styles() {
       return r`
@@ -5181,21 +6153,12 @@ opacity: 0.5;
       box-sizing: border-box;
     }
 
-    :host > * {
-      background: white;
-      border-radius: 4px;
-      overflow: hidden;
-      height: 100%;
-      width: 100%;
-    }
-
     img {
       max-height: 100px;
     }
 
     .container {
       width: 100%;
-      padding: 10px;
       align-items: center;
       justify-content: center;
       position: relative;
@@ -5249,9 +6212,9 @@ opacity: 0.5;
     }
     render() {
       return $`
-          <div class="container">
-                ${this.tree}
-          </div>
+        <div class="container">
+          ${this.workspace}
+        </div>
       `;
     }
   };
@@ -5560,6 +6523,7 @@ slot {
 
     :host {
       flex-grow: 1;
+      user-select: none;
     }
 
     :host * {
@@ -5819,6 +6783,7 @@ slot {
   box-sizing: border-box;
   background: inherit;
   display: block;
+  overflow: hidden;
 }
 
 slot {
@@ -12081,7 +13046,7 @@ ${text}`;
       sub = state.subscribeTrigger(key, changed);
     }
   };
-  var GraphNode = class {
+  var GraphNode2 = class {
     constructor(properties = {}, parentNode, graph) {
       this.nodes = /* @__PURE__ */ new Map();
       this.attributes = /* @__PURE__ */ new Set();
@@ -12113,7 +13078,7 @@ ${text}`;
         return this._run(this, void 0, ...args);
       };
       this._run = (node = this, origin, ...args) => {
-        if (!(node instanceof GraphNode)) {
+        if (!(node instanceof GraphNode2)) {
           if (Object.getPrototypeOf(node) === String.prototype) {
             let fnd;
             if (this.graph)
@@ -12356,8 +13321,8 @@ ${text}`;
       this.add = (node = {}) => {
         if (typeof node === "function")
           node = { operator: node };
-        if (!(node instanceof GraphNode))
-          node = new GraphNode(node, this, this.graph);
+        if (!(node instanceof GraphNode2))
+          node = new GraphNode2(node, this, this.graph);
         this.nodes.set(node.tag, node);
         if (this.graph)
           this.graph.nodes.set(node.tag, node);
@@ -12366,7 +13331,7 @@ ${text}`;
       this.remove = (node) => {
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           this.nodes.delete(node.tag);
           if (this.graph)
             this.graph.nodes.delete(node.tag);
@@ -12379,14 +13344,14 @@ ${text}`;
       this.append = (node, parentNode = this) => {
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           parentNode.addChildren(node);
           if (node.forward)
             node.runSync = false;
         }
       };
       this.subscribe = (callback, tag = this.tag) => {
-        if (callback instanceof GraphNode) {
+        if (callback instanceof GraphNode2) {
           return this.subscribeNode(callback);
         } else
           return this.state.subscribeTrigger(tag, callback);
@@ -12493,7 +13458,7 @@ ${text}`;
           if (Object.getPrototypeOf(node) === String.prototype)
             node = this.nodes.get(node);
         }
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           const recursivelyRemove = (node2) => {
             if (node2.children) {
               if (Array.isArray(node2.children)) {
@@ -12540,21 +13505,21 @@ ${text}`;
         }
       };
       this.convertChildrenToNodes = (n12) => {
-        if (n12?.children instanceof GraphNode) {
+        if (n12?.children instanceof GraphNode2) {
           if (!this.graph?.nodes.get(n12.tag))
             this.graph.nodes.set(n12.tag, n12);
           if (!this.nodes.get(n12.tag))
             this.nodes.set(n12.tag, n12);
         } else if (Array.isArray(n12.children)) {
           for (let i9 = 0; i9 < n12.children.length; i9++) {
-            if (n12.children[i9] instanceof GraphNode) {
+            if (n12.children[i9] instanceof GraphNode2) {
               if (!this.graph?.nodes.get(n12.children[i9].tag))
                 this.graph.nodes.set(n12.children[i9].tag, n12.children[i9]);
               if (!this.nodes.get(n12.children[i9].tag))
                 this.nodes.set(n12.children[i9].tag, n12.children[i9]);
               continue;
             } else if (typeof n12.children[i9] === "object") {
-              n12.children[i9] = new GraphNode(n12.children[i9], n12, this.graph);
+              n12.children[i9] = new GraphNode2(n12.children[i9], n12, this.graph);
               this.nodes.set(n12.children[i9].tag, n12.children[i9]);
               this.convertChildrenToNodes(n12.children[i9]);
             } else if (typeof n12.children[i9] === "string") {
@@ -12568,7 +13533,7 @@ ${text}`;
             }
           }
         } else if (typeof n12.children === "object") {
-          n12.children = new GraphNode(n12.children, n12, this.graph);
+          n12.children = new GraphNode2(n12.children, n12, this.graph);
           this.nodes.set(n12.children.tag, n12.children);
           this.convertChildrenToNodes(n12.children);
         } else if (typeof n12.children === "string") {
@@ -12603,10 +13568,10 @@ ${text}`;
         });
       };
       this.print = (node = this, printChildren = true, nodesPrinted = []) => {
-        let dummyNode = new GraphNode();
+        let dummyNode = new GraphNode2();
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           nodesPrinted.push(node.tag);
           let jsonToPrint = {
             tag: node.tag,
@@ -12701,8 +13666,8 @@ ${text}`;
       this.tree = {};
       this.add = (node = {}) => {
         let props = node;
-        if (!(node instanceof GraphNode))
-          node = new GraphNode(props, void 0, this);
+        if (!(node instanceof GraphNode2))
+          node = new GraphNode2(props, void 0, this);
         this.tree[node.tag] = props;
         return node;
       };
@@ -12732,7 +13697,7 @@ ${text}`;
       this.run = (node, ...args) => {
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode)
+        if (node instanceof GraphNode2)
           return node._run(node, this, ...args);
         else
           return void 0;
@@ -12740,7 +13705,7 @@ ${text}`;
       this._run = (node, origin = this, ...args) => {
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode)
+        if (node instanceof GraphNode2)
           return node._run(node, origin, ...args);
         else
           return void 0;
@@ -12748,7 +13713,7 @@ ${text}`;
       this.removeTree = (node) => {
         if (typeof node === "string")
           node = this.nodes.get(node);
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           const recursivelyRemove = (node2) => {
             if (node2.children) {
               if (Array.isArray(node2.children)) {
@@ -12828,7 +13793,7 @@ ${text}`;
           return;
         if (typeof node !== "string")
           node = node.tag;
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           return node.subscribe(callback);
         } else
           return this.state.subscribeTrigger(node, callback);
@@ -12850,12 +13815,12 @@ ${text}`;
         if (typeof node === "string") {
           node = this.nodes.get(node);
         }
-        if (node instanceof GraphNode) {
+        if (node instanceof GraphNode2) {
           node.stopNode();
         }
       };
       this.print = (node = void 0, printChildren = true) => {
-        if (node instanceof GraphNode)
+        if (node instanceof GraphNode2)
           return node.print(node, printChildren);
         else {
           let printed = `{`;
@@ -13092,9 +14057,9 @@ ${text}`;
   function createNode(operator, parentNode, props, graph) {
     if (typeof props === "object") {
       props.operator = operator;
-      return new GraphNode(props, parentNode, graph);
+      return new GraphNode2(props, parentNode, graph);
     }
-    return new GraphNode({ operator }, parentNode, graph);
+    return new GraphNode2({ operator }, parentNode, graph);
   }
 
   // examples/editor/App.ts
@@ -13917,7 +14882,9 @@ ${text}`;
       this.tree = new Tree();
       this.setApp = (app2) => {
         this.app = app2;
-        this.graph.set(this.app);
+      };
+      this.setGraph = (graph) => {
+        this.graph.set(graph);
       };
       this.setUI = (ui) => {
         this.ui.innerHTML = "";
@@ -14042,12 +15009,12 @@ ${text}`;
       return $2`
           ${this.ui}
           <visualscript-tab-container>
+          <visualscript-tab name="Graph">
+          ${this.graph}
+         </visualscript-tab>
             <visualscript-tab name="Properties">
               ${this.properties}
             </visualscript-tab>
-              <visualscript-tab name="Graph">
-               ${this.graph}
-              </visualscript-tab>
               <visualscript-tab name="Files">
               <div id="files">
                 ${this.tree}
@@ -14119,6 +15086,7 @@ ${text}`;
             ui.draw();
           });
       });
+      editor.setGraph(app.graph);
     };
     app.init();
   };

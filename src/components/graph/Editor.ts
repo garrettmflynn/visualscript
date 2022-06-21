@@ -1,13 +1,12 @@
 
 import { LitElement, html, css } from 'lit';
-import {until} from 'lit-html/directives/until.js';
-
-import { TimeSeries } from '../plots';
+import './Workspace';
 import {Input} from '../input/Input'
+import { GraphWorkspace } from './Workspace';
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
-  tree: {[x:string]: any}
+  graph: {[x:string]: any}
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -22,21 +21,12 @@ export class GraphEditor extends LitElement {
       box-sizing: border-box;
     }
 
-    :host > * {
-      background: white;
-      border-radius: 4px;
-      overflow: hidden;
-      height: 100%;
-      width: 100%;
-    }
-
     img {
       max-height: 100px;
     }
 
     .container {
       width: 100%;
-      padding: 10px;
       align-items: center;
       justify-content: center;
       position: relative;
@@ -83,7 +73,7 @@ export class GraphEditor extends LitElement {
     
     static get properties() {
       return {
-        // tree: {
+        // graph: {
         //   type: Object,
         //   reflect: false,
         // },
@@ -94,19 +84,22 @@ export class GraphEditor extends LitElement {
       };
     }
 
-    tree: GraphEditorProps['tree']
+    graph: GraphEditorProps['graph']
     keys: (keyType)[]
     history: any[] = []
+    workspace: GraphWorkspace
 
-    constructor(props: GraphEditorProps = {tree: {}}) {
+    constructor(props: GraphEditorProps) {
       super();
 
-      this.set(props.tree)
+      this.workspace = new GraphWorkspace(props)
+      if (props?.graph) this.set(props.graph)
     }
 
-    set = async (tree={}) => {
-      this.tree = tree
-      this.keys = Object.keys(this.tree)
+    set = async (graph) => {
+      this.graph = graph
+      this.workspace.set(this.graph)
+      this.keys = Object.keys(this.graph)
     }
 
     getElement = async (key:keyType, o: any) => {
@@ -144,14 +137,14 @@ export class GraphEditor extends LitElement {
   
     render() {
 
-      // const content = this.keys?.map(key => this.getElement(key, this.tree)) 
+      // const content = this.keys?.map(key => this.getElement(key, this.graph)) 
 
       // return until(Promise.all(content).then((data) => {
-
+        
         return html`
-          <div class="container">
-                ${this.tree}
-          </div>
+        <div class="container">
+          ${this.workspace}
+        </div>
       `
       // }), html`<span>Loading...</span>`)
 

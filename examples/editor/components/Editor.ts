@@ -85,7 +85,10 @@ export class Editor extends LitElement {
 
     setApp = (app) => {
       this.app = app
-      this.graph.set(this.app)
+    }
+
+    setGraph = (graph) => {
+      this.graph.set(graph) // Set tree on graph
     }
 
     setUI = (ui) => {
@@ -208,12 +211,12 @@ export class Editor extends LitElement {
       return html`
           ${this.ui}
           <visualscript-tab-container>
+          <visualscript-tab name="Graph">
+          ${this.graph}
+         </visualscript-tab>
             <visualscript-tab name="Properties">
               ${this.properties}
             </visualscript-tab>
-              <visualscript-tab name="Graph">
-               ${this.graph}
-              </visualscript-tab>
               <visualscript-tab name="Files">
               <div id="files">
                 ${this.tree}

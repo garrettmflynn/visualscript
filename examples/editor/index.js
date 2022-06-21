@@ -107,6 +107,8 @@ const startApp = (system) => {
                 ui.draw() // FORCE DRAW: Update happens too fast for UI
             })
         })
+
+        editor.setGraph(app.graph)
     }
 
     app.init()

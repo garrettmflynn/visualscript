@@ -445,7 +445,7 @@ this.node['c3'],
 }
 
 
-// update curve
+// update curvec
 drawCurve = () => {
 
 const

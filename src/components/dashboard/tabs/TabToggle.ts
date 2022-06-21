@@ -33,6 +33,7 @@ export class TabToggle extends LitElement {
 
     :host {
       flex-grow: 1;
+      user-select: none;
     }
 
     :host * {
