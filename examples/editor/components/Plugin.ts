@@ -1,6 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
-import {getFnParamNames} from '../external/brainsatplay/Graph'
+import {getFnParamInfo} from '../external/brainsatplay/Graph'
 
 export type PluginProps = {
   // tag?: string,
@@ -123,6 +123,15 @@ export class Plugin extends LitElement {
 
     render() {
       const operator = this.module.operator ?? this.module.looper ?? this.module.animation
+
+
+      const params = operator ? getFnParamInfo(operator) : new Map()
+      const paramEls = Array.from(params.entries()).map(([key, value]) => {
+        const p = document.createElement('p')
+        p.innerHTML = `<p><small><b>${key}:</b> ${JSON.stringify(value)}</small></p>`
+        return p 
+      })
+
       return html`
         <div>
           <div class="header separate">
@@ -137,7 +146,7 @@ export class Plugin extends LitElement {
 
             ${operator ? html`
               <h4>Operator Arguments</h4> 
-              ${getFnParamNames(operator).map(str => html`<p>${str}</p>`)}
+              ${paramEls}
               ` : ''}
           </div>
         </div>

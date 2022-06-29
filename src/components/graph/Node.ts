@@ -49,7 +49,7 @@ export class GraphNode extends LitElement {
     }
 
     #ports visualscript-graph-port{
-      padding: 5px 0px;
+      padding: 2px 0px;
     }
 
     @media (prefers-color-scheme: dark) { 
@@ -100,8 +100,13 @@ export class GraphNode extends LitElement {
       this.info.y = this.y = props.y ?? this.info.y ?? 0
 
       if (this.info){
-        this.addPort({
-          tag: 'I/O',
+        console.log(this.info)
+        this.info.arguments.forEach((value,tag) => {
+          console.log('arg', tag, value)
+          this.addPort({
+            tag,
+            value
+          })
         })
       }
     }
@@ -125,6 +130,8 @@ export class GraphNode extends LitElement {
     }
 
     setEdge = (edge) => this.edges.set(edge.id, edge)
+
+    deleteEdge = (id) => this.edges.delete(id)
 
     addPort = (info) => {
       const port = new GraphPort(Object.assign({node: this}, info))

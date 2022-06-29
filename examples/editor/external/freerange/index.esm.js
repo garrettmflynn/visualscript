@@ -4155,6 +4155,9 @@ var get2 = (path, rel = "") => {
 };
 
 // ../core/system/remote/request.ts
+var networkErrorMessages = ["Failed to fetch", "NetworkError when attempting to fetch resource.", "Network request failed"];
+var isNetworkErrorMessage = (msg) => networkErrorMessages.includes(msg);
+var isNetworkError = (error) => error.name === "TypeError" && isNetworkErrorMessage(error.message);
 var getURL = (path) => {
   let url;
   try {
@@ -4213,7 +4216,7 @@ var fetchRemote = async (url, options = {}, progressCallback) => {
       }
     } else {
       console.warn("Response not received!", options.headers);
-      resolve();
+      resolve(void 0);
     }
   });
 };
@@ -4223,12 +4226,26 @@ async function fetchWithTimeout(resource, options = {}) {
   const id = setTimeout(() => {
     console.warn(`Request to ${resource} took longer than ${(timeout / 1e3).toFixed(2)}s`);
     controller.abort();
+    throw new Error(`Request timeout`);
   }, timeout);
   const response = await globalThis.fetch(resource, {
     ...options,
     signal: controller.signal
+  }).catch((e) => {
+    clearTimeout(id);
+    const networkError = isNetworkError(e);
+    if (networkError) {
+      throw new Error("No internet.");
+    } else
+      throw e;
   });
   clearTimeout(id);
+  if (!response.ok) {
+    if (response.status === 404)
+      throw new Error(`Resource not found.`);
+    else
+      throw response;
+  }
   return response;
 }
 
@@ -4872,17 +4889,10 @@ var open = async (path, config) => {
   else {
     if (useNative && config.system.openNative instanceof Function)
       file = await config.system.openNative(path, config);
-    else {
-      try {
-        file = await config.system.openRemote(path, config);
-      } catch (e) {
-        console.warn("Remote failed", e);
-      }
-    }
+    else
+      file = await config.system.openRemote(path, config);
     if (file)
       return file;
-    else
-      console.error(`Could not open ${path}...`);
   }
 };
 var open_default = open;
@@ -5035,6 +5045,10 @@ var System = class {
         const native = await this.mountNative(this.name, mountConfig);
         if (!native)
           console.error("Unable to mount native filesystem!");
+        else {
+          if (this.oninit instanceof Function)
+            this.oninit(native);
+        }
       } else {
         const path = this.name;
         const isURL2 = isURL(path);
@@ -5051,6 +5065,8 @@ var System = class {
           }
         } else if (this.name)
           this.root = "";
+        if (this.oninit instanceof Function)
+          this.oninit(this.name);
       }
     };
     this.addGroup = (name2, initial, condition) => {
@@ -5299,6 +5315,81 @@ var mountNative = async (handle, config) => {
 };
 var mount_default2 = mountNative;
 
+// node_modules/safari-14-idb-fix/dist/index.js
+function idbReady() {
+  var isSafari = !navigator.userAgentData && /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
+  if (!isSafari || !indexedDB.databases)
+    return Promise.resolve();
+  var intervalId;
+  return new Promise(function(resolve) {
+    var tryIdb = function() {
+      return indexedDB.databases().finally(resolve);
+    };
+    intervalId = setInterval(tryIdb, 100);
+    tryIdb();
+  }).finally(function() {
+    return clearInterval(intervalId);
+  });
+}
+var dist_default = idbReady;
+
+// node_modules/idb-keyval/dist/index.js
+function promisifyRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.oncomplete = request.onsuccess = () => resolve(request.result);
+    request.onabort = request.onerror = () => reject(request.error);
+  });
+}
+function createStore(dbName, storeName) {
+  const dbp = dist_default().then(() => {
+    const request = indexedDB.open(dbName);
+    request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+    return promisifyRequest(request);
+  });
+  return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
+}
+var defaultGetStoreFunc;
+function defaultGetStore() {
+  if (!defaultGetStoreFunc) {
+    defaultGetStoreFunc = createStore("keyval-store", "keyval");
+  }
+  return defaultGetStoreFunc;
+}
+function get3(key, customStore = defaultGetStore()) {
+  return customStore("readonly", (store) => promisifyRequest(store.get(key)));
+}
+function set(key, value, customStore = defaultGetStore()) {
+  return customStore("readwrite", (store) => {
+    store.put(value, key);
+    return promisifyRequest(store.transaction);
+  });
+}
+
+// src/cache.ts
+var cacheName = `freerange-history`;
+var maxHistory = 10;
+var getCache = async () => {
+  let dirHandleArray = await get3(cacheName);
+  if (dirHandleArray) {
+    console.log(`Loaded cached mounts "${dirHandleArray.map((d) => d.name)}" from IndexedDB.`);
+    return dirHandleArray;
+  } else
+    return;
+};
+var setCache = async (info) => {
+  console.log("Init", info);
+  let history = await get3(cacheName);
+  if (!history)
+    history = [info];
+  else if (!history.includes(info)) {
+    history.push(info);
+    if (history.length > maxHistory)
+      history.shift();
+  }
+  console.log(cacheName, history);
+  set(cacheName, history);
+};
+
 // src/LocalSystem.ts
 var LocalSystem = class extends System {
   constructor(name2, info) {
@@ -5306,6 +5397,7 @@ var LocalSystem = class extends System {
     this.isNative = (info) => !info || info instanceof FileSystemDirectoryHandle;
     this.openNative = open_default3;
     this.mountNative = mount_default2;
+    this.oninit = setCache;
   }
 };
 export {
@@ -5315,6 +5407,7 @@ export {
   codecs_exports as codecs,
   decode_default as decode,
   encode_default as encode,
+  getCache,
   transfer_default as transfer
 };
 /*! pako 2.0.4 https://github.com/nodeca/pako @license (MIT AND Zlib) */

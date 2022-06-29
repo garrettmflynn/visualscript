@@ -33,7 +33,7 @@ export class GraphPort extends LitElement {
         align-items: center;
         justify-content: space-between;
         color: white;
-        font-size: 8px;
+        font-size:7px;
     }
 
     .input {
@@ -116,6 +116,11 @@ export class GraphPort extends LitElement {
     setEdge = (edge) => {
       this.edges.set(edge.id, edge)
       this.node.setEdge(edge) // Nodify node
+    }
+
+    deleteEdge = (id) => {
+      this.edges.delete(id)
+      this.node.deleteEdge(id) // Nodify node
     }
 
     resolveEdge = async (ev) => {

@@ -65,6 +65,11 @@ nav.primary = {options: [
 let app = new App()
 editor.setApp(app)
 
+// -------------- Show History --------------
+// freerange.getCache().then(arr => {
+
+// })
+
 // -------------- Create System --------------
 createSystem(appPath).then((system) => startApp(system))
 .catch(e => console.error('Remote app not available', e))
@@ -91,6 +96,7 @@ const startApp = (system) => {
         const file = system.files.list.get('index.js')
         if (file) {
             editor.setSystem(system)
+            console.log('System', system, file)
             const imported = await file.body
             return imported
         } else console.error('Not a valid Brains@Play project...')

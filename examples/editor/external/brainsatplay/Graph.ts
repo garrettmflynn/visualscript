@@ -1,7 +1,14 @@
 //another method
-export function getFnParamNames(fn):string[]{ //https://stackoverflow.com/questions/9091838/get-function-parameter-names-for-interface-purposes
+export function getFnParamInfo(fn):Map<string, any>{ //https://stackoverflow.com/questions/9091838/get-function-parameter-names-for-interface-purposes
     var fstr = fn.toString();
-    return fstr.match(/\(.*?\)/)[0].replace(/[()]/gi,'').replace(/\s/gi,'').split(',');
+    const matches = fstr.match(/\(.*?\)/)[0].replace(/[()]/gi,'').replace(/\s/gi,'').split(',');
+    const info = new Map()
+    matches.forEach(v => {
+        const arr = v.split('=')
+        if (arr[0]) info.set(arr[0],  (0, eval)(arr[1]))
+    })
+
+    return info
 }
 
 export function parseFunctionFromText(method='') {
@@ -142,7 +149,7 @@ export const state = {
 export class GraphNode {
 
     nodes = new Map()
-    attributes = new Set()
+    arguments = new Map()
 
     tag;
     parent;
@@ -173,23 +180,38 @@ export class GraphNode {
         if(typeof properties === 'object') {
             if(properties?.operator) {
 
-                let params = getFnParamNames(properties.operator);
+                let params = getFnParamInfo(properties.operator);
+
+                if (params.size === 0) params.set('input', undefined) // Set default input param if none specified
+
+                const keys = params.keys()
+                const paramOne = keys.next().value
+                const paramTwo = keys.next().value
+
+                const restrictedOne = ['self', 'node']  
+                const restrictedTwo = ['origin', 'parent', 'graph', 'router']  
 
                 //we can pass other formatted functions in as operators and they will be wrapped to assume they don't use self/node or origin/router, but will still work in the flow graph logic calls
-                if(!(params[0] == 'self' || params[0] == 'node' || params[1] == 'origin' || params[1] == 'parent' || params[1] == 'graph' || params[1] == 'router')) {
+                if (!restrictedOne.includes(paramOne) && !restrictedTwo.includes(paramTwo)){
                     let fn = properties.operator;
+
                     //wrap the simplified operator to fit our format
                     properties.operator = (self:GraphNode,origin:string|GraphNode|Graph,...args) => {
                         return (fn as any)(...args);
                     }
+
+                    // track argument names
+                    this.arguments = params
                 }
 
             }
             
             // const keys = Object.keys(this)
-            // const prohibited = ['tag', 'parent', 'graph', 'children', 'operator']    
+            // const prohibited = ['tag', 'parent', 'graph', 'children', 'operator']  
+            
+            // console.log('Properties', properties, keys)
             // for (let key in properties){
-            //     if (!keys.includes(key) && !prohibited.includes(key)) this.attributes.add(key)
+            //     if (!keys.includes(key) && !prohibited.includes(key)) this.arguments.add(key)
             // }
     
             if(!properties.tag && graph) {

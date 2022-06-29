@@ -39,68 +39,10 @@ export class GraphWorkspace extends LitElement {
         width: 100%;
         height: 100%;
     }
-    
-    .edge{
-        display: block;
-        height: 100%;
-        width: 100%;
-        position: absolute;
-        background: transparent;
-        /* z-index: 1; */
-        pointer-events: none;
+
+    :host > div:active:hover {
+      cursor: move;
     }
-      
-    .edge svg{
-        display: block;
-        height: 100%;
-        width: 100%;
-        position: relative;
-        background: transparent;
-        touch-action: none;
-        /* z-index: 1; */
-        pointer-events: none;
-    }
-    
-      .edge path {
-        stroke-width: 2;
-        stroke: white;
-        stroke-linecap: round;
-        fill: none;
-        pointer-events: auto;
-        transition: stroke 0.5s;
-        transition: stroke-width 0.5s;
-      }
-    
-      .edge path.updated {
-        /* stroke: rgb(255, 105, 97); */
-        stroke-width: 3;
-        stroke: rgb(129, 218, 250);
-    }
-      
-      .edge .control {
-        stroke-width: 3;
-        stroke: transparent;
-        fill: transparent;
-        pointer-events: auto;
-        /* fill: #c00;
-        cursor: move; */
-      }
-      
-      /* .edge .control:hover, #mysvg .control.drag
-      {
-        fill: #c00;
-        cursor: move;
-      }
-       */
-      .edge line
-      {
-        /* stroke-width: 2;
-        stroke: #999;
-        stroke-linecap: round;
-        stroke-dasharray: 5,5; */
-        stroke: transparent;
-        fill: transparent;
-      }  
 
       @media (prefers-color-scheme: dark) { 
 
@@ -156,23 +98,23 @@ export class GraphWorkspace extends LitElement {
       })
 
 
-      let i = 0
-      window.addEventListener('keydown', (ev) => {
-        switch(ev.code) {
-          case 'Enter': 
-            const tag = `Node${i}`
-            let gN = new GraphNode({
-              info: {
-                tag
-              },
-              workspace: this
-            })
-            this.nodes.set(tag, gN)
-            this.triggerUpdate()
-            i++
-            break;
-        }
-      })
+      // let i = 0
+      // window.addEventListener('keydown', (ev) => {
+      //   switch(ev.code) {
+      //     case 'Enter': 
+      //       const tag = `Node${i}`
+      //       let gN = new GraphNode({
+      //         info: {
+      //           tag
+      //         },
+      //         workspace: this
+      //       })
+      //       this.nodes.set(tag, gN)
+      //       this.triggerUpdate()
+      //       i++
+      //       break;
+      //   }
+      // })
     }
 
     set = async (graph) => {
@@ -267,9 +209,9 @@ export class GraphWorkspace extends LitElement {
               for (let j = 0; j < n.info.children.length; j++){
                 const node = n.info.children[j] as any
                 const gNParent = this.nodes.get(n.info.tag)
-                const output = gNParent.ports.get('I/O')
+                const output = gNParent.ports.get(gNParent.info.arguments.keys().next().value) // First key
                 const gNChild = this.nodes.get(node.tag)
-                const input = gNChild.ports.get('I/O')
+                const input = gNChild.ports.get(gNChild.info.arguments.keys().next().value) // First key
                 await this.resolveEdge({
                   input,
                   output 

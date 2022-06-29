@@ -12,6 +12,7 @@ export class TabContainer extends LitElement {
 
   tabs: Map<string, Tab> = new Map();
   tabLabels: string[]= []
+  activeTab: number = 0
 
   static get styles() {
     return css`
@@ -64,8 +65,9 @@ export class TabContainer extends LitElement {
       super();
     }
 
-    addTab = (tab) => {
+    addTab = (tab, switchTo=false) => {
       this.insertAdjacentElement('beforeend', tab)
+      if (switchTo) this.activeTab = this.tabs.size
       this.tabs.set(tab.name, tab)
       this.updateTabs()
     }
@@ -101,11 +103,11 @@ export class TabContainer extends LitElement {
 
       const tabs = this.getTabs()
       const toggles = tabs.map((t,i) => {
-        if (i !== 0) t.style.display = 'none' // Hide tabs other than the first
+        if (i !== this.activeTab) t.style.display = 'none' // Hide tabs other than the first
         return t.toggle
       })
 
-      const firstToggle = toggles[0]
+      const firstToggle = toggles[this.activeTab]
       if (firstToggle) firstToggle.select(toggles)
 
       return html`

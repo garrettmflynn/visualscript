@@ -165,7 +165,7 @@ export class Editor extends LitElement {
           container.addTab(codeTab)
 
           tab.appendChild(container)
-          this.files.addTab(tab)
+          this.files.addTab(tab, true)
           this.fileHistory[f.path] = tabInfo
         } 
         

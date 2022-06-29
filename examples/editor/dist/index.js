@@ -5190,10 +5190,9 @@ opacity: 0.5;
           node[s10] = this.element.getElementsByClassName(s10)[0];
         });
         this.node = node;
-        await this.init().catch((e11) => {
-          this.resolveReady.reject(e11);
-        });
-        this.resolveReady.resolve(true);
+        const res = await this.init().catch((e11) => this.resolveReady.reject(e11));
+        if (res)
+          this.resolveReady.resolve(true);
       };
       this.getEdgeName = ({ input, output } = {
         input: this.input,
@@ -5201,15 +5200,15 @@ opacity: 0.5;
       }) => {
         return `${output.node.id}-${output.tag}_${input.node.id}-${input.tag}`;
       };
-      this.resolveIO = (el, typeNeeded, callback) => {
+      this.resolveIO = (el, typeNeeded, callback, origin) => {
         let hasType = this.getOtherType(typeNeeded);
         if (el instanceof GraphPort) {
           const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }));
           if (expectedID) {
-            console.warn("Edge already exists...");
+            callback("Edge already exists...");
             return false;
           } else if (this[hasType].shadowRoot.contains(el)) {
-            console.warn("Cannot connect to self...");
+            callback("Cannot connect to self...");
             return false;
           } else {
             this[typeNeeded] = el;
@@ -5217,8 +5216,11 @@ opacity: 0.5;
             return true;
           }
         } else {
-          console.error("Edge not completed...");
-          return false;
+          if (!this.firstUp && origin === "up") {
+            this.firstUp = false;
+            callback("Edge not completed...");
+            return false;
+          }
         }
       };
       this.mouseAsTarget = (type7, upCallback) => {
@@ -5251,7 +5253,13 @@ opacity: 0.5;
             this.workspace.element.removeEventListener("mousemove", onMouseMove);
           }
         };
-        let onMouseUp = (e11) => this.resolveIO(e11.target, type7, this.toResolve.callback);
+        let onMouseUp = (e11) => {
+          if (this.firstUp == void 0)
+            this.firstUp = true;
+          else
+            this.firstUp = false;
+          this.resolveIO(e11.target, type7, this.toResolve.callback, "up");
+        };
         this.workspace.element.addEventListener("mouseup", onMouseUp);
       };
       this.init = async () => {
@@ -5289,12 +5297,8 @@ opacity: 0.5;
             if (this[t7] == null) {
               workspace.editing = this;
               this.mouseAsTarget(t7, (res) => {
-                if (res === true) {
-                  workspace.editing = null;
-                  resolve(true);
-                } else {
-                  resolve(res);
-                }
+                workspace.editing = null;
+                resolve(res);
               });
             }
           });
@@ -5393,6 +5397,10 @@ opacity: 0.5;
         this.deinit();
       };
       this.deinit = () => {
+        if (this.output)
+          this.output.deleteEdge(this.id);
+        if (this.input)
+          this.input.deleteEdge(this.id);
         this.remove();
       };
       this.resize = () => {
@@ -5436,10 +5444,6 @@ opacity: 0.5;
       return r`
 
     :host {
-      box-sizing: border-box;
-    }
-
-    :host {
         --grid-color: rgb(210, 210, 210);
     }
     
@@ -5449,14 +5453,17 @@ opacity: 0.5;
         width: 100%;
         position: absolute;
         background: transparent;
+        pointer-events: none;
+        box-sizing: border-box;
         /* z-index: 1; */
     }
     
-    :host(.editing) {
+    :host(.editing) svg {
       pointer-events: none;
     }
       
-    :host svg{
+    :host svg {
+        pointer-events: none;
         display: block;
         height: 100%;
         width: 100%;
@@ -5467,6 +5474,7 @@ opacity: 0.5;
     }
     
       :host path {
+        pointer-events: all;
         stroke-width: 2;
         stroke: rgb(60, 60, 60);
         stroke-linecap: round;
@@ -5540,7 +5548,7 @@ opacity: 0.5;
           <line x1="0" y1="0" x2="0" y2="0" class="l1"/>
           <line x1="0" y1="0" x2="0" y2="0" class="l2"/>
 
-          <path d="M0,0 Q0,0 0,0" class="curve"/>
+          <path d="M0,0 Q0,0 0,0" class="curve" @click=${this.deinit}/>
     </svg>`;
     }
   };
@@ -5557,6 +5565,10 @@ opacity: 0.5;
       this.setEdge = (edge) => {
         this.edges.set(edge.id, edge);
         this.node.setEdge(edge);
+      };
+      this.deleteEdge = (id) => {
+        this.edges.delete(id);
+        this.node.deleteEdge(id);
       };
       this.resolveEdge = async (ev) => {
         if (!this.resolving) {
@@ -5598,7 +5610,7 @@ opacity: 0.5;
         align-items: center;
         justify-content: space-between;
         color: white;
-        font-size: 8px;
+        font-size:7px;
     }
 
     .input {
@@ -5673,6 +5685,7 @@ opacity: 0.5;
         }
       };
       this.setEdge = (edge) => this.edges.set(edge.id, edge);
+      this.deleteEdge = (id) => this.edges.delete(id);
       this.addPort = (info) => {
         const port = new GraphPort(Object.assign({ node: this }, info));
         this.ports.set(port.tag, port);
@@ -5683,8 +5696,13 @@ opacity: 0.5;
       this.info.x = this.x = props.x ?? this.info.x ?? 0;
       this.info.y = this.y = props.y ?? this.info.y ?? 0;
       if (this.info) {
-        this.addPort({
-          tag: "I/O"
+        console.log(this.info);
+        this.info.arguments.forEach((value, tag) => {
+          console.log("arg", tag, value);
+          this.addPort({
+            tag,
+            value
+          });
         });
       }
     }
@@ -5719,7 +5737,7 @@ opacity: 0.5;
     }
 
     #ports visualscript-graph-port{
-      padding: 5px 0px;
+      padding: 2px 0px;
     }
 
     @media (prefers-color-scheme: dark) { 
@@ -5901,9 +5919,9 @@ opacity: 0.5;
                 for (let j = 0; j < n12.info.children.length; j++) {
                   const node = n12.info.children[j];
                   const gNParent = this.nodes.get(n12.info.tag);
-                  const output = gNParent.ports.get("I/O");
+                  const output = gNParent.ports.get(gNParent.info.arguments.keys().next().value);
                   const gNChild = this.nodes.get(node.tag);
-                  const input = gNChild.ports.get("I/O");
+                  const input = gNChild.ports.get(gNChild.info.arguments.keys().next().value);
                   await this.resolveEdge({
                     input,
                     output
@@ -5954,23 +5972,6 @@ opacity: 0.5;
       window.addEventListener("resize", () => {
         this.resize();
       });
-      let i9 = 0;
-      window.addEventListener("keydown", (ev) => {
-        switch (ev.code) {
-          case "Enter":
-            const tag = `Node${i9}`;
-            let gN = new GraphNode({
-              info: {
-                tag
-              },
-              workspace: this
-            });
-            this.nodes.set(tag, gN);
-            this.triggerUpdate();
-            i9++;
-            break;
-        }
-      });
     }
     static get styles() {
       return r`
@@ -5993,68 +5994,10 @@ opacity: 0.5;
         width: 100%;
         height: 100%;
     }
-    
-    .edge{
-        display: block;
-        height: 100%;
-        width: 100%;
-        position: absolute;
-        background: transparent;
-        /* z-index: 1; */
-        pointer-events: none;
+
+    :host > div:active:hover {
+      cursor: move;
     }
-      
-    .edge svg{
-        display: block;
-        height: 100%;
-        width: 100%;
-        position: relative;
-        background: transparent;
-        touch-action: none;
-        /* z-index: 1; */
-        pointer-events: none;
-    }
-    
-      .edge path {
-        stroke-width: 2;
-        stroke: white;
-        stroke-linecap: round;
-        fill: none;
-        pointer-events: auto;
-        transition: stroke 0.5s;
-        transition: stroke-width 0.5s;
-      }
-    
-      .edge path.updated {
-        /* stroke: rgb(255, 105, 97); */
-        stroke-width: 3;
-        stroke: rgb(129, 218, 250);
-    }
-      
-      .edge .control {
-        stroke-width: 3;
-        stroke: transparent;
-        fill: transparent;
-        pointer-events: auto;
-        /* fill: #c00;
-        cursor: move; */
-      }
-      
-      /* .edge .control:hover, #mysvg .control.drag
-      {
-        fill: #c00;
-        cursor: move;
-      }
-       */
-      .edge line
-      {
-        /* stroke-width: 2;
-        stroke: #999;
-        stroke-linecap: round;
-        stroke-dasharray: 5,5; */
-        stroke: transparent;
-        fill: transparent;
-      }  
 
       @media (prefers-color-scheme: dark) { 
 
@@ -7148,8 +7091,11 @@ slot {
       super();
       this.tabs = /* @__PURE__ */ new Map();
       this.tabLabels = [];
-      this.addTab = (tab) => {
+      this.activeTab = 0;
+      this.addTab = (tab, switchTo = false) => {
         this.insertAdjacentElement("beforeend", tab);
+        if (switchTo)
+          this.activeTab = this.tabs.size;
         this.tabs.set(tab.name, tab);
         this.updateTabs();
       };
@@ -7222,11 +7168,11 @@ slot {
     render() {
       const tabs = this.getTabs();
       const toggles = tabs.map((t7, i9) => {
-        if (i9 !== 0)
+        if (i9 !== this.activeTab)
           t7.style.display = "none";
         return t7.toggle;
       });
-      const firstToggle = toggles[0];
+      const firstToggle = toggles[this.activeTab];
       if (firstToggle)
         firstToggle.select(toggles);
       return $`
@@ -11861,6 +11807,9 @@ slot {
     const newPath = [...dirTokens, ...extensionTokens].join("/");
     return newPath;
   };
+  var networkErrorMessages = ["Failed to fetch", "NetworkError when attempting to fetch resource.", "Network request failed"];
+  var isNetworkErrorMessage = (msg) => networkErrorMessages.includes(msg);
+  var isNetworkError = (error) => error.name === "TypeError" && isNetworkErrorMessage(error.message);
   var getURL = (path) => {
     let url;
     try {
@@ -11919,7 +11868,7 @@ slot {
         }
       } else {
         console.warn("Response not received!", options.headers);
-        resolve();
+        resolve(void 0);
       }
     });
   };
@@ -11929,12 +11878,26 @@ slot {
     const id = setTimeout(() => {
       console.warn(`Request to ${resource} took longer than ${(timeout / 1e3).toFixed(2)}s`);
       controller.abort();
+      throw new Error(`Request timeout`);
     }, timeout);
     const response = await globalThis.fetch(resource, {
       ...options,
       signal: controller.signal
+    }).catch((e11) => {
+      clearTimeout(id);
+      const networkError = isNetworkError(e11);
+      if (networkError) {
+        throw new Error("No internet.");
+      } else
+        throw e11;
     });
     clearTimeout(id);
+    if (!response.ok) {
+      if (response.status === 404)
+        throw new Error(`Resource not found.`);
+      else
+        throw response;
+    }
     return response;
   }
   var iterAsync = async (iterable, asyncCallback) => {
@@ -12549,17 +12512,10 @@ ${text}`;
     else {
       if (useNative && config.system.openNative instanceof Function)
         file2 = await config.system.openNative(path, config);
-      else {
-        try {
-          file2 = await config.system.openRemote(path, config);
-        } catch (e11) {
-          console.warn("Remote failed", e11);
-        }
-      }
+      else
+        file2 = await config.system.openRemote(path, config);
       if (file2)
         return file2;
-      else
-        console.error(`Could not open ${path}...`);
     }
   };
   var open_default = open;
@@ -12698,6 +12654,10 @@ ${text}`;
           const native = await this.mountNative(this.name, mountConfig);
           if (!native)
             console.error("Unable to mount native filesystem!");
+          else {
+            if (this.oninit instanceof Function)
+              this.oninit(native);
+          }
         } else {
           const path = this.name;
           const isURL2 = isURL(path);
@@ -12714,6 +12674,8 @@ ${text}`;
             }
           } else if (this.name)
             this.root = "";
+          if (this.oninit instanceof Function)
+            this.oninit(this.name);
         }
       };
       this.addGroup = (name22, initial, condition) => {
@@ -12955,19 +12917,88 @@ ${text}`;
     return handle;
   };
   var mount_default2 = mountNative;
+  function idbReady() {
+    var isSafari = !navigator.userAgentData && /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
+    if (!isSafari || !indexedDB.databases)
+      return Promise.resolve();
+    var intervalId;
+    return new Promise(function(resolve) {
+      var tryIdb = function() {
+        return indexedDB.databases().finally(resolve);
+      };
+      intervalId = setInterval(tryIdb, 100);
+      tryIdb();
+    }).finally(function() {
+      return clearInterval(intervalId);
+    });
+  }
+  var dist_default = idbReady;
+  function promisifyRequest(request) {
+    return new Promise((resolve, reject) => {
+      request.oncomplete = request.onsuccess = () => resolve(request.result);
+      request.onabort = request.onerror = () => reject(request.error);
+    });
+  }
+  function createStore(dbName, storeName) {
+    const dbp = dist_default().then(() => {
+      const request = indexedDB.open(dbName);
+      request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+      return promisifyRequest(request);
+    });
+    return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
+  }
+  var defaultGetStoreFunc;
+  function defaultGetStore() {
+    if (!defaultGetStoreFunc) {
+      defaultGetStoreFunc = createStore("keyval-store", "keyval");
+    }
+    return defaultGetStoreFunc;
+  }
+  function get3(key, customStore = defaultGetStore()) {
+    return customStore("readonly", (store) => promisifyRequest(store.get(key)));
+  }
+  function set(key, value, customStore = defaultGetStore()) {
+    return customStore("readwrite", (store) => {
+      store.put(value, key);
+      return promisifyRequest(store.transaction);
+    });
+  }
+  var cacheName = `freerange-history`;
+  var maxHistory = 10;
+  var setCache = async (info) => {
+    console.log("Init", info);
+    let history = await get3(cacheName);
+    if (!history)
+      history = [info];
+    else if (!history.includes(info)) {
+      history.push(info);
+      if (history.length > maxHistory)
+        history.shift();
+    }
+    console.log(cacheName, history);
+    set(cacheName, history);
+  };
   var LocalSystem = class extends System {
     constructor(name2, info) {
       super(name2, info);
       this.isNative = (info2) => !info2 || info2 instanceof FileSystemDirectoryHandle;
       this.openNative = open_default3;
       this.mountNative = mount_default2;
+      this.oninit = setCache;
     }
   };
 
   // examples/editor/external/brainsatplay/Graph.ts
-  function getFnParamNames(fn) {
+  function getFnParamInfo(fn) {
     var fstr = fn.toString();
-    return fstr.match(/\(.*?\)/)[0].replace(/[()]/gi, "").replace(/\s/gi, "").split(",");
+    const matches = fstr.match(/\(.*?\)/)[0].replace(/[()]/gi, "").replace(/\s/gi, "").split(",");
+    const info = /* @__PURE__ */ new Map();
+    matches.forEach((v3) => {
+      const arr = v3.split("=");
+      if (arr[0])
+        info.set(arr[0], (0, eval)(arr[1]));
+    });
+    return info;
   }
   function parseFunctionFromText(method = "") {
     let getFunctionBody = (methodString) => {
@@ -13049,7 +13080,7 @@ ${text}`;
   var GraphNode2 = class {
     constructor(properties = {}, parentNode, graph) {
       this.nodes = /* @__PURE__ */ new Map();
-      this.attributes = /* @__PURE__ */ new Set();
+      this.arguments = /* @__PURE__ */ new Map();
       this.state = state;
       this.isLooping = false;
       this.isAnimating = false;
@@ -13629,12 +13660,20 @@ ${text}`;
       }
       if (typeof properties === "object") {
         if (properties?.operator) {
-          let params = getFnParamNames(properties.operator);
-          if (!(params[0] == "self" || params[0] == "node" || params[1] == "origin" || params[1] == "parent" || params[1] == "graph" || params[1] == "router")) {
+          let params = getFnParamInfo(properties.operator);
+          if (params.size === 0)
+            params.set("input", void 0);
+          const keys = params.keys();
+          const paramOne = keys.next().value;
+          const paramTwo = keys.next().value;
+          const restrictedOne = ["self", "node"];
+          const restrictedTwo = ["origin", "parent", "graph", "router"];
+          if (!restrictedOne.includes(paramOne) && !restrictedTwo.includes(paramTwo)) {
             let fn = properties.operator;
             properties.operator = (self2, origin, ...args) => {
               return fn(...args);
             };
+            this.arguments = params;
           }
         }
         if (!properties.tag && graph) {
@@ -14098,9 +14137,12 @@ ${text}`;
           await this.onsave();
         await this.init();
       };
-      this.onsave = null;
-      this.oncompile = null;
-      this.onstart = null;
+      this.onsave = () => {
+      };
+      this.oncompile = () => {
+      };
+      this.onstart = () => {
+      };
       this.set(tree);
       this.graph = null;
       this.import = null;
@@ -14789,6 +14831,12 @@ ${text}`;
     }
     render() {
       const operator = this.module.operator ?? this.module.looper ?? this.module.animation;
+      const params = operator ? getFnParamInfo(operator) : /* @__PURE__ */ new Map();
+      const paramEls = Array.from(params.entries()).map(([key, value]) => {
+        const p3 = document.createElement("p");
+        p3.innerHTML = `<p><small><b>${key}:</b> ${JSON.stringify(value)}</small></p>`;
+        return p3;
+      });
       return $2`
         <div>
           <div class="header separate">
@@ -14803,7 +14851,7 @@ ${text}`;
 
             ${operator ? $2`
               <h4>Operator Arguments</h4> 
-              ${getFnParamNames(operator).map((str) => $2`<p>${str}</p>`)}
+              ${paramEls}
               ` : ""}
           </div>
         </div>
@@ -14933,7 +14981,7 @@ ${text}`;
               codeTab.appendChild(tabInfo.code);
               container.addTab(codeTab);
               tab.appendChild(container);
-              this.files.addTab(tab);
+              this.files.addTab(tab, true);
               this.fileHistory[f3.path] = tabInfo;
             }
             if (tabInfo.plugin)
@@ -15071,6 +15119,7 @@ ${text}`;
       const file2 = system.files.list.get("index.js");
       if (file2) {
         editor.setSystem(system);
+        console.log("System", system, file2);
         const imported = await file2.body;
         return imported;
       } else

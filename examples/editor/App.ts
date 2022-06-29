@@ -3,7 +3,7 @@ import { Graph } from './external/brainsatplay/Graph'
 export default class App {
 
     tree: any; // Graph Properties
-    graph: Graph;
+    graph: Graph | null;
     import: any; // ES6 Module
     animated: {[key: string]: Graph}
 
@@ -55,8 +55,8 @@ export default class App {
     }
 
     // -------------- Events --------------
-    onsave = null
-    oncompile = null
-    onstart = null
+    onsave = () => {}
+    oncompile = () => {}
+    onstart = () => {}
 
 }

@@ -19,10 +19,6 @@ export class GraphEdge extends LitElement {
     return css`
 
     :host {
-      box-sizing: border-box;
-    }
-
-    :host {
         --grid-color: rgb(210, 210, 210);
     }
     
@@ -32,14 +28,17 @@ export class GraphEdge extends LitElement {
         width: 100%;
         position: absolute;
         background: transparent;
+        pointer-events: none;
+        box-sizing: border-box;
         /* z-index: 1; */
     }
     
-    :host(.editing) {
+    :host(.editing) svg {
       pointer-events: none;
     }
       
-    :host svg{
+    :host svg {
+        pointer-events: none;
         display: block;
         height: 100%;
         width: 100%;
@@ -50,6 +49,7 @@ export class GraphEdge extends LitElement {
     }
     
       :host path {
+        pointer-events: all;
         stroke-width: 2;
         stroke: rgb(60, 60, 60);
         stroke-linecap: round;
@@ -161,6 +161,7 @@ export class GraphEdge extends LitElement {
     callback: Function
   }
 
+  firstUp?: boolean
   ready: Promise<boolean>
 
   resolveReady?: {
@@ -236,10 +237,8 @@ export class GraphEdge extends LitElement {
 
     this.node = node
 
-    await this.init().catch(e => {
-      this.resolveReady.reject(e)
-    })
-    this.resolveReady.resolve(true)
+    const res = await this.init().catch(e => this.resolveReady.reject(e))
+    if (res) this.resolveReady.resolve(true)
   }
 
   render() {
@@ -260,7 +259,7 @@ export class GraphEdge extends LitElement {
           <line x1="0" y1="0" x2="0" y2="0" class="l1"/>
           <line x1="0" y1="0" x2="0" y2="0" class="l2"/>
 
-          <path d="M0,0 Q0,0 0,0" class="curve"/>
+          <path d="M0,0 Q0,0 0,0" class="curve" @click=${this.deinit}/>
     </svg>`
     // }), html`<span>Loading...</span>`)
 
@@ -273,34 +272,39 @@ export class GraphEdge extends LitElement {
     return `${output.node.id}-${output.tag}_${input.node.id}-${input.tag}`
   }
 
-  resolveIO = (el: HTMLElement, typeNeeded: IOTypes, callback: Function) => {
+  resolveIO = (el: HTMLElement, typeNeeded: IOTypes, callback: Function, origin?) => {
 
     let hasType = this.getOtherType(typeNeeded)
 
     if (el instanceof GraphPort) {
       const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }))
+
       if (expectedID) {
-        console.warn('Edge already exists...')
+        callback('Edge already exists...')
         return false
       } else if (this[hasType].shadowRoot.contains(el)) {
-        console.warn('Cannot connect to self...')
+        callback('Cannot connect to self...')
         return false
       } else {
 
         // const parentClassList = el.parentNode.parentNode.classList as DOMTokenList
 
         // if (Array.from(parentClassList).find(str => str.includes(typeNeeded))){
-        this[typeNeeded] = el
-        callback(true)
-        return true
-        // } else {
-        //   callback('Cannot connect two ports of the same type.')
-        //   return false
-        // }
+
+            this[typeNeeded] = el
+            callback(true)
+            return true
+            // } else {
+            //   callback('Cannot connect two ports of the same type.')
+            //   return false
+            // }
       }
     } else {
-      console.error('Edge not completed...')
-      return false
+      if (!this.firstUp && origin === 'up') {
+        this.firstUp = false
+        callback('Edge not completed...')
+        return false
+      }
     }
   }
 
@@ -349,7 +353,11 @@ export class GraphEdge extends LitElement {
       }
     }
 
-    let onMouseUp = (e) => this.resolveIO(e.target, type, this.toResolve.callback)
+    let onMouseUp = (e) => {
+      if (this.firstUp == undefined) this.firstUp = true
+      else this.firstUp = false
+      this.resolveIO(e.target, type, this.toResolve.callback, 'up')
+    }
 
     this.workspace.element.addEventListener('mouseup', onMouseUp)
   }
@@ -403,17 +411,10 @@ export class GraphEdge extends LitElement {
       types.forEach(t => {
         if (this[t] == null) {
           workspace.editing = this
-          // if (this.parent.app.props.ready){
           this.mouseAsTarget(t, (res) => {
-            if (res === true) {
               workspace.editing = null
-              resolve(true)
-            }
-            else {
               resolve(res)
-            }
           })
-          // } else resolve(false)
         }
       })
 
@@ -618,6 +619,9 @@ export class GraphEdge extends LitElement {
   }
 
   deinit = () => {
+    if (this.output) this.output.deleteEdge(this.id)
+    if (this.input) this.input.deleteEdge(this.id)
+    // this.output.node.info.unsubscribe(this.input.node.info.id)
     this.remove()
   }
 
