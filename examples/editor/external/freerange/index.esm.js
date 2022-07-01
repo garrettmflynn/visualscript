@@ -28,7 +28,7 @@ var get = (type7, name2, codecs) => {
   let mimeType = type7;
   const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
   const sfx = suffix(name2);
-  if (isZipped || !mimeType)
+  if (isZipped || !mimeType || mimeType === 'text/plain')
     mimeType = codecs.getType(sfx);
   if (esm(sfx, mimeType))
     mimeType = codecs.getType("js");

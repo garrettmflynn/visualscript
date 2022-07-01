@@ -103,15 +103,14 @@ const startApp = (system) => {
 
 
     app.oncompile = async () => {
-        const packageContents = await system.files.list.get('package.json').body
+        const packageContents = await (await system.open('package.json')).body
         if (packageContents){
-            const file = system.files.list.get(packageContents.main) // Get main file
+            const file = await system.open(packageContents.main) // Get main file
             if (file) {
                 editor.setSystem(system)
                 const imported = await file.body
-                console.log(imported, await file.text)
                 return imported
-            } else console.error('The "main" field in the suppplied package.json is not pointing to an appropriate entrypoint.')
+            } else console.error('The "main" field in the supplied package.json is not pointing to an appropriate entrypoint.')
         }
     }
 

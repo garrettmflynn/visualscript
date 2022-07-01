@@ -158,13 +158,11 @@ export class Editor extends LitElement {
           }
         }
 
+        // Merge closest package.json file into file metadata
         if (!packageInfo) {
           packageInfo = await this.plugins.package(f.path)
-
           if (packageInfo) {
             importedPluginPackage[f.path] = packageInfo
-
-            // Merge Package with Metadata
             metadata = importedFileMetadata[f.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f.path])
           }
         }
@@ -172,13 +170,8 @@ export class Editor extends LitElement {
         // Only Show ESM at Top Level
         const isValidPlugin = this.isPlugin(f)
         if (isValidPlugin) allProperties[metadata.name ?? f.path] = importedFileInfo[f.path]
-
-        console.log('Metadata', metadata)
         return {metadata, module}
       }
-
-      await Promise.all(files.map(async (f) => getFileInfo(f)))
-
 
       const openTabs: {[x:string]: Tab} = {}
 
@@ -296,11 +289,12 @@ export class Editor extends LitElement {
         new Tab({name: 'Help'}),
       ]
 
+      // return html`
+      //     ${this.modal}
+      //     <visualscript-tab-bar>
+      //       ${tabs.map(t => t.toggle)}
+      //     </visualscript-tab-bar>
       return html`
-          ${this.modal}
-          <visualscript-tab-bar>
-            ${tabs.map(t => t.toggle)}
-          </visualscript-tab-bar>
           <div>
             ${this.ui}
             <visualscript-tab-container>

@@ -7736,7 +7736,7 @@ slot {
     let mimeType = type7;
     const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
     const sfx = suffix(name2);
-    if (isZipped || !mimeType)
+    if (isZipped || !mimeType || mimeType === "text/plain")
       mimeType = codecs.getType(sfx);
     if (esm(sfx, mimeType))
       mimeType = codecs.getType("js");
@@ -15125,10 +15125,8 @@ ${text}`;
           const isValidPlugin = this.isPlugin(f3);
           if (isValidPlugin)
             allProperties[metadata.name ?? f3.path] = importedFileInfo[f3.path];
-          console.log("Metadata", metadata);
           return { metadata, module };
         };
-        await Promise.all(files.map(async (f3) => getFileInfo(f3)));
         const openTabs = {};
         this.tree.onClick = async (key, f3) => {
           if (!openTabs[f3.path]) {
@@ -15263,10 +15261,6 @@ ${text}`;
         new Tab({ name: "Help" })
       ];
       return $2`
-          ${this.modal}
-          <visualscript-tab-bar>
-            ${tabs.map((t7) => t7.toggle)}
-          </visualscript-tab-bar>
           <div>
             ${this.ui}
             <visualscript-tab-container>
@@ -15333,16 +15327,15 @@ ${text}`;
       await system.save();
     };
     app.oncompile = async () => {
-      const packageContents = await system.files.list.get("package.json").body;
+      const packageContents = await (await system.open("package.json")).body;
       if (packageContents) {
-        const file2 = system.files.list.get(packageContents.main);
+        const file2 = await system.open(packageContents.main);
         if (file2) {
           editor.setSystem(system);
           const imported = await file2.body;
-          console.log(imported, await file2.text);
           return imported;
         } else
-          console.error('The "main" field in the suppplied package.json is not pointing to an appropriate entrypoint.');
+          console.error('The "main" field in the supplied package.json is not pointing to an appropriate entrypoint.');
       }
     };
     app.onstart = () => {

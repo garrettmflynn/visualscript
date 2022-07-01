@@ -67,6 +67,8 @@ export default class Plugins {
         return await this.filesystem.open(url)
     }
 
+
+    // Get closest package.json file contents
     package = async (name) => {
         if (this.plugins[name]){
             let path = this.getPath(name)
