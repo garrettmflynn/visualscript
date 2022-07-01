@@ -4087,35 +4087,40 @@ var encode_default = encode4;
 var transferEach = async (f, system) => {
   const path = f.path;
   if (!f.storage.buffer)
-    f.storage.buffer = await f.getFileData();
+    f.storage = await f.getFileData();
   const blob = new Blob([f.storage.buffer]);
   blob.name = f.name;
-  const newFile = await system.load(blob, path);
+  let newFile = await system.open(path, true);
   if (!f.fileSystemHandle) {
     f.fileSystemHandle = newFile.fileSystemHandle;
     f.method = "transferred";
   }
 };
 var transfer = async (previousSystem, targetSystem, transferList) => {
-  if (!targetSystem) {
-    const SystemConstructor = previousSystem.constructor;
-    targetSystem = new SystemConstructor(void 0, {
-      native: previousSystem.native,
-      debug: previousSystem.debug,
-      ignore: previousSystem.ignore,
-      writable: true,
-      progress: previousSystem.progress,
-      codecs: previousSystem.codecs
-    });
-    await targetSystem.init();
-  }
   if (!transferList)
     transferList = Array.from(previousSystem.files.list.values());
-  console.warn(`Starting transfer of ${transferList.length} files from ${previousSystem.name} to ${targetSystem.name}`);
-  const tic = performance.now();
-  await Promise.all(transferList.map(async (f) => transferEach(f, targetSystem)));
-  const toc = performance.now();
-  console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+  const notTransferred = transferList.filter((f) => f.method != "transferred");
+  if (notTransferred.length > 0) {
+    if (!targetSystem) {
+      const SystemConstructor = previousSystem.constructor;
+      targetSystem = new SystemConstructor(void 0, {
+        native: previousSystem.native,
+        debug: previousSystem.debug,
+        ignore: previousSystem.ignore,
+        writable: true,
+        progress: previousSystem.progress,
+        codecs: previousSystem.codecs
+      });
+      await targetSystem.init();
+    }
+    console.warn(`Starting transfer of ${notTransferred.length} files from ${previousSystem.name} to ${targetSystem.name}`, transferList);
+    const tic = performance.now();
+    await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
+    const toc = performance.now();
+    console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+    await Promise.all(notTransferred.map(async (f) => f.save(true)));
+    previousSystem.apply(targetSystem);
+  }
 };
 var transfer_default = transfer;
 
@@ -4137,8 +4142,11 @@ var get2 = (path, rel = "") => {
   if (dirTokens.length === 1 && dirTokens[0] === "")
     dirTokens = [];
   const potentialFile = dirTokens.pop();
-  if (potentialFile && !potentialFile.includes("."))
-    dirTokens.push(potentialFile);
+  if (potentialFile) {
+    const splitPath = potentialFile.split(".");
+    if (splitPath.length == 1 || splitPath.length > 1 && splitPath.includes(""))
+      dirTokens.push(potentialFile);
+  }
   const extensionTokens = path.split("/").filter((str) => {
     if (str === "..") {
       if (dirTokens.length == 0)
@@ -5184,13 +5192,25 @@ var System = class {
     this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
     this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
     this.transfer = async (target) => await transfer_default(this, target);
-    this.name = name2;
-    this.native = systemInfo.native;
-    this.debug = systemInfo.debug;
-    this.ignore = systemInfo.ignore ?? [];
-    this.writable = systemInfo.writable;
-    this.progress = systemInfo.progress;
-    this.codecs = new Codecs([codecs_exports, systemInfo.codecs]);
+    this.apply = (system) => {
+      this.name = system.name;
+      if (system.native)
+        this.native = system.native;
+      if (system.debug)
+        this.debug = system.debug;
+      if (system.ignore)
+        this.ignore = system.ignore ?? [];
+      if (system.writable)
+        this.writable = system.writable;
+      if (system.progress)
+        this.progress = system.progress;
+      if (system.codecs instanceof Codecs)
+        this.codecs = system.codecs;
+      else
+        this.codecs = new Codecs([codecs_exports, system.codecs]);
+      this.root = system.root;
+    };
+    this.apply(Object.assign(systemInfo, { name: name2 }));
     this.addGroup("system", {}, (file, path, files) => {
       let target = files.system;
       let split = path.split("/");
@@ -5283,6 +5303,7 @@ var onhandle = async (handle, base = "", system, progressCallback = void 0) => {
     base = base ? get2(handle.name, base) : handle.name;
   const files = [];
   if (handle.kind === "file") {
+    console.log(handle.name, base);
     if (progressCallback instanceof Function)
       files.push({ handle, base });
     else

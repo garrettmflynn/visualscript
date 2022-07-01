@@ -1,6 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
-import { Icon } from './Icon';
+import { Icon } from '../general/Icon';
 import { Tree } from './Tree';
 
 type keyType = string
@@ -42,6 +42,10 @@ export class TreeItem extends LitElement {
     li > div:hover {
         background: rgb(240,240,240);
         cursor: pointer;
+    }
+
+    visualscript-icon {
+      padding: 0px 7px;
     }
 
     @media (prefers-color-scheme: dark) {

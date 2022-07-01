@@ -6,7 +6,7 @@ import { GraphWorkspace } from './Workspace';
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
-  graph: {[x:string]: any}
+  graph?: {[x:string]: any}
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -89,7 +89,7 @@ export class GraphEditor extends LitElement {
     history: any[] = []
     workspace: GraphWorkspace
 
-    constructor(props: GraphEditorProps) {
+    constructor(props: GraphEditorProps = {}) {
       super();
 
       this.workspace = new GraphWorkspace(props)

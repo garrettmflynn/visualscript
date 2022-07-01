@@ -120,7 +120,6 @@ export class Tree extends LitElement {
     }
   
     render() {
-
       const content = (this.keys?.map(key => this.getElement(key, this.target)))
 
       return until(Promise.all(content).then((data) => {

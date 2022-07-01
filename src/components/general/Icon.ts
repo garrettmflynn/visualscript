@@ -10,18 +10,16 @@ export class Icon extends LitElement {
   static get styles() {
     return css`
 
-    :host  * {
+    :host {
+      display: block;
+      width: 30px;
+      height: 30px;
       box-sizing: border-box;
     }
 
-    div {
-      padding: 0px 7px;
-    }
-
-
     svg {
-      width: 15px;
-      height: 15px;
+      width: 100%;
+      height: 100%;
       fill: black;
     }
 
@@ -51,15 +49,12 @@ export class Icon extends LitElement {
       super();
 
       this.type = props.type ?? 'folder'
-
     }
   
     render() {
 
       return html`
-      <div>
        ${icons[this.type]}
-      </div>
     `
     }
   }

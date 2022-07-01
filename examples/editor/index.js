@@ -49,26 +49,36 @@ const nav = document.querySelector('visualscript-nav')
 // let appElement = document.querySelector('visualscript-app')
 let editor = document.querySelector('visualscript-editor')
 
-nav.primary = {options: [
-    {
-        "content": "Select Project",
-        "id": "select",
-        "type": "button",
-        onClick: async () => {
-            const system = await createSystem()
-            startApp(system)
-        }
-    }
-]}
-
 // -------------- Setup Default App --------------
 let app = new App()
 editor.setApp(app)
 
 // -------------- Show History --------------
-// freerange.getCache().then(arr => {
+freerange.getCache().then(arr => {
+    const options = [
+        {
+            "content": "Select Project",
+            "id": "select",
+            "type": "button",
+            onClick: async () => {
+                const system = await createSystem()
+                startApp(system)
+            }
+        }
+    ]
 
-// })
+    // SHOW HISTORY
+    // arr.forEach(v => options.push({
+    //    content: v.name ?? v,
+    //    type: "button",
+    //    onClick: async () => {
+    //     const system = await createSystem(v)
+    //     startApp(system)
+    // }
+    // }))
+
+    nav.primary = {options}
+})
 
 // -------------- Create System --------------
 createSystem(appPath).then((system) => startApp(system))

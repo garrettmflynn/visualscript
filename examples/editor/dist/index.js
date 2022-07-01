@@ -3219,21 +3219,12 @@
     render() {
       return $`
       <div class="modal-content ${this.open ? "open" : ""}">
-        ${this.header ? $`<div class="modal-header">
+      <div class="modal-header">
           <span>${this.header}</span>
           <visualscript-button secondary size="extra-small" @click="${this.toggle}">Close</visualscript-button>
-        </div>` : ""}
+        </div>
         <div class="modal-body">
-          <slot>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas fringilla dolor vitae hendrerit feugiat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Integer ultricies arcu nec nibh commodo aliquam at in felis. Mauris lorem dui, porttitor et lectus vel, ornare sodales risus. Sed eu rhoncus ex. Donec tristique nibh lacus, sed dictum lacus lacinia eu. Nunc imperdiet a ante et feugiat. Praesent euismod tortor lacus, et euismod turpis mollis vitae. Etiam sagittis vehicula pulvinar. Aliquam id tincidunt tortor, sed feugiat nulla. Donec sollicitudin tincidunt viverra. Nunc condimentum molestie massa a feugiat. Nam mattis bibendum sodales. Nulla at maximus arcu, quis tempus lacus.
-
-Vestibulum pharetra pretium neque eu faucibus. Morbi aliquam urna non lacinia congue. Donec sed odio interdum, imperdiet tellus in, porttitor erat. Mauris erat velit, facilisis ut luctus sit amet, laoreet vitae ligula. Morbi a mi ultrices, feugiat ante in, convallis enim. Etiam sollicitudin leo purus, ut commodo ex placerat et. Proin ut nulla non risus luctus eleifend eu id orci.
-
-Ut aliquam tristique massa. Nullam a ipsum tincidunt, malesuada ipsum non, suscipit lectus. Suspendisse sit amet risus ut lectus efficitur feugiat in ut urna. Suspendisse odio felis, efficitur eu molestie eu, malesuada nec nunc. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Quisque fermentum sit amet odio id convallis. Donec luctus risus ac pretium ultrices. Quisque congue velit sed hendrerit posuere. Integer dictum felis eu tortor mattis scelerisque. Fusce facilisis justo nec velit vehicula gravida sit amet at erat. Suspendisse sit amet nibh metus. Aenean euismod, tortor a venenatis laoreet, sapien arcu semper turpis, non molestie risus ligula nec velit.
-
-Nulla eget ultrices justo, non posuere dui. Praesent ultrices dui eget erat accumsan varius. Ut ut mi arcu. Integer porttitor, neque vitae fermentum dictum, tellus quam tincidunt mauris, eget tristique turpis mauris nec magna. Phasellus ut tortor eros. Ut vehicula non purus in efficitur. Quisque justo elit, varius id luctus et, pulvinar eget ipsum. Sed tristique et odio eu facilisis.
-
-Phasellus sodales eros at erat elementum, a semper ligula facilisis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Morbi at maximus nunc. In porttitor rutrum rhoncus. Ut dignissim viverra erat in aliquet. Suspendisse potenti. Donec lorem sem, vulputate non diam a, facilisis luctus tortor. In pellentesque ut eros id vulputate. Proin rutrum tincidunt libero, vel dictum libero ullamcorper in. Nam nec ultricies tortor, sit amet pellentesque ante. Sed tellus purus, pharetra vitae purus quis, accumsan vestibulum tellus. Vivamus porttitor urna a odio tincidunt tristique. Integer ut metus finibus, ultricies magna sed, congue eros. Duis velit velit, consectetur at faucibus ac, scelerisque nec diam.
-</slot>
+          <slot>No content</slot>
         </div>
         ${this.footer ? $`<div class="modal-footer">
           <span>${this.footer}</span>
@@ -5848,7 +5839,7 @@ opacity: 0.5;
 
   // src/components/graph/Workspace.ts
   var GraphWorkspace = class extends s4 {
-    constructor(props) {
+    constructor(props = {}) {
       super();
       this.updateCount = 0;
       this.context = {
@@ -5985,7 +5976,7 @@ opacity: 0.5;
         --grid-color: rgb(210, 210, 210);
     }
 
-    :host > div {
+    :host #grid {
         position: relative;
         background-image:
         repeating-linear-gradient(var(--grid-color) 0 1px, transparent 1px 100%),
@@ -5995,16 +5986,15 @@ opacity: 0.5;
         height: 100%;
     }
 
-    :host > div:active:hover {
+    :host #grid:active:hover {
       cursor: move;
     }
 
-      @media (prefers-color-scheme: dark) { 
 
+      @media (prefers-color-scheme: dark) { 
         :host {
             --grid-color: rgb(45, 45, 45);
         }
-
       }
 
     `;
@@ -6042,7 +6032,7 @@ opacity: 0.5;
     render() {
       this.createUIFromGraph();
       return $`
-        <div>
+        <div id=grid>
             ${Array.from(this.nodes.values())}
             ${Array.from(this.edges.values())}
         </div>
@@ -6053,7 +6043,7 @@ opacity: 0.5;
 
   // src/components/graph/Editor.ts
   var GraphEditor = class extends s4 {
-    constructor(props) {
+    constructor(props = {}) {
       super();
       this.history = [];
       this.set = async (graph) => {
@@ -6418,25 +6408,29 @@ slot {
   customElements.define("visualscript-dashboard", Dashboard);
 
   // src/components/dashboard/tabs/TabToggle.ts
-  var TabTogglePropsLit = {
-    name: {
-      type: String,
+  var TabTogglePropsList = {
+    selected: {
+      type: Boolean,
       reflect: true
     },
-    selected: {
+    grow: {
       type: Boolean,
       reflect: true
     }
   };
   var TabToggle = class extends s4 {
-    constructor(tab) {
+    constructor(props) {
       super();
+      this.grow = false;
       this.select = (toggles) => {
-        this.to.on(this);
+        if (this.to.on instanceof Function)
+          this.to.on(this);
         if (!toggles) {
-          const parent2 = this.parentNode;
-          const tabContainer = parent2.getRootNode().host;
-          toggles = Array.from(tabContainer.tabs.values()).map((tab) => tab.toggle);
+          let parent2 = this.parentNode;
+          let bar = !(parent2 instanceof HTMLElement) ? parent2.host : parent2;
+          toggles = bar.querySelectorAll("visualscript-tab-toggle");
+          if (toggles.length === 0)
+            toggles = bar.shadowRoot.querySelectorAll("visualscript-tab-toggle");
         }
         if (toggles) {
           this.selected = true;
@@ -6459,14 +6453,21 @@ slot {
           }
         }
       };
-      this.to = tab;
+      this.to = props.tab;
+      if (props.grow)
+        this.grow = props.grow;
+      if (props.selected)
+        this.selected = props.selected;
     }
     static get styles() {
       return r`
 
     :host {
-      flex-grow: 1;
       user-select: none;
+    }
+
+    :host([grow]) {
+      flex-grow: 1;
     }
 
     :host * {
@@ -6498,7 +6499,7 @@ slot {
         background: rgb(210,210,210);
       }
   
-      button.selected {
+      :host([selected]) button {
         background: rgb(230,230,230);
       }
 
@@ -6518,19 +6519,19 @@ slot {
         background: rgb(75,75,75);
         }
       
-        button.selected {
-        background: rgb(60,60,60);
+        :host([selected]) button {
+          background: rgb(60,60,60);
         }
 
       }
     `;
     }
     static get properties() {
-      return TabTogglePropsLit;
+      return TabTogglePropsList;
     }
     render() {
       return $`
-      <button class="${this.selected ? "selected" : ""}"  @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
+      <button @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
     `;
     }
   };
@@ -6734,10 +6735,16 @@ slot {
 }
 
 :host * {
-  
   box-sizing: border-box;
-  
 }
+
+:host([type="dropdown"]) {
+  position: absolute;
+  top: 0;
+  left: 0: 
+  background: red;
+}
+
 `;
   var TabPropsLit = {
     name: {
@@ -6750,6 +6757,10 @@ slot {
     },
     on: {
       type: Function,
+      reflect: true
+    },
+    type: {
+      type: String,
       reflect: true
     },
     off: {
@@ -6790,7 +6801,9 @@ slot {
       this.dashboard = Array.from(dashboards).find((o12) => o12.parentNode === document.body) ?? new Dashboard();
       this.dashboard.global = true;
       this.dashboard.open = false;
-      this.toggle = new TabToggle(this);
+      this.toggle = new TabToggle({
+        tab: this
+      });
       this.dashboard.addEventListener("close", (ev) => {
         this.off(this.toggle);
       });
@@ -6870,8 +6883,16 @@ slot {
   customElements.define("visualscript-app", App);
 
   // src/components/dashboard/tabs/TabBar.ts
-  var TabBarPropsLit = {};
+  var TabBarPropsList = {
+    tabs: {
+      type: Object
+    }
+  };
   var TabBar = class extends s4 {
+    constructor(props = {}) {
+      super();
+      this.tabs = [];
+    }
     static get styles() {
       return r`
 
@@ -6884,7 +6905,7 @@ slot {
       width: 100%;
       top: 0;
       left: 0;
-      z-index: 1000;
+      z-index: 2;
     }
 
     /* Tab Scrollbar */
@@ -6922,13 +6943,11 @@ slot {
     `;
     }
     static get properties() {
-      return TabBarPropsLit;
-    }
-    constructor(props = {}) {
-      super();
+      return TabBarPropsList;
     }
     render() {
       return $`
+      ${this.tabs.map((t7) => t7.toggle)}
       <slot></slot>
     `;
     }
@@ -7090,8 +7109,14 @@ slot {
     constructor(props = {}) {
       super();
       this.tabs = /* @__PURE__ */ new Map();
-      this.tabLabels = [];
-      this.activeTab = 0;
+      this.bar = new TabBar();
+      this.reset = () => {
+        const selectedActiveTab = false;
+        this.tabs.forEach((t7) => this.removeTab(t7));
+        if (!selectedActiveTab)
+          this.activeTab = 0;
+        this.updateTabs();
+      };
       this.addTab = (tab, switchTo = false) => {
         this.insertAdjacentElement("beforeend", tab);
         if (switchTo)
@@ -7120,6 +7145,7 @@ slot {
         this.updateTabs();
         return Array.from(this.tabs.values());
       };
+      this.reset();
     }
     static get styles() {
       return r`
@@ -7172,11 +7198,14 @@ slot {
           t7.style.display = "none";
         return t7.toggle;
       });
-      const firstToggle = toggles[this.activeTab];
-      if (firstToggle)
-        firstToggle.select(toggles);
+      const selectedToggle = toggles[this.activeTab];
+      if (selectedToggle)
+        selectedToggle.select(toggles);
+      this.bar.tabs = tabs;
+      toggles.forEach((t7) => t7.grow = true);
+      this.bar.style.display = toggles.length < 1 ? "none" : "";
       return $`
-      <visualscript-tab-bar style="${toggles.length < 1 ? "display: none;" : ""}">${toggles}</visualscript-tab-bar>
+      ${this.bar}
       <slot><div id="notabs">No Tabs Open</div></slot>
     `;
     }
@@ -7395,18 +7424,20 @@ slot {
   };
   customElements.define("visualscript-sidebar-header", SidebarHeader);
 
-  // src/components/tree/icons/index.js
+  // src/components/general/icons/index.js
   var icons_exports = {};
   __export(icons_exports, {
+    addBox: () => addBox,
     file: () => file,
     folder: () => folder,
     openfolder: () => openfolder
   });
+  var addBox = $`<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>`;
   var folder = $`<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
   var openfolder = $`<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>`;
   var file = $`<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/><path d="M20.41,8.41l-4.83-4.83C15.21,3.21,14.7,3,14.17,3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V9.83 C21,9.3,20.79,8.79,20.41,8.41z M7,7h7v2H7V7z M17,17H7v-2h10V17z M17,13H7v-2h10V13z"/></g></svg>`;
 
-  // src/components/tree/Icon.ts
+  // src/components/general/Icon.ts
   var Icon = class extends s4 {
     constructor(props = {}) {
       super();
@@ -7415,18 +7446,16 @@ slot {
     static get styles() {
       return r`
 
-    :host  * {
+    :host {
+      display: block;
+      width: 30px;
+      height: 30px;
       box-sizing: border-box;
     }
 
-    div {
-      padding: 0px 7px;
-    }
-
-
     svg {
-      width: 15px;
-      height: 15px;
+      width: 100%;
+      height: 100%;
       fill: black;
     }
 
@@ -7449,9 +7478,7 @@ slot {
     }
     render() {
       return $`
-      <div>
        ${icons_exports[this.type]}
-      </div>
     `;
     }
   };
@@ -7502,6 +7529,10 @@ slot {
     li > div:hover {
         background: rgb(240,240,240);
         cursor: pointer;
+    }
+
+    visualscript-icon {
+      padding: 0px 7px;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -11745,35 +11776,40 @@ slot {
   var transferEach = async (f3, system) => {
     const path = f3.path;
     if (!f3.storage.buffer)
-      f3.storage.buffer = await f3.getFileData();
+      f3.storage = await f3.getFileData();
     const blob = new Blob([f3.storage.buffer]);
     blob.name = f3.name;
-    const newFile = await system.load(blob, path);
+    let newFile = await system.open(path, true);
     if (!f3.fileSystemHandle) {
       f3.fileSystemHandle = newFile.fileSystemHandle;
       f3.method = "transferred";
     }
   };
   var transfer = async (previousSystem, targetSystem, transferList) => {
-    if (!targetSystem) {
-      const SystemConstructor = previousSystem.constructor;
-      targetSystem = new SystemConstructor(void 0, {
-        native: previousSystem.native,
-        debug: previousSystem.debug,
-        ignore: previousSystem.ignore,
-        writable: true,
-        progress: previousSystem.progress,
-        codecs: previousSystem.codecs
-      });
-      await targetSystem.init();
-    }
     if (!transferList)
       transferList = Array.from(previousSystem.files.list.values());
-    console.warn(`Starting transfer of ${transferList.length} files from ${previousSystem.name} to ${targetSystem.name}`);
-    const tic = performance.now();
-    await Promise.all(transferList.map(async (f3) => transferEach(f3, targetSystem)));
-    const toc = performance.now();
-    console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+    const notTransferred = transferList.filter((f3) => f3.method != "transferred");
+    if (notTransferred.length > 0) {
+      if (!targetSystem) {
+        const SystemConstructor = previousSystem.constructor;
+        targetSystem = new SystemConstructor(void 0, {
+          native: previousSystem.native,
+          debug: previousSystem.debug,
+          ignore: previousSystem.ignore,
+          writable: true,
+          progress: previousSystem.progress,
+          codecs: previousSystem.codecs
+        });
+        await targetSystem.init();
+      }
+      console.warn(`Starting transfer of ${notTransferred.length} files from ${previousSystem.name} to ${targetSystem.name}`, transferList);
+      const tic = performance.now();
+      await Promise.all(notTransferred.map(async (f3) => transferEach(f3, targetSystem)));
+      const toc = performance.now();
+      console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+      await Promise.all(notTransferred.map(async (f3) => f3.save(true)));
+      previousSystem.apply(targetSystem);
+    }
   };
   var transfer_default = transfer;
   function isClass(obj = {}) {
@@ -11791,8 +11827,11 @@ slot {
     if (dirTokens.length === 1 && dirTokens[0] === "")
       dirTokens = [];
     const potentialFile = dirTokens.pop();
-    if (potentialFile && !potentialFile.includes("."))
-      dirTokens.push(potentialFile);
+    if (potentialFile) {
+      const splitPath = potentialFile.split(".");
+      if (splitPath.length == 1 || splitPath.length > 1 && splitPath.includes(""))
+        dirTokens.push(potentialFile);
+    }
     const extensionTokens = path.split("/").filter((str) => {
       if (str === "..") {
         if (dirTokens.length == 0)
@@ -12793,13 +12832,25 @@ ${text}`;
       this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
       this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
       this.transfer = async (target) => await transfer_default(this, target);
-      this.name = name2;
-      this.native = systemInfo.native;
-      this.debug = systemInfo.debug;
-      this.ignore = systemInfo.ignore ?? [];
-      this.writable = systemInfo.writable;
-      this.progress = systemInfo.progress;
-      this.codecs = new Codecs([codecs_exports, systemInfo.codecs]);
+      this.apply = (system) => {
+        this.name = system.name;
+        if (system.native)
+          this.native = system.native;
+        if (system.debug)
+          this.debug = system.debug;
+        if (system.ignore)
+          this.ignore = system.ignore ?? [];
+        if (system.writable)
+          this.writable = system.writable;
+        if (system.progress)
+          this.progress = system.progress;
+        if (system.codecs instanceof Codecs)
+          this.codecs = system.codecs;
+        else
+          this.codecs = new Codecs([codecs_exports, system.codecs]);
+        this.root = system.root;
+      };
+      this.apply(Object.assign(systemInfo, { name: name2 }));
       this.addGroup("system", {}, (file2, path, files) => {
         let target = files.system;
         let split = path.split("/");
@@ -12886,6 +12937,7 @@ ${text}`;
       base = base ? get2(handle.name, base) : handle.name;
     const files = [];
     if (handle.kind === "file") {
+      console.log(handle.name, base);
       if (progressCallback instanceof Function)
         files.push({ handle, base });
       else
@@ -12965,6 +13017,14 @@ ${text}`;
   }
   var cacheName = `freerange-history`;
   var maxHistory = 10;
+  var getCache = async () => {
+    let dirHandleArray = await get3(cacheName);
+    if (dirHandleArray) {
+      console.log(`Loaded cached mounts "${dirHandleArray.map((d4) => d4.name)}" from IndexedDB.`);
+      return dirHandleArray;
+    } else
+      return;
+  };
   var setCache = async (info) => {
     console.log("Init", info);
     let history = await get3(cacheName);
@@ -14886,8 +14946,7 @@ ${text}`;
               module: f3
             };
           });
-          const metadata = await this.metadata(`index.js`);
-          console.log("metadata", metadata);
+          await this.metadata(`index.js`);
         }
         this.readyState = true;
       };
@@ -14895,16 +14954,47 @@ ${text}`;
         return await this.filesystem.open(url);
       };
       this.metadata = async (name2) => {
-        const path = this.plugins[name2].path ?? name2;
-        const splitPath = path.split("/").slice(0, -1);
-        splitPath.push(".brainsatplay/metadata.js");
-        this.plugins[name2].metadata = this.plugins[name2].metadata ?? await this.get(splitPath.join("/"));
-        return await this.plugins[name2].metadata.body;
+        if (this.plugins[name2]) {
+          let path = this.getPath(name2);
+          if (!path.includes(this.metadataString)) {
+            const splitPath = path.split("/").slice(0, -1);
+            splitPath.push(this.metadataString);
+            path = splitPath.join("/");
+          }
+          const metadata = this.plugins[name2].metadata ?? await this.get(path);
+          if (metadata) {
+            this.plugins[name2].metadata = metadata;
+            return await this.plugins[name2].metadata.body;
+          } else
+            return {};
+        } else {
+          console.warn(`No metadata for ${name2}.`);
+          return {};
+        }
       };
+      this.getPath = (name2) => this.plugins[name2].module?.path ?? this.plugins[name2].path ?? name2;
+      this.metadataString = ".brainsatplay/metadata.js";
       this.module = async (name2) => {
-        const path = this.plugins[name2].path ?? name2;
-        this.plugins[name2].module = this.plugins[name2].module ?? await this.get(path);
-        return await this.plugins[name2].module.body;
+        let isMetadata = false;
+        if (name2.includes(this.metadataString)) {
+          name2 = name2.replace(this.metadataString, "index.js");
+          isMetadata = true;
+        }
+        if (this.plugins[name2]) {
+          const path = this.getPath(name2);
+          const pluginModule = this.plugins[name2].module ?? await this.get(path);
+          if (pluginModule) {
+            this.plugins[name2].module = pluginModule;
+            if (isMetadata)
+              return await this.metadata(name2);
+            else
+              return await this.plugins[name2].module.body;
+          } else
+            return {};
+        } else {
+          console.error(`Module for ${name2} not found.`);
+          return {};
+        }
       };
       if (typeof source === "string")
         this.source = source;
@@ -14920,6 +15010,7 @@ ${text}`;
   var Editor = class extends s9 {
     constructor(props = {}) {
       super();
+      this.modal = new Modal();
       this.ui = document.createElement("visualscript-tab");
       this.files = new TabContainer();
       this.info = new TabContainer();
@@ -14939,8 +15030,14 @@ ${text}`;
         this.ui.appendChild(ui);
       };
       this.setSystem = async (system) => {
+        console.log("Resetting files");
+        const toOpen = [];
+        this.files.tabs.forEach((t7) => {
+          const newTab = system.files.list.get(t7.name);
+          toOpen.push(newTab);
+        });
+        this.files.reset(toOpen);
         this.filesystem = system;
-        this.tree.set(system.files.system);
         const files = Array.from(system.files.list.values());
         this.plugins = new Plugins(this.filesystem);
         await this.plugins.init();
@@ -14948,16 +15045,27 @@ ${text}`;
         const allProperties = {};
         const importedFileInfo = {};
         const importedFileMetadata = {};
-        await Promise.all(files.map(async (f3) => {
-          importedFileInfo[f3.path] = await this.plugins.module(f3.path);
-          importedFileMetadata[f3.path] = await this.plugins.metadata(f3.path);
-          allProperties[importedFileMetadata[f3.path].name] = importedFileInfo[f3.path];
-        }));
+        const getFileInfo = async (f3) => {
+          let module = importedFileInfo[f3.path];
+          let metadata = importedFileMetadata[f3.path];
+          if (!module) {
+            module = importedFileInfo[f3.path] = await this.plugins.module(f3.path) ?? await f3.body;
+          }
+          if (!metadata) {
+            metadata = await this.plugins.metadata(f3.path);
+            if (metadata) {
+              importedFileMetadata[f3.path] = metadata;
+            }
+          }
+          allProperties[metadata.name ?? f3.path] = importedFileInfo[f3.path];
+          return { metadata, module };
+        };
+        await Promise.all(files.map(async (f3) => getFileInfo(f3)));
         const openTabs = {};
         this.tree.onClick = async (key, f3) => {
           if (!openTabs[f3.path]) {
-            const metadata = importedFileMetadata[f3.path];
-            const imported = importedFileInfo[f3.path];
+            const { metadata, module } = await getFileInfo(f3);
+            console.log(f3.path, metadata, module);
             let tabInfo = this.fileHistory[f3.path];
             const plugin = this.plugins.plugins[f3.path];
             previousTabs.delete(f3.path);
@@ -14967,11 +15075,13 @@ ${text}`;
               tab.name = `${f3.path}`;
               let container = new TabContainer();
               const codeTab = new Tab({ name: "Code" });
-              if (plugin.module) {
+              if (plugin && plugin.module) {
                 const infoTab = new Tab({ name: "Info" });
                 tabInfo.plugin = new Plugin();
                 infoTab.appendChild(tabInfo.plugin);
                 container.addTab(infoTab);
+              }
+              if (typeof f3.body === "object") {
                 const objectTab = new Tab({ name: "Properties" });
                 tabInfo.object = new ObjectEditor();
                 objectTab.appendChild(tabInfo.object);
@@ -14985,10 +15095,11 @@ ${text}`;
               this.fileHistory[f3.path] = tabInfo;
             }
             if (tabInfo.plugin)
-              tabInfo.plugin.set(imported, metadata);
+              tabInfo.plugin.set(module, metadata);
             if (tabInfo.object) {
-              tabInfo.object.set(imported);
-              tabInfo.object.header = metadata.name;
+              console.log("Imported", module);
+              tabInfo.object.set(module);
+              tabInfo.object.header = metadata.name ?? f3.name;
             }
             const fileText = await f3.text;
             tabInfo.code.value = fileText;
@@ -15005,6 +15116,7 @@ ${text}`;
           info.tab.remove();
           delete this.fileHistory[str];
         });
+        this.tree.set(system.files.system);
         this.fileUpdate = this.fileUpdate + 1;
       };
       this.ui.setAttribute("name", "UI");
@@ -15021,16 +15133,21 @@ ${text}`;
     :host { 
       width: 100%;
       height: 100%;
-      overflow: scroll;
-      display: flex;
     }
 
     :host * {
       box-sizing: border-box;
     }
 
-    :host > * {
+    :host > div > * {
       flex-grow: 1;
+    }
+
+    :host > div {
+      overflow: scroll;
+      display: flex;
+      width: 100%;
+      height: 100%;
     }
 
     #files {
@@ -15042,6 +15159,15 @@ ${text}`;
       width: 200px;
     }
 
+    #palette {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 25px;
+      height: 25px;
+      z-index: 2;
+      cursor: pointer;
+    }
 
     `;
     }
@@ -15054,22 +15180,42 @@ ${text}`;
       };
     }
     render() {
+      const newProject = document.createElement("div");
+      newProject.innerHTML = "Create new project";
+      const fileTab = new Tab({ name: "File", type: "dropdown" });
+      fileTab.insertAdjacentElement("beforeend", newProject);
+      newProject.onclick = () => {
+        this.modal.open = true;
+      };
+      const tabs = [
+        fileTab,
+        new Tab({ name: "Edit", type: "dropdown" }),
+        new Tab({ name: "View" }),
+        new Tab({ name: "Window" }),
+        new Tab({ name: "Help" })
+      ];
       return $2`
-          ${this.ui}
-          <visualscript-tab-container>
-          <visualscript-tab name="Graph">
-          ${this.graph}
-         </visualscript-tab>
-            <visualscript-tab name="Properties">
-              ${this.properties}
-            </visualscript-tab>
-              <visualscript-tab name="Files">
-              <div id="files">
-                ${this.tree}
-                ${this.files}
-                </div>
+          ${this.modal}
+          <visualscript-tab-bar>
+            ${tabs.map((t7) => t7.toggle)}
+          </visualscript-tab-bar>
+          <div>
+            ${this.ui}
+            <visualscript-tab-container>
+            <visualscript-tab name="Graph">
+            ${this.graph}
+          </visualscript-tab>
+              <visualscript-tab name="Properties">
+                ${this.properties}
               </visualscript-tab>
-          </visualscript-tab-container>
+                <visualscript-tab name="Files">
+                <div id="files">
+                  ${this.tree}
+                  ${this.files}
+                  </div>
+                </visualscript-tab>
+            </visualscript-tab-container>
+          </div>
       `;
     }
   };
@@ -15090,19 +15236,22 @@ ${text}`;
   var appPath = "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js";
   var nav = document.querySelector("visualscript-nav");
   var editor = document.querySelector("visualscript-editor");
-  nav.primary = { options: [
-    {
-      "content": "Select Project",
-      "id": "select",
-      "type": "button",
-      onClick: async () => {
-        const system = await createSystem();
-        startApp(system);
-      }
-    }
-  ] };
   var app = new App2();
   editor.setApp(app);
+  getCache().then((arr) => {
+    const options = [
+      {
+        "content": "Select Project",
+        "id": "select",
+        "type": "button",
+        onClick: async () => {
+          const system = await createSystem();
+          startApp(system);
+        }
+      }
+    ];
+    nav.primary = { options };
+  });
   createSystem(appPath).then((system) => startApp(system)).catch((e11) => console.error("Remote app not available", e11));
   document.onkeydown = async (e11) => {
     if (e11.metaKey && e11.code == "KeyS") {

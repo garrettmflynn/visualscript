@@ -20,18 +20,24 @@ slot {
 }
 
 :host * {
-  
   box-sizing: border-box;
-  
 }
+
+:host([type="dropdown"]) {
+  position: absolute;
+  top: 0;
+  left: 0: 
+  background: red;
+}
+
 `
 
 export type TabProps = {
   name?: string;
   controls?: ControlProps[],
-  type?: 'app' | 'tab'
+  type?: 'app' | 'tab' | 'dropdown',
   on?: (target:TabToggle)=> any,
-  off?: (target:TabToggle)=> any
+  off?: (target:TabToggle)=> any,
 }
 
 
@@ -48,6 +54,10 @@ export const TabPropsLit = {
     type: Function,
     reflect: true
   },
+  type: {
+    type: String,
+    reflect: true
+  },
   off: {
     type: Function,
     reflect: true
@@ -61,6 +71,7 @@ export class Tab extends LitElement {
   on: TabProps['on'] = () => {}
   off: TabProps['off'] = () => {}
   type: TabProps['type'] = 'tab'
+
   controlPanel: HTMLDivElement
   dashboard: Dashboard;
   toggle: TabToggle
@@ -89,7 +100,9 @@ export class Tab extends LitElement {
 
 
       // Create a toggle
-      this.toggle = new TabToggle(this)
+      this.toggle = new TabToggle({
+        tab: this
+      })
 
       this.dashboard.addEventListener('close', (ev) => {
         this.off(this.toggle)

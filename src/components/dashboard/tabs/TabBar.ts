@@ -3,21 +3,20 @@ import { LitElement, html, css } from 'lit';
 import { Tab } from './Tab';
 import '../App';
 
-// TODO: Remove long-winded references to the Global Main
-
-
 export type TabBarProps = {
-  tabs?: Tab[]
+  tabs?: Tab[],
 }
 
 
-export const TabBarPropsLit = {
-
+export const TabBarPropsList = {
+  tabs: {
+    type: Object
+  }
 }
 
 export class TabBar extends LitElement {
 
-  // tabs: TabBarProps['tabs']
+  tabs: TabBarProps['tabs'] = []
 
   static get styles() {
     return css`
@@ -31,7 +30,7 @@ export class TabBar extends LitElement {
       width: 100%;
       top: 0;
       left: 0;
-      z-index: 1000;
+      z-index: 2;
     }
 
     /* Tab Scrollbar */
@@ -70,18 +69,18 @@ export class TabBar extends LitElement {
   }
     
     static get properties() {
-      return TabBarPropsLit;
+      return TabBarPropsList;
     }
 
 
     constructor(props: TabBarProps = {}) {
       super();
-        // this.tabs = props.tabs ?? []
     }
 
     render() {
 
       return html`
+      ${this.tabs.map(t => t.toggle)}
       <slot></slot>
     `
     }

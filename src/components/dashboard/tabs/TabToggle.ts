@@ -2,22 +2,28 @@
 import { LitElement, html, css } from 'lit';
 import { Tab } from './Tab';
 import { Sidebar } from '..';
-import { TabContainer } from './TabContainer';
+import { TabBar } from './TabBar';
 
 // TODO: Remove long-winded references to the Global Main
 
 
 export type TabToggleProps = {
-  selected: boolean
+  tab: Tab,
+  selected?: boolean,
+  grow?: boolean
 }
 
 
-export const TabTogglePropsLit = {
-  name : {
-    type: String,
+export const TabTogglePropsList = {
+  // name : {
+  //   type: String,
+  //   reflect: true
+  // },
+  selected: {
+    type: Boolean,
     reflect: true
   },
-  selected: {
+  grow: {
     type: Boolean,
     reflect: true
   }
@@ -32,8 +38,11 @@ export class TabToggle extends LitElement {
     return css`
 
     :host {
-      flex-grow: 1;
       user-select: none;
+    }
+
+    :host([grow]) {
+      flex-grow: 1;
     }
 
     :host * {
@@ -65,7 +74,7 @@ export class TabToggle extends LitElement {
         background: rgb(210,210,210);
       }
   
-      button.selected {
+      :host([selected]) button {
         background: rgb(230,230,230);
       }
 
@@ -85,8 +94,8 @@ export class TabToggle extends LitElement {
         background: rgb(75,75,75);
         }
       
-        button.selected {
-        background: rgb(60,60,60);
+        :host([selected]) button {
+          background: rgb(60,60,60);
         }
 
       }
@@ -94,28 +103,30 @@ export class TabToggle extends LitElement {
   }
     
     static get properties() {
-      return TabTogglePropsLit;
+      return TabTogglePropsList;
     }
 
+    grow: TabToggleProps['grow'] = false
 
-    constructor(tab: Tab) {
+    constructor(props: TabToggleProps) {
       super();
-        this.to = tab
+        this.to = props.tab
+        if (props.grow) this.grow = props.grow
+        if (props.selected) this.selected = props.selected
     }
 
     select = (toggles?) => {
 
-      this.to.on(this)
+      if (this.to.on instanceof Function) this.to.on(this)
 
         // Show Correct Tab
-
         if (!toggles){
-          const parent = this.parentNode // ASSUMPTION: Always within a tabBar
-          const tabContainer = (parent.getRootNode() as any).host as TabContainer // ASSUMPTION: Always within a tabBar
-          toggles = Array.from(tabContainer.tabs.values()).map(tab => tab.toggle)
+          let parent = this.parentNode as TabBar | any
+          let bar = ((!(parent instanceof HTMLElement)) ? parent.host : parent) as TabBar
+           toggles = bar.querySelectorAll('visualscript-tab-toggle') // Get toggles
+           if (toggles.length === 0) toggles = bar.shadowRoot.querySelectorAll('visualscript-tab-toggle')
         }
        
-
         if (toggles){
           this.selected = true
 
@@ -147,7 +158,7 @@ export class TabToggle extends LitElement {
     render() {
 
       return html`
-      <button class="${(this.selected) ? 'selected' : ''}"  @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
+      <button @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
     `
     }
   }

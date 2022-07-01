@@ -56,8 +56,7 @@ export default class Plugins {
                 }
             })
             
-            const metadata = await this.metadata(`index.js`)
-            console.log('metadata', metadata)
+            await this.metadata(`index.js`) // Get metadata
         }
 
         this.readyState = true // Switch readyState to true
@@ -68,16 +67,51 @@ export default class Plugins {
     }
 
     metadata = async (name) => {
-        const path = this.plugins[name].path ?? name
-        const splitPath = path.split('/').slice(0, -1)
-        splitPath.push('.brainsatplay/metadata.js')
-        this.plugins[name].metadata = this.plugins[name].metadata ?? await this.get(splitPath.join('/'))
-        return await this.plugins[name].metadata.body
+
+        if (this.plugins[name]){
+            let path = this.getPath(name)
+            
+            if (!path.includes(this.metadataString)) {
+                const splitPath = path.split('/').slice(0, -1)
+                splitPath.push(this.metadataString)
+                path = splitPath.join('/')
+            }
+            
+            const metadata = this.plugins[name].metadata ?? await this.get(path)
+            if (metadata) {
+                this.plugins[name].metadata = metadata
+                return await this.plugins[name].metadata.body
+            } else return {}
+        } else {
+            console.warn(`No metadata for ${name}.`)
+            return {}
+        }
     }
 
+    getPath = (name:string) => this.plugins[name].module?.path ?? this.plugins[name].path ?? name
+
+    metadataString = '.brainsatplay/metadata.js'
     module = async (name) => {
-        const path = this.plugins[name].path ?? name
-        this.plugins[name].module = this.plugins[name].module ?? await this.get(path)
-        return await this.plugins[name].module.body
+        
+        // Getting Metadata File from Reference
+        let isMetadata = false
+        if (name.includes(this.metadataString)){
+            name = name.replace(this.metadataString,'index.js')
+            isMetadata = true
+        }
+
+        // Skip without Name
+        if (this.plugins[name]){
+            const path = this.getPath(name)
+            const pluginModule = this.plugins[name].module ?? await this.get(path)
+            if (pluginModule) {
+                this.plugins[name].module = pluginModule
+                if (isMetadata) return await this.metadata(name)
+                else return await this.plugins[name].module.body
+            } else return {}
+        } else {
+            console.error(`Module for ${name} not found.`)
+            return {}
+        }
     }
 }

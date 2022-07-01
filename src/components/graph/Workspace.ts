@@ -7,10 +7,9 @@ import drag from './utils/drag'
 import { GraphEdge } from './Edge';
 // import { Edge } from 'src/brainatplay/ui/Edge';
 
-
 export type GraphWorkspaceProps = {
   // tree: {[x:string]: any}
-  graph: {[x:string]: any};
+  graph?: {[x:string]: any};
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -30,7 +29,7 @@ export class GraphWorkspace extends LitElement {
         --grid-color: rgb(210, 210, 210);
     }
 
-    :host > div {
+    :host #grid {
         position: relative;
         background-image:
         repeating-linear-gradient(var(--grid-color) 0 1px, transparent 1px 100%),
@@ -40,16 +39,15 @@ export class GraphWorkspace extends LitElement {
         height: 100%;
     }
 
-    :host > div:active:hover {
+    :host #grid:active:hover {
       cursor: move;
     }
 
-      @media (prefers-color-scheme: dark) { 
 
+      @media (prefers-color-scheme: dark) { 
         :host {
             --grid-color: rgb(45, 45, 45);
         }
-
       }
 
     `;
@@ -88,11 +86,12 @@ export class GraphWorkspace extends LitElement {
     nodes: Map<string, GraphNode> = new Map()
     edges: Map<string, GraphEdge> = new Map()
 
-    constructor(props: GraphWorkspaceProps) {
+    constructor(props: GraphWorkspaceProps = {}) {
       super();
 
       if (props?.graph) this.set(props.graph)
 
+      // Resize with Window Resize
       window.addEventListener('resize', () => {
         this.resize()
       })
@@ -234,17 +233,12 @@ export class GraphWorkspace extends LitElement {
       this.createUIFromGraph()      
 
       // Auto Layout
-
-      // return until(Promise.all(edgePromises).then((data) => {
-
         return html`
-        <div>
+        <div id=grid>
             ${Array.from(this.nodes.values())}
             ${Array.from(this.edges.values())}
         </div>
       `
-      // }), html`<span>Loading...</span>`)
-
     }
 
 

@@ -3,16 +3,13 @@ import { LitElement, html, css } from 'lit';
 import { Tab } from './Tab';
 import './TabToggle';
 import './TabBar';
+import { TabBar } from './TabBar';
 
 export type TabContainerProps = {
 
 }
 
 export class TabContainer extends LitElement {
-
-  tabs: Map<string, Tab> = new Map();
-  tabLabels: string[]= []
-  activeTab: number = 0
 
   static get styles() {
     return css`
@@ -61,8 +58,22 @@ export class TabContainer extends LitElement {
       };
     }
 
+
+    tabs: Map<string, Tab> = new Map()
+    tabLabels: string[]
+    activeTab: number
+    bar = new TabBar()
+
     constructor(props: TabContainerProps = {}) {
       super();
+      this.reset()
+    }
+
+    reset = () => {
+      const selectedActiveTab = false
+      this.tabs.forEach(t => this.removeTab(t)) // remove existing
+      if (!selectedActiveTab) this.activeTab = 0
+      this.updateTabs()
     }
 
     addTab = (tab, switchTo=false) => {
@@ -100,18 +111,22 @@ export class TabContainer extends LitElement {
     }
     
     render() {
-
       const tabs = this.getTabs()
+
       const toggles = tabs.map((t,i) => {
         if (i !== this.activeTab) t.style.display = 'none' // Hide tabs other than the first
         return t.toggle
       })
 
-      const firstToggle = toggles[this.activeTab]
-      if (firstToggle) firstToggle.select(toggles)
+      const selectedToggle = toggles[this.activeTab]
+      if (selectedToggle) selectedToggle.select(toggles)
+      this.bar.tabs = tabs // Set tabs
+
+      toggles.forEach(t => t.grow = true)
+      this.bar.style.display = (toggles.length < 1) ? 'none' : ''
 
       return html`
-      <visualscript-tab-bar style="${toggles.length < 1 ? 'display: none;' : ''}">${toggles}</visualscript-tab-bar>
+      ${this.bar}
       <slot><div id="notabs">No Tabs Open</div></slot>
     `
     }
