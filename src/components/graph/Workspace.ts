@@ -171,8 +171,11 @@ export class GraphWorkspace extends LitElement {
 
     autolayout = () => {
       let count = 0
+      let rowLen = 5
+      let offset = 20
       this.nodes.forEach((n) => {
-        n.x = 100*count
+        n.x = offset + 100*(count % rowLen)
+        n.y =  offset + 150*(Math.floor(count/rowLen))
         count++
       })
     }

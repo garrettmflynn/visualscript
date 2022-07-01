@@ -5881,8 +5881,11 @@ opacity: 0.5;
       };
       this.autolayout = () => {
         let count = 0;
+        let rowLen = 5;
+        let offset = 20;
         this.nodes.forEach((n12) => {
-          n12.x = 100 * count;
+          n12.x = offset + 100 * (count % rowLen);
+          n12.y = offset + 150 * Math.floor(count / rowLen);
           count++;
         });
       };
