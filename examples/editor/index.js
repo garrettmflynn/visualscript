@@ -12,7 +12,7 @@ let systems = {}
 const createSystem = async (input) => {
     let system = new freerange.System(input, {
         debug: true,
-        ignore: ['DS_Store']
+        ignore: ['.DS_Store', '.git']
     })
 
     await system.init()
@@ -34,7 +34,7 @@ const createSystem = async (input) => {
 // }
 
 // -------------- Remote App --------------
-const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js'
+const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/package.json'
 // const appPath = `./app/index.js` // Automatically relative to window.location.href
 
 // createPlugins()
@@ -103,13 +103,16 @@ const startApp = (system) => {
 
 
     app.oncompile = async () => {
-        const file = system.files.list.get('index.js')
-        if (file) {
-            editor.setSystem(system)
-            console.log('System', system, file)
-            const imported = await file.body
-            return imported
-        } else console.error('Not a valid Brains@Play project...')
+        const packageContents = await system.files.list.get('package.json').body
+        if (packageContents){
+            const file = system.files.list.get(packageContents.main) // Get main file
+            if (file) {
+                editor.setSystem(system)
+                const imported = await file.body
+                console.log(imported, await file.text)
+                return imported
+            } else console.error('The "main" field in the suppplied package.json is not pointing to an appropriate entrypoint.')
+        }
     }
 
     app.onstart = () => {

@@ -7108,6 +7108,7 @@ slot {
   var TabContainer = class extends s4 {
     constructor(props = {}) {
       super();
+      this.minTabs = 0;
       this.tabs = /* @__PURE__ */ new Map();
       this.bar = new TabBar();
       this.reset = () => {
@@ -7145,6 +7146,8 @@ slot {
         this.updateTabs();
         return Array.from(this.tabs.values());
       };
+      if (props.minTabs)
+        this.minTabs = props.minTabs;
       this.reset();
     }
     static get styles() {
@@ -7203,7 +7206,7 @@ slot {
         selectedToggle.select(toggles);
       this.bar.tabs = tabs;
       toggles.forEach((t7) => t7.grow = true);
-      this.bar.style.display = toggles.length < 1 ? "none" : "";
+      this.bar.style.height = toggles.length < this.minTabs ? "0px" : "";
       return $`
       ${this.bar}
       <slot><div id="notabs">No Tabs Open</div></slot>
@@ -7724,7 +7727,7 @@ slot {
   var esm = (suffix2, type7) => {
     if (suffix2 === "js" || suffix2 === "mjs")
       return true;
-    else if (type7.includes("javascript"))
+    else if (type7 && type7.includes("javascript"))
       return true;
     else
       return false;
@@ -12461,7 +12464,8 @@ slot {
     } catch (e11) {
       console.warn(`${config.path} contains ES6 imports. Manually importing these modules...`);
       const base = get2("", config.path);
-      let childBase = config.system.root ? get2(base, config.system.root) : base;
+      const needsRoot = config.system.root && !config.system.native;
+      let childBase = needsRoot ? get2(base, config.system.root) : base;
       const importInfo = {};
       var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
       let m3;
@@ -12478,13 +12482,14 @@ slot {
       for (let path in importInfo) {
         let correctPath = get2(path, childBase);
         const variables = importInfo[path];
-        const existingFile = config.system.files.list.get(get2(path));
+        const existingFile = config.system.files.list.get(get2(correctPath));
         let blob = existingFile?.file;
         if (!blob) {
           const info = await handleFetch(correctPath);
           blob = new Blob([info.buffer], { type: info.type });
-          await config.system.load(blob, correctPath, config.path);
+          await config.system.load(blob, correctPath);
         }
+        config.system.trackDependency(correctPath, config.path);
         let thisText = await blob.text();
         const imported = await safeESMImport(thisText, {
           path: correctPath,
@@ -12780,8 +12785,18 @@ ${text}`;
         }
         return files;
       };
-      this.checkToLoad = (name22) => {
-        return this.ignore.reduce((a5, b3) => a5 * (name22?.includes(b3) ? 0 : 1), 1);
+      this.checkToLoad = (path) => {
+        const split = path.split("/");
+        const fileName = split.pop();
+        const toLoad = this.ignore.reduce((a5, b3) => {
+          if (fileName === b3)
+            return a5 * 0;
+          else if (path.includes(`${b3}/`))
+            return a5 * 0;
+          else
+            return a5 * 1;
+        }, 1);
+        return toLoad;
       };
       this.load = async (file2, path, dependent) => {
         const existingFile = this.files.list.get(path);
@@ -12792,7 +12807,7 @@ ${text}`;
             file2.name = name(path);
           if (!this.native)
             file2 = createFile(file2, path, this);
-          const toLoad = this.checkToLoad(file2.name ?? file2.path ?? path);
+          const toLoad = this.checkToLoad(file2.path ?? path);
           if (toLoad) {
             const rangeFile = await load(file2, {
               path,
@@ -12814,6 +12829,16 @@ ${text}`;
           } else
             console.warn(`Ignoring ${file2.name}`);
         }
+      };
+      this.trackDependency = (path, dependent) => {
+        const rangeFile = this.files.list.get(path);
+        if (!this.dependencies[dependent])
+          this.dependencies[dependent] = /* @__PURE__ */ new Map();
+        this.dependencies[dependent].set(path, rangeFile);
+        if (!this.dependents[path])
+          this.dependents[path] = /* @__PURE__ */ new Map();
+        const file2 = this.files.list.get(dependent);
+        this.dependents[path].set(file2.path, file2);
       };
       this.add = (file2) => {
         if (!this.files.list.has(file2.path)) {
@@ -12944,7 +12969,6 @@ ${text}`;
       base = base ? get2(handle.name, base) : handle.name;
     const files = [];
     if (handle.kind === "file") {
-      console.log(handle.name, base);
       if (progressCallback instanceof Function)
         files.push({ handle, base });
       else
@@ -14960,6 +14984,28 @@ ${text}`;
       this.get = async (url) => {
         return await this.filesystem.open(url);
       };
+      this.package = async (name2) => {
+        if (this.plugins[name2]) {
+          let path = this.getPath(name2);
+          const splitPath = path.split("/").slice(0, -1);
+          let packageFile;
+          do {
+            path = `${splitPath.join("/")}/package.json`;
+            packageFile = this.plugins[name2].package ?? await this.get(path);
+            if (splitPath.length === 0)
+              break;
+            splitPath.pop();
+          } while (!packageFile);
+          if (packageFile) {
+            this.plugins[name2].package = packageFile;
+            return await this.plugins[name2].package.body;
+          } else
+            return {};
+        } else {
+          console.warn(`No package for ${name2}.`);
+          return {};
+        }
+      };
       this.metadata = async (name2) => {
         if (this.plugins[name2]) {
           let path = this.getPath(name2);
@@ -15043,6 +15089,9 @@ ${text}`;
         this.ui.innerHTML = "";
         this.ui.appendChild(ui);
       };
+      this.isPlugin = (f3) => {
+        return f3.mimeType === "application/javascript" && !f3.path.includes("/.brainsatplay/");
+      };
       this.setSystem = async (system) => {
         this.files.reset();
         this.filesystem = system;
@@ -15053,19 +15102,30 @@ ${text}`;
         const allProperties = {};
         const importedFileInfo = {};
         const importedFileMetadata = {};
+        const importedPluginPackage = {};
         const getFileInfo = async (f3) => {
           let module = importedFileInfo[f3.path];
           let metadata = importedFileMetadata[f3.path];
-          if (!module) {
+          let packageInfo = importedPluginPackage[f3.path];
+          if (!module)
             module = importedFileInfo[f3.path] = await this.plugins.module(f3.path) ?? await f3.body;
-          }
           if (!metadata) {
             metadata = await this.plugins.metadata(f3.path);
             if (metadata) {
               importedFileMetadata[f3.path] = metadata;
             }
           }
-          allProperties[metadata.name ?? f3.path] = importedFileInfo[f3.path];
+          if (!packageInfo) {
+            packageInfo = await this.plugins.package(f3.path);
+            if (packageInfo) {
+              importedPluginPackage[f3.path] = packageInfo;
+              metadata = importedFileMetadata[f3.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f3.path]);
+            }
+          }
+          const isValidPlugin = this.isPlugin(f3);
+          if (isValidPlugin)
+            allProperties[metadata.name ?? f3.path] = importedFileInfo[f3.path];
+          console.log("Metadata", metadata);
           return { metadata, module };
         };
         await Promise.all(files.map(async (f3) => getFileInfo(f3)));
@@ -15074,21 +15134,21 @@ ${text}`;
           if (!openTabs[f3.path]) {
             const { metadata, module } = await getFileInfo(f3);
             let tabInfo = this.fileHistory[f3.path];
-            const plugin = this.plugins.plugins[f3.path];
             previousTabs.delete(f3.path);
             if (!tabInfo) {
               const tab = new Tab();
               tabInfo = { tab };
               tab.name = `${f3.path}`;
-              let container = new TabContainer();
-              const codeTab = new Tab({ name: "Code" });
-              if (plugin && plugin.module) {
+              let container = new TabContainer({ minTabs: 2 });
+              const codeTab = new Tab({ name: "File" });
+              const isPlugin = this.isPlugin(f3);
+              if (isPlugin) {
                 const infoTab = new Tab({ name: "Info" });
                 tabInfo.plugin = new Plugin();
                 infoTab.appendChild(tabInfo.plugin);
                 container.addTab(infoTab);
               }
-              if (typeof f3.body === "object") {
+              if (typeof await f3.body === "object") {
                 const objectTab = new Tab({ name: "Properties" });
                 tabInfo.object = new ObjectEditor();
                 objectTab.appendChild(tabInfo.object);
@@ -15113,8 +15173,10 @@ ${text}`;
               await f3.save();
               await this.app.init();
             };
+            openTabs[f3.path] = tabInfo.tab;
+          } else {
+            openTabs[f3.path].toggle.select();
           }
-          openTabs[f3.path] = true;
         };
         this.properties.set(allProperties);
         previousTabs.forEach((str) => {
@@ -15232,14 +15294,14 @@ ${text}`;
   var createSystem = async (input) => {
     let system = new LocalSystem(input, {
       debug: true,
-      ignore: ["DS_Store"]
+      ignore: [".DS_Store", ".git"]
     });
     await system.init();
     systems[system.name] = system;
     console.log(`----------------------- New System (${system.name}) -----------------------`);
     return system;
   };
-  var appPath = "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js";
+  var appPath = "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/package.json";
   var nav = document.querySelector("visualscript-nav");
   var editor = document.querySelector("visualscript-editor");
   var app = new App2();
@@ -15271,14 +15333,17 @@ ${text}`;
       await system.save();
     };
     app.oncompile = async () => {
-      const file2 = system.files.list.get("index.js");
-      if (file2) {
-        editor.setSystem(system);
-        console.log("System", system, file2);
-        const imported = await file2.body;
-        return imported;
-      } else
-        console.error("Not a valid Brains@Play project...");
+      const packageContents = await system.files.list.get("package.json").body;
+      if (packageContents) {
+        const file2 = system.files.list.get(packageContents.main);
+        if (file2) {
+          editor.setSystem(system);
+          const imported = await file2.body;
+          console.log(imported, await file2.text);
+          return imported;
+        } else
+          console.error('The "main" field in the suppplied package.json is not pointing to an appropriate entrypoint.');
+      }
     };
     app.onstart = () => {
       const ui = new TimeSeries();

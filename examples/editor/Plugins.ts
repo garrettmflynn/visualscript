@@ -10,6 +10,7 @@ export default class Plugins {
         path: string,
         metadata?: freerange.RangeFile,
         module?: freerange.RangeFile,
+        package?: freerange.RangeFile,
     }}
 
     list: Set<string> = new Set()
@@ -64,6 +65,30 @@ export default class Plugins {
 
     get = async (url) => {
         return await this.filesystem.open(url)
+    }
+
+    package = async (name) => {
+        if (this.plugins[name]){
+            let path = this.getPath(name)
+            const splitPath = path.split('/').slice(0, -1)
+
+            let packageFile;
+
+            do {
+                path = `${splitPath.join('/')}/package.json`
+                packageFile = this.plugins[name].package ?? await this.get(path)
+                if (splitPath.length === 0) break
+                splitPath.pop()
+            } while (!packageFile) 
+            
+            if (packageFile) {
+                this.plugins[name].package = packageFile
+                return await this.plugins[name].package.body
+            } else return {}
+        } else {
+            console.warn(`No package for ${name}.`)
+            return {}
+        }
     }
 
     metadata = async (name) => {

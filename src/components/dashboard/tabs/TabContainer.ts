@@ -6,7 +6,7 @@ import './TabBar';
 import { TabBar } from './TabBar';
 
 export type TabContainerProps = {
-
+  minTabs?: number
 }
 
 export class TabContainer extends LitElement {
@@ -59,6 +59,7 @@ export class TabContainer extends LitElement {
     }
 
 
+    minTabs: TabContainerProps['minTabs'] = 0
     tabs: Map<string, Tab> = new Map()
     tabLabels: string[]
     activeTab: number
@@ -66,6 +67,8 @@ export class TabContainer extends LitElement {
 
     constructor(props: TabContainerProps = {}) {
       super();
+      if (props.minTabs) this.minTabs = props.minTabs
+
       this.reset()
     }
 
@@ -123,7 +126,7 @@ export class TabContainer extends LitElement {
       this.bar.tabs = tabs // Set tabs
 
       toggles.forEach(t => t.grow = true)
-      this.bar.style.display = (toggles.length < 1) ? 'none' : ''
+      this.bar.style.height = (toggles.length < this.minTabs) ? '0px' : ''
 
       return html`
       ${this.bar}

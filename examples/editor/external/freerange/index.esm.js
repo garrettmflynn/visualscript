@@ -19,7 +19,7 @@ var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0
 var esm = (suffix2, type7) => {
   if (suffix2 === "js" || suffix2 === "mjs")
     return true;
-  else if (type7.includes("javascript"))
+  else if (type7 && type7.includes("javascript"))
     return true;
   else
     return false;
@@ -4799,7 +4799,8 @@ var safeESMImport = async (text, config = {}, onBlob) => {
   } catch (e) {
     console.warn(`${config.path} contains ES6 imports. Manually importing these modules...`);
     const base = get2("", config.path);
-    let childBase = config.system.root ? get2(base, config.system.root) : base;
+    const needsRoot = config.system.root && !config.system.native;
+    let childBase = needsRoot ? get2(base, config.system.root) : base;
     const importInfo = {};
     var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
     let m;
@@ -4816,13 +4817,14 @@ var safeESMImport = async (text, config = {}, onBlob) => {
     for (let path in importInfo) {
       let correctPath = get2(path, childBase);
       const variables = importInfo[path];
-      const existingFile = config.system.files.list.get(get2(path));
+      const existingFile = config.system.files.list.get(get2(correctPath));
       let blob = existingFile?.file;
       if (!blob) {
         const info = await handleFetch(correctPath);
         blob = new Blob([info.buffer], { type: info.type });
-        await config.system.load(blob, correctPath, config.path);
+        await config.system.load(blob, correctPath);
       }
+      config.system.trackDependency(correctPath, config.path);
       let thisText = await blob.text();
       const imported = await safeESMImport(thisText, {
         path: correctPath,
@@ -5140,8 +5142,18 @@ var System = class {
       }
       return files;
     };
-    this.checkToLoad = (name2) => {
-      return this.ignore.reduce((a, b) => a * (name2?.includes(b) ? 0 : 1), 1);
+    this.checkToLoad = (path) => {
+      const split = path.split("/");
+      const fileName = split.pop();
+      const toLoad = this.ignore.reduce((a, b) => {
+        if (fileName === b)
+          return a * 0;
+        else if (path.includes(`${b}/`))
+          return a * 0;
+        else
+          return a * 1;
+      }, 1);
+      return toLoad;
     };
     this.load = async (file, path, dependent) => {
       const existingFile = this.files.list.get(path);
@@ -5152,7 +5164,7 @@ var System = class {
           file.name = name(path);
         if (!this.native)
           file = createFile(file, path, this);
-        const toLoad = this.checkToLoad(file.name ?? file.path ?? path);
+        const toLoad = this.checkToLoad(file.path ?? path);
         if (toLoad) {
           const rangeFile = await load(file, {
             path,
@@ -5174,6 +5186,16 @@ var System = class {
         } else
           console.warn(`Ignoring ${file.name}`);
       }
+    };
+    this.trackDependency = (path, dependent) => {
+      const rangeFile = this.files.list.get(path);
+      if (!this.dependencies[dependent])
+        this.dependencies[dependent] = /* @__PURE__ */ new Map();
+      this.dependencies[dependent].set(path, rangeFile);
+      if (!this.dependents[path])
+        this.dependents[path] = /* @__PURE__ */ new Map();
+      const file = this.files.list.get(dependent);
+      this.dependents[path].set(file.path, file);
     };
     this.add = (file) => {
       if (!this.files.list.has(file.path)) {
@@ -5310,7 +5332,6 @@ var onhandle = async (handle, base = "", system, progressCallback = void 0) => {
     base = base ? get2(handle.name, base) : handle.name;
   const files = [];
   if (handle.kind === "file") {
-    console.log(handle.name, base);
     if (progressCallback instanceof Function)
       files.push({ handle, base });
     else

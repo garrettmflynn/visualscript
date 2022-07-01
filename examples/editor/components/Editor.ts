@@ -12,6 +12,7 @@ import Plugins from '../Plugins';
 import { Modal } from '../../../src';
 import { Icon } from '../../../src/components/general/Icon';
 import { Container } from 'postcss';
+import file from '@babel/core/lib/transformation/file/file';
 
 export type EditorProps = {
   app?: App,
@@ -114,6 +115,10 @@ export class Editor extends LitElement {
       this.ui.appendChild(ui)
     }
 
+    isPlugin = (f) => {
+      return f.mimeType === 'application/javascript' && !f.path.includes('/.brainsatplay/')
+    }
+
     setSystem = async (system: any) => {
 
       // TODO: Reset File Viewer with Same Tabs Open
@@ -136,14 +141,15 @@ export class Editor extends LitElement {
 
       const importedFileInfo = {}
       const importedFileMetadata = {}
+      const importedPluginPackage = {}
 
       // Get All Properties
       const getFileInfo = async (f) => {
         let module = importedFileInfo[f.path]
         let metadata = importedFileMetadata[f.path]
-        if (!module){
-          module = importedFileInfo[f.path] = await this.plugins.module(f.path) ?? await f.body
-        } 
+        let packageInfo = importedPluginPackage[f.path]
+
+        if (!module) module = importedFileInfo[f.path] = await this.plugins.module(f.path) ?? await f.body
 
         if (!metadata) {
           metadata = await this.plugins.metadata(f.path)
@@ -152,26 +158,40 @@ export class Editor extends LitElement {
           }
         }
 
-        allProperties[metadata.name ?? f.path] = importedFileInfo[f.path]
+        if (!packageInfo) {
+          packageInfo = await this.plugins.package(f.path)
 
+          if (packageInfo) {
+            importedPluginPackage[f.path] = packageInfo
+
+            // Merge Package with Metadata
+            metadata = importedFileMetadata[f.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f.path])
+          }
+        }
+
+        // Only Show ESM at Top Level
+        const isValidPlugin = this.isPlugin(f)
+        if (isValidPlugin) allProperties[metadata.name ?? f.path] = importedFileInfo[f.path]
+
+        console.log('Metadata', metadata)
         return {metadata, module}
       }
 
       await Promise.all(files.map(async (f) => getFileInfo(f)))
 
 
-      const openTabs = {}
+      const openTabs: {[x:string]: Tab} = {}
 
       // Add Tab On Click
       this.tree.onClick = async (key, f) => {
 
-        if (!openTabs[f.path]){
 
+        if (!openTabs[f.path]){
 
         const {metadata, module} = await getFileInfo(f)
 
         let tabInfo = this.fileHistory[f.path]
-        const plugin = this.plugins.plugins[f.path]
+        // const plugin = this.plugins.plugins[f.path]
   
         previousTabs.delete(f.path)
 
@@ -182,11 +202,12 @@ export class Editor extends LitElement {
           tab.name = `${f.path}`
 
           // Create File Editors
-          let container = new TabContainer()
-          const codeTab = new Tab({name: "Code"});
+          let container = new TabContainer({minTabs: 2})
+          const codeTab = new Tab({name: "File"});
 
           // Conditionally Show Information
-          if (plugin && plugin.module){
+          const isPlugin = this.isPlugin(f)
+          if (isPlugin){
             const infoTab = new Tab({name: 'Info'})
             tabInfo.plugin = new Plugin()
             infoTab.appendChild(tabInfo.plugin)
@@ -194,7 +215,7 @@ export class Editor extends LitElement {
           }
 
           // Show Property Editor for Objects (including esm modules)
-          if (typeof f.body === 'object') {
+          if (typeof await f.body === 'object') {
             const objectTab = new Tab({name: "Properties"})
             tabInfo.object = new ObjectEditor()
             objectTab.appendChild(tabInfo.object)
@@ -231,9 +252,12 @@ export class Editor extends LitElement {
             await f.save()
             await this.app.init()
         }
+
+        openTabs[f.path] = tabInfo.tab
+      } else {
+        openTabs[f.path].toggle.select()
       }
-      openTabs[f.path] = true
-    }
+    } 
 
     this.properties.set(allProperties)
 
