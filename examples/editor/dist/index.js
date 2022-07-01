@@ -7721,14 +7721,21 @@ slot {
   };
   var name = (path) => path ? path.split("/").slice(-1)[0] : void 0;
   var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0;
-  var esm = (suffix2) => suffix2 === "js" || suffix2 === "mjs";
+  var esm = (suffix2, type7) => {
+    if (suffix2 === "js" || suffix2 === "mjs")
+      return true;
+    else if (type7.includes("javascript"))
+      return true;
+    else
+      return false;
+  };
   var get = (type7, name2, codecs) => {
     let mimeType = type7;
     const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
     const sfx = suffix(name2);
     if (isZipped || !mimeType)
       mimeType = codecs.getType(sfx);
-    if (esm(sfx))
+    if (esm(sfx, mimeType))
       mimeType = codecs.getType("js");
     return { mimeType, zipped: isZipped, suffix: sfx };
   };
@@ -14956,9 +14963,10 @@ ${text}`;
       this.metadata = async (name2) => {
         if (this.plugins[name2]) {
           let path = this.getPath(name2);
-          if (!path.includes(this.metadataString)) {
+          const metadataPath = this.metadataPath(name2);
+          if (!path.includes(metadataPath)) {
             const splitPath = path.split("/").slice(0, -1);
-            splitPath.push(this.metadataString);
+            splitPath.push(metadataPath);
             path = splitPath.join("/");
           }
           const metadata = this.plugins[name2].metadata ?? await this.get(path);
@@ -14973,11 +14981,17 @@ ${text}`;
         }
       };
       this.getPath = (name2) => this.plugins[name2].module?.path ?? this.plugins[name2].path ?? name2;
-      this.metadataString = ".brainsatplay/metadata.js";
+      this.metadataPath = (name2) => {
+        const fileName = name2.split(".").at(-2);
+        return `${this.metadataDirBase}/${fileName}.${this.metadataFileSuffix}`;
+      };
+      this.metadataDirBase = ".brainsatplay";
+      this.metadataFileSuffix = "metadata.js";
       this.module = async (name2) => {
         let isMetadata = false;
-        if (name2.includes(this.metadataString)) {
-          name2 = name2.replace(this.metadataString, "index.js");
+        const metadataPath = this.metadataPath(name2);
+        if (name2.includes(metadataPath)) {
+          name2 = name2.replace(metadataPath, `${metadataPath.split(".")[0]}.js`);
           isMetadata = true;
         }
         if (this.plugins[name2]) {
@@ -15030,13 +15044,7 @@ ${text}`;
         this.ui.appendChild(ui);
       };
       this.setSystem = async (system) => {
-        console.log("Resetting files");
-        const toOpen = [];
-        this.files.tabs.forEach((t7) => {
-          const newTab = system.files.list.get(t7.name);
-          toOpen.push(newTab);
-        });
-        this.files.reset(toOpen);
+        this.files.reset();
         this.filesystem = system;
         const files = Array.from(system.files.list.values());
         this.plugins = new Plugins(this.filesystem);
@@ -15065,7 +15073,6 @@ ${text}`;
         this.tree.onClick = async (key, f3) => {
           if (!openTabs[f3.path]) {
             const { metadata, module } = await getFileInfo(f3);
-            console.log(f3.path, metadata, module);
             let tabInfo = this.fileHistory[f3.path];
             const plugin = this.plugins.plugins[f3.path];
             previousTabs.delete(f3.path);
@@ -15097,7 +15104,6 @@ ${text}`;
             if (tabInfo.plugin)
               tabInfo.plugin.set(module, metadata);
             if (tabInfo.object) {
-              console.log("Imported", module);
               tabInfo.object.set(module);
               tabInfo.object.header = metadata.name ?? f3.name;
             }

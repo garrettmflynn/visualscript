@@ -16,14 +16,21 @@ var suffix = (fileName = "") => {
 };
 var name = (path) => path ? path.split("/").slice(-1)[0] : void 0;
 var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0;
-var esm = (suffix2) => suffix2 === "js" || suffix2 === "mjs";
+var esm = (suffix2, type7) => {
+  if (suffix2 === "js" || suffix2 === "mjs")
+    return true;
+  else if (type7.includes("javascript"))
+    return true;
+  else
+    return false;
+};
 var get = (type7, name2, codecs) => {
   let mimeType = type7;
   const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
   const sfx = suffix(name2);
   if (isZipped || !mimeType)
     mimeType = codecs.getType(sfx);
-  if (esm(sfx))
+  if (esm(sfx, mimeType))
     mimeType = codecs.getType("js");
   return { mimeType, zipped: isZipped, suffix: sfx };
 };

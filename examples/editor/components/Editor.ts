@@ -116,15 +116,13 @@ export class Editor extends LitElement {
 
     setSystem = async (system: any) => {
 
-      console.log('Resetting files')
-
-      // Reset File Viewer with Same Tabs Open
-      const toOpen: any[] = []
-      this.files.tabs.forEach(t => {
-        const newTab = system.files.list.get(t.name)
-        toOpen.push(newTab)
-      })
-      this.files.reset(toOpen) 
+      // TODO: Reset File Viewer with Same Tabs Open
+      // const toOpen: any[] = []
+      // this.files.tabs.forEach(t => {
+      //   const newTab = system.files.list.get(t.name)
+      //   toOpen.push(newTab)
+      // })
+      this.files.reset() 
 
       this.filesystem = system
       const files = Array.from(system.files.list.values())
@@ -171,7 +169,6 @@ export class Editor extends LitElement {
 
 
         const {metadata, module} = await getFileInfo(f)
-        console.log(f.path, metadata, module)
 
         let tabInfo = this.fileHistory[f.path]
         const plugin = this.plugins.plugins[f.path]
@@ -221,7 +218,6 @@ export class Editor extends LitElement {
 
         // Object Editor
         if (tabInfo.object){
-          console.log('Imported', module)
           tabInfo.object.set(module)
           tabInfo.object.header = metadata.name ?? f.name
         }

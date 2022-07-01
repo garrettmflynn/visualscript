@@ -70,10 +70,12 @@ export default class Plugins {
 
         if (this.plugins[name]){
             let path = this.getPath(name)
+
+            const metadataPath = this.metadataPath(name)
             
-            if (!path.includes(this.metadataString)) {
+            if (!path.includes(metadataPath)) {
                 const splitPath = path.split('/').slice(0, -1)
-                splitPath.push(this.metadataString)
+                splitPath.push(metadataPath)
                 path = splitPath.join('/')
             }
             
@@ -90,13 +92,21 @@ export default class Plugins {
 
     getPath = (name:string) => this.plugins[name].module?.path ?? this.plugins[name].path ?? name
 
-    metadataString = '.brainsatplay/metadata.js'
+    metadataPath = (name) => {
+        const fileName = name.split('.').at(-2)
+        return `${this.metadataDirBase}/${fileName}.${this.metadataFileSuffix}`
+    }
+
+    metadataDirBase = '.brainsatplay'
+    metadataFileSuffix = 'metadata.js'
+
     module = async (name) => {
         
         // Getting Metadata File from Reference
         let isMetadata = false
-        if (name.includes(this.metadataString)){
-            name = name.replace(this.metadataString,'index.js')
+        const metadataPath = this.metadataPath(name)
+        if (name.includes(metadataPath)){
+            name = name.replace(metadataPath,`${metadataPath.split('.')[0]}.js`)
             isMetadata = true
         }
 
