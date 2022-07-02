@@ -13,7 +13,15 @@ export default class Plugins {
         package?: freerange.RangeFile,
     }}
 
+    checkedPackageLocations = { }
+
     list: Set<string> = new Set()
+
+    // Expected File Organization
+    metadataDirBase = '.brainsatplay'
+    metadataFileSuffix = 'metadata.js'
+    metaRegExp = new RegExp(`${this.metadataDirBase}/(.+).${this.metadataFileSuffix}`, 'g')
+
 
     constructor(source:string | freerange.System ='https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js') {
         if (typeof source === 'string') this.source = source
@@ -49,18 +57,19 @@ export default class Plugins {
         // Get Metadata from Local Plugins
         else {
 
-            this.filesystem.files.list.forEach(f => {
-                this.list.add(f.path) // Add to list
-                this.plugins[f.path] = { 
-                    path: f.path,
-                    module: f
-                }
-            })
-            
-            await this.metadata(`index.js`) // Get metadata
+            // Loading Current Plugins
+            this.filesystem.files.list.forEach(f => this.set(f))
         }
 
         this.readyState = true // Switch readyState to true
+    }
+
+    set = (f) => {
+        this.list.add(f.path) // Add to list
+        this.plugins[f.path] = { 
+            path: f.path,
+            module: f
+        }
     }
 
     get = async (url) => {
@@ -77,11 +86,22 @@ export default class Plugins {
             let packageFile;
 
             do {
-                path = `${splitPath.join('/')}/package.json`
-                packageFile = this.plugins[name].package ?? await this.get(path)
+                try {
+                path = splitPath.length ? `${splitPath.join('/')}/package.json` :'package.json' 
+
+                // narrow the search over time
+                if (this.checkedPackageLocations[path] !== false){
+                    this.checkedPackageLocations[path] = false
+                    packageFile = this.plugins[name].package ?? await this.get(path)
+                    this.checkedPackageLocations[path] = true
+                }
+
+                } catch (e) {} // don't log failed package searches
                 if (splitPath.length === 0) break
                 splitPath.pop()
+
             } while (!packageFile) 
+            
             
             if (packageFile) {
                 this.plugins[name].package = packageFile
@@ -95,18 +115,23 @@ export default class Plugins {
 
     metadata = async (name) => {
 
-        if (this.plugins[name]){
-            let path = this.getPath(name)
+        let path = this.getPath(name)
 
-            const metadataPath = this.metadataPath(name)
+        if (
+            this.plugins[name] && 
+            !path.includes('.metadata.js') && // Don't get metadata for metadata
+            path != 'package.json' // Don't get metadaat for package.json files
+        ){
             
-            if (!path.includes(metadataPath)) {
-                const splitPath = path.split('/').slice(0, -1)
-                splitPath.push(metadataPath)
-                path = splitPath.join('/')
-            }
+            let path = this.getPath(name)
+            const metadataPath = this.metadataPath(path)
+            
+            // Convert module to metadata path
+            if (!path.includes(metadataPath)) path = metadataPath
+
             
             const metadata = this.plugins[name].metadata ?? await this.get(path)
+
             if (metadata) {
                 this.plugins[name].metadata = metadata
                 return await this.plugins[name].metadata.body
@@ -117,24 +142,33 @@ export default class Plugins {
         }
     }
 
-    getPath = (name:string) => this.plugins[name].module?.path ?? this.plugins[name].path ?? name
+    getPath = (name:string) =>{
+        const base = this.plugins[name]?.module?.path ?? this.plugins[name]?.path ?? name
+        return base.split('/').filter(v => v != '').join('/')
+    } 
 
-    metadataPath = (name) => {
-        const fileName = name.split('.').at(-2)
-        return `${this.metadataDirBase}/${fileName}.${this.metadataFileSuffix}`
+    metadataPath = (path) => {
+        if (this.metaRegExp.test(path)) return path
+        else {
+            // console.log(path.match(regexp), regexp.test(path))
+            const splitPath = path.split('/')
+            const fullFileName = splitPath.pop()
+            const filePrefix = fullFileName.split('.').at(-2)
+            return  `${splitPath.join('/')}/${this.metadataDirBase}/${filePrefix}.${this.metadataFileSuffix}`
+        }
     }
-
-    metadataDirBase = '.brainsatplay'
-    metadataFileSuffix = 'metadata.js'
 
     module = async (name) => {
         
-        // Getting Metadata File from Reference
+        let path = this.getPath(name)
+
+        // Convert Metadata Path to Module
         let isMetadata = false
-        const metadataPath = this.metadataPath(name)
-        if (name.includes(metadataPath)){
-            name = name.replace(metadataPath,`${metadataPath.split('.')[0]}.js`)
+        const match = path.match(this.metaRegExp)?.[0]
+        if (match){
+            name = name.replace(match,`${match.split('/').at(-1).split('.')[0]}.js`)
             isMetadata = true
+            // path = path.replace(metadataPath, '')
         }
 
         // Skip without Name

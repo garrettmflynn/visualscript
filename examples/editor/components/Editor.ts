@@ -52,7 +52,7 @@ export class Editor extends LitElement {
     }
 
     #files > visualscript-tree {
-      width: 200px;
+      width: 250px;
     }
 
     #palette {
@@ -130,7 +130,6 @@ export class Editor extends LitElement {
       this.files.reset() 
 
       this.filesystem = system
-      const files = Array.from(system.files.list.values())
 
       this.plugins = new Plugins(this.filesystem)
       await this.plugins.init()
@@ -144,12 +143,16 @@ export class Editor extends LitElement {
       const importedPluginPackage = {}
 
       // Get All Properties
-      const getFileInfo = async (f) => {
+      const getFileInfo = async (f, types=['module', 'metadata']) => {
         let module = importedFileInfo[f.path]
         let metadata = importedFileMetadata[f.path]
         let packageInfo = importedPluginPackage[f.path]
 
-        if (!module) module = importedFileInfo[f.path] = await this.plugins.module(f.path) ?? await f.body
+        if (types.includes('module')){
+          if (!module) module = importedFileInfo[f.path] = await this.plugins.module(f.path) ?? await f.body
+        }
+
+        if (types.includes('metadata')){
 
         if (!metadata) {
           metadata = await this.plugins.metadata(f.path)
@@ -161,17 +164,38 @@ export class Editor extends LitElement {
         // Merge closest package.json file into file metadata
         if (!packageInfo) {
           packageInfo = await this.plugins.package(f.path)
+          console.log('Info', packageInfo)
           if (packageInfo) {
             importedPluginPackage[f.path] = packageInfo
             metadata = importedFileMetadata[f.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f.path])
           }
         }
+      }
 
         // Only Show ESM at Top Level
         const isValidPlugin = this.isPlugin(f)
-        if (isValidPlugin) allProperties[metadata.name ?? f.path] = importedFileInfo[f.path]
+        if (isValidPlugin) allProperties[metadata?.name ?? f.path] = importedFileInfo[f.path]
         return {metadata, module}
       }
+
+      const packageFile = this.filesystem.files.list.get('package.json')
+      const packageContents = await packageFile.body
+
+      // Get Primary Module Info (will fill the system...)
+      const metadataFilesToGet: any[] = []
+      // TODO: remove group
+      this.filesystem.addGroup('metadata', null, async (file, path, files) => {
+        metadataFilesToGet.push(file)
+      })
+
+      const main = this.filesystem.files.list.get(packageContents.main)
+      await getFileInfo(main)
+
+      // actually get the files
+      metadataFilesToGet.map(async f => {
+        this.plugins.set(f)
+        await getFileInfo(f)
+      })
 
       const openTabs: {[x:string]: Tab} = {}
 

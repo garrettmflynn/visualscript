@@ -100,9 +100,9 @@ export class GraphNode extends LitElement {
       this.info.y = this.y = props.y ?? this.info.y ?? 0
 
       if (this.info){
-        console.log(this.info)
+        // console.log(this.info)
         this.info.arguments.forEach((value,tag) => {
-          console.log('arg', tag, value)
+          // console.log('arg', tag, value)
           this.addPort({
             tag,
             value

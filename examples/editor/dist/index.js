@@ -5687,9 +5687,7 @@ opacity: 0.5;
       this.info.x = this.x = props.x ?? this.info.x ?? 0;
       this.info.y = this.y = props.y ?? this.info.y ?? 0;
       if (this.info) {
-        console.log(this.info);
         this.info.arguments.forEach((value, tag) => {
-          console.log("arg", tag, value);
           this.addPort({
             tag,
             value
@@ -14958,7 +14956,11 @@ ${text}`;
   var Plugins = class {
     constructor(source = "https://raw.githubusercontent.com/brainsatplay/awesome-brainsatplay/main/plugins.js") {
       this.readyState = false;
+      this.checkedPackageLocations = {};
       this.list = /* @__PURE__ */ new Set();
+      this.metadataDirBase = ".brainsatplay";
+      this.metadataFileSuffix = "metadata.js";
+      this.metaRegExp = new RegExp(`${this.metadataDirBase}/(.+).${this.metadataFileSuffix}`, "g");
       this.init = async () => {
         if (!this.filesystem) {
           this.filesystem = new LocalSystem("plugins", {
@@ -14973,16 +14975,16 @@ ${text}`;
             this.plugins[key] = { path };
           }
         } else {
-          this.filesystem.files.list.forEach((f3) => {
-            this.list.add(f3.path);
-            this.plugins[f3.path] = {
-              path: f3.path,
-              module: f3
-            };
-          });
-          await this.metadata(`index.js`);
+          this.filesystem.files.list.forEach((f3) => this.set(f3));
         }
         this.readyState = true;
+      };
+      this.set = (f3) => {
+        this.list.add(f3.path);
+        this.plugins[f3.path] = {
+          path: f3.path,
+          module: f3
+        };
       };
       this.get = async (url) => {
         return await this.filesystem.open(url);
@@ -14993,8 +14995,15 @@ ${text}`;
           const splitPath = path.split("/").slice(0, -1);
           let packageFile;
           do {
-            path = `${splitPath.join("/")}/package.json`;
-            packageFile = this.plugins[name2].package ?? await this.get(path);
+            try {
+              path = splitPath.length ? `${splitPath.join("/")}/package.json` : "package.json";
+              if (this.checkedPackageLocations[path] !== false) {
+                this.checkedPackageLocations[path] = false;
+                packageFile = this.plugins[name2].package ?? await this.get(path);
+                this.checkedPackageLocations[path] = true;
+              }
+            } catch (e11) {
+            }
             if (splitPath.length === 0)
               break;
             splitPath.pop();
@@ -15010,15 +15019,13 @@ ${text}`;
         }
       };
       this.metadata = async (name2) => {
-        if (this.plugins[name2]) {
-          let path = this.getPath(name2);
-          const metadataPath = this.metadataPath(name2);
-          if (!path.includes(metadataPath)) {
-            const splitPath = path.split("/").slice(0, -1);
-            splitPath.push(metadataPath);
-            path = splitPath.join("/");
-          }
-          const metadata = this.plugins[name2].metadata ?? await this.get(path);
+        let path = this.getPath(name2);
+        if (this.plugins[name2] && !path.includes(".metadata.js") && path != "package.json") {
+          let path2 = this.getPath(name2);
+          const metadataPath = this.metadataPath(path2);
+          if (!path2.includes(metadataPath))
+            path2 = metadataPath;
+          const metadata = this.plugins[name2].metadata ?? await this.get(path2);
           if (metadata) {
             this.plugins[name2].metadata = metadata;
             return await this.plugins[name2].metadata.body;
@@ -15029,23 +15036,31 @@ ${text}`;
           return {};
         }
       };
-      this.getPath = (name2) => this.plugins[name2].module?.path ?? this.plugins[name2].path ?? name2;
-      this.metadataPath = (name2) => {
-        const fileName = name2.split(".").at(-2);
-        return `${this.metadataDirBase}/${fileName}.${this.metadataFileSuffix}`;
+      this.getPath = (name2) => {
+        const base = this.plugins[name2]?.module?.path ?? this.plugins[name2]?.path ?? name2;
+        return base.split("/").filter((v3) => v3 != "").join("/");
       };
-      this.metadataDirBase = ".brainsatplay";
-      this.metadataFileSuffix = "metadata.js";
+      this.metadataPath = (path) => {
+        if (this.metaRegExp.test(path))
+          return path;
+        else {
+          const splitPath = path.split("/");
+          const fullFileName = splitPath.pop();
+          const filePrefix = fullFileName.split(".").at(-2);
+          return `${splitPath.join("/")}/${this.metadataDirBase}/${filePrefix}.${this.metadataFileSuffix}`;
+        }
+      };
       this.module = async (name2) => {
+        let path = this.getPath(name2);
         let isMetadata = false;
-        const metadataPath = this.metadataPath(name2);
-        if (name2.includes(metadataPath)) {
-          name2 = name2.replace(metadataPath, `${metadataPath.split(".")[0]}.js`);
+        const match = path.match(this.metaRegExp)?.[0];
+        if (match) {
+          name2 = name2.replace(match, `${match.split("/").at(-1).split(".")[0]}.js`);
           isMetadata = true;
         }
         if (this.plugins[name2]) {
-          const path = this.getPath(name2);
-          const pluginModule = this.plugins[name2].module ?? await this.get(path);
+          const path2 = this.getPath(name2);
+          const pluginModule = this.plugins[name2].module ?? await this.get(path2);
           if (pluginModule) {
             this.plugins[name2].module = pluginModule;
             if (isMetadata)
@@ -15098,7 +15113,6 @@ ${text}`;
       this.setSystem = async (system) => {
         this.files.reset();
         this.filesystem = system;
-        const files = Array.from(system.files.list.values());
         this.plugins = new Plugins(this.filesystem);
         await this.plugins.init();
         const previousTabs = new Set(Object.keys(this.fileHistory));
@@ -15106,30 +15120,47 @@ ${text}`;
         const importedFileInfo = {};
         const importedFileMetadata = {};
         const importedPluginPackage = {};
-        const getFileInfo = async (f3) => {
+        const getFileInfo = async (f3, types = ["module", "metadata"]) => {
           let module = importedFileInfo[f3.path];
           let metadata = importedFileMetadata[f3.path];
           let packageInfo = importedPluginPackage[f3.path];
-          if (!module)
-            module = importedFileInfo[f3.path] = await this.plugins.module(f3.path) ?? await f3.body;
-          if (!metadata) {
-            metadata = await this.plugins.metadata(f3.path);
-            if (metadata) {
-              importedFileMetadata[f3.path] = metadata;
-            }
+          if (types.includes("module")) {
+            if (!module)
+              module = importedFileInfo[f3.path] = await this.plugins.module(f3.path) ?? await f3.body;
           }
-          if (!packageInfo) {
-            packageInfo = await this.plugins.package(f3.path);
-            if (packageInfo) {
-              importedPluginPackage[f3.path] = packageInfo;
-              metadata = importedFileMetadata[f3.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f3.path]);
+          if (types.includes("metadata")) {
+            if (!metadata) {
+              metadata = await this.plugins.metadata(f3.path);
+              if (metadata) {
+                importedFileMetadata[f3.path] = metadata;
+              }
+            }
+            if (!packageInfo) {
+              packageInfo = await this.plugins.package(f3.path);
+              console.log("Info", packageInfo);
+              if (packageInfo) {
+                importedPluginPackage[f3.path] = packageInfo;
+                metadata = importedFileMetadata[f3.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f3.path]);
+              }
             }
           }
           const isValidPlugin = this.isPlugin(f3);
           if (isValidPlugin)
-            allProperties[metadata.name ?? f3.path] = importedFileInfo[f3.path];
+            allProperties[metadata?.name ?? f3.path] = importedFileInfo[f3.path];
           return { metadata, module };
         };
+        const packageFile = this.filesystem.files.list.get("package.json");
+        const packageContents = await packageFile.body;
+        const metadataFilesToGet = [];
+        this.filesystem.addGroup("metadata", null, async (file2, path, files) => {
+          metadataFilesToGet.push(file2);
+        });
+        const main = this.filesystem.files.list.get(packageContents.main);
+        await getFileInfo(main);
+        metadataFilesToGet.map(async (f3) => {
+          this.plugins.set(f3);
+          await getFileInfo(f3);
+        });
         const openTabs = {};
         this.tree.onClick = async (key, f3) => {
           if (!openTabs[f3.path]) {
@@ -15225,7 +15256,7 @@ ${text}`;
     }
 
     #files > visualscript-tree {
-      width: 200px;
+      width: 250px;
     }
 
     #palette {
