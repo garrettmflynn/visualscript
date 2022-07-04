@@ -114,14 +114,15 @@ export class Range extends LitElement {
 
     constructor(props: RangeProps = {}) {
       super();
+
+      const val =  getPersistent(props)        
+      this.value = props.value ?? (val) ? val : "";
+
       if (props.onChange) this.onChange = props.onChange
       if (props.label) this.label = props.label
       if (props.persist) this.persist = props.persist
       if (props.min) this.min = props.min
       if (props.max) this.max = props.max
-
-      const val = getPersistent(props)
-      if (val) this.value = val
     }
 
     willUpdate(changedProps:any) {

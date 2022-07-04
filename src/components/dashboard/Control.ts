@@ -45,10 +45,10 @@ export class Control extends LitElement {
     }
 
     slot {
-      display: none;
+      font-size: 0.75em
     }
 
-    div {
+    #control {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -63,7 +63,7 @@ export class Control extends LitElement {
     }
 
 
-    div > * {
+    #control > * {
       padding: 10px;
     }
 
@@ -72,7 +72,7 @@ export class Control extends LitElement {
     }
 
     @media (prefers-color-scheme: dark) {
-      div {
+      #control {
         border: 1px solid rgb(120,120,120);
       }
     }
@@ -200,7 +200,14 @@ export class Control extends LitElement {
 
       this.getElement()
 
-      return html`<div><h5>${this.label}</h5>${this.element}</div><slot></slot>`
+      return html`
+      <div id=control>
+        <div>
+          <h5>${this.label}</h5>
+          <slot></slot>
+        </div>
+        ${this.element}
+      </div>`
     }
 
     willUpdate = (changedProps:any) => {
@@ -214,7 +221,10 @@ export class Control extends LitElement {
       const nodes = slot.assignedNodes()
 
       // Manually Place Slot Text in Button
-      if (this.type === 'button' && nodes.length) nodes.forEach(el => this.element.appendChild(el.cloneNode()))
+      if (this.type === 'button' && nodes.length) {
+        nodes.forEach(el => this.element.appendChild(el.cloneNode()))
+        slot.style.display = 'none'
+      }
 
     }
   }

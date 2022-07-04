@@ -4,7 +4,6 @@ import * as freerange from './external/freerange/index.esm.js'
 import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
-import Plugins from './Plugins';
 
 // -------------- File System Generator--------------
 let systems = {}

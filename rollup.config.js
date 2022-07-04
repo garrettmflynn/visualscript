@@ -28,7 +28,7 @@ const umd = {
 
 const es6 = {
   input: './src/index.ts', // our source file
-  output: [ { file: pkg.module, format: 'es'  } ]
+  output: [ { dir: pkg.module.split('/').slice(0, -1).join('/'), format: 'es'  } ]
 }
 
 
@@ -60,6 +60,6 @@ const common = {
 }
 
 export default [
-  Object.assign({}, umd, common),
+  // Object.assign({}, umd, common),
   Object.assign({}, es6, common)
 ]

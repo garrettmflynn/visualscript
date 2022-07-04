@@ -115,6 +115,7 @@ export class File extends LitElement {
 
     constructor(props: FileProps = {}) {
       super();
+      
       if (props.accept) this.accept = props.accept
       if (props.onChange) this.onChange = props.onChange
       if (props.webkitdirectory) this.webkitdirectory = props.webkitdirectory

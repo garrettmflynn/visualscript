@@ -2,7 +2,7 @@
 import { LitElement, html, css } from 'lit';
 import "../../../src/components/dashboard/tabs"
 import "../../../src/components/editors"
-import { Tab, TabContainer } from '../../../src/components/dashboard/tabs';
+import { Tab, Panel } from '../../../src/components/dashboard/tabs';
 
 import { Plugin } from './Plugin';
 import App from '../App';
@@ -80,8 +80,8 @@ export class Editor extends LitElement {
     app: any
     modal: Modal = new Modal()
     ui = document.createElement('visualscript-tab') 
-    files: TabContainer = new TabContainer()
-    info: TabContainer = new TabContainer()
+    files: Panel = new Panel()
+    info: Panel = new Panel()
     fileHistory: {[x:string]: any} = {}
     fileUpdate: number = 0
     graph: GraphEditor = new GraphEditor()
@@ -219,7 +219,7 @@ export class Editor extends LitElement {
           tab.name = `${f.path}`
 
           // Create File Editors
-          let container = new TabContainer({minTabs: 2})
+          let container = new Panel({minTabs: 2})
           const codeTab = new Tab({name: "File"});
 
           // Conditionally Show Information
@@ -264,7 +264,7 @@ export class Editor extends LitElement {
         const fileText = await f.text
         tabInfo.code.value = fileText
 
-        tabInfo.code.onInput = (ev) => f.text = (ev.target as HTMLTextAreaElement).value,
+        tabInfo.code.onInput = (text) => f.text = text,
         tabInfo.code.onSave = async () => {
             await f.save()
             await this.app.init()
@@ -321,7 +321,7 @@ export class Editor extends LitElement {
       return html`
           <div>
             ${this.ui}
-            <visualscript-tab-container>
+            <visualscript-panel>
             <visualscript-tab name="Graph">
             ${this.graph}
           </visualscript-tab>
@@ -334,7 +334,7 @@ export class Editor extends LitElement {
                   ${this.files}
                   </div>
                 </visualscript-tab>
-            </visualscript-tab-container>
+            </visualscript-panel>
           </div>
       `
 

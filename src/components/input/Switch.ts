@@ -95,13 +95,15 @@ export class Switch extends LitElement {
 
     constructor(props: SwitchProps = {}) {
       super();
-      if (props.onChange) this.onChange = props.onChange
-      if (props.label) this.label = props.label
-      if (props.persist) this.persist = props.persist
 
       // Inside Control
       const val =  getPersistent(props)
-      if (val) this.value = val
+      this.value = props.value ?? (val) ? val : undefined;
+
+
+      if (props.onChange) this.onChange = props.onChange
+      if (props.label) this.label = props.label
+      if (props.persist) this.persist = props.persist
     }
 
     willUpdate(changedProps:any) {

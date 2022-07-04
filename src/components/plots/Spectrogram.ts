@@ -1,5 +1,5 @@
 import {LitElement, css, } from 'lit';
-// import ResizeObserver from 'resize-observer-polyfill';
+import ResizeObserver from 'resize-observer-polyfill';
 
 declare global {
   interface Window { Plotly: any; }
@@ -97,18 +97,20 @@ export class Spectrogram extends LitElement {
         this.Plotly.newPlot(this.div, this.plotData, this.layout,this.getConfig());
       } else console.warn('<-spectrogram>: Plotly instance not provided...')
 
+      this.resize()
+
       // window.addEventListener('resize', this.resize)
 
-      // let observer = new ResizeObserver(() => this.resize());
-      // observer.observe(this.div);
+      let observer = new ResizeObserver(() => this.resize());
+      observer.observe(this.div);
   }
 
-  // resize = () => {
-  //   this.Plotly.relayout(this.div, {
-  //     'xaxis.autorange': true,
-  //     'yaxis.autorange': true
-  //   })
-  // }
+  resize = () => {
+    this.Plotly.relayout(this.div, {
+      'xaxis.autorange': true,
+      'yaxis.autorange': true
+    })
+  }
 
     transpose(a) {
       return Object.keys(a[0]).map(function(c) {

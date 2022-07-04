@@ -33,16 +33,16 @@ export class Input extends LitElement {
     }
     constructor(props:InputProps = {}) {
         super();
-        this.value = props.value ?? "";
+
+        const val =  getPersistent(props)        
+        this.value = props.value ?? (val) ? val : "";
+        
         this.outline = props.outline ?? false;
         this.disabled = props.disabled ?? false;
         this.label = props.label;
         this.persist = props.persist;
         this.onChange = props.onChange;
         this.onInput = props.onInput;
-
-        const val =  getPersistent(props)
-        if (val) this.value = val
     }
 
     willUpdate(changedProps:any) {

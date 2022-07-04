@@ -5,7 +5,7 @@
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
   "license": "AGPL-3.0-or-later",
   "main": "dist/index.js",
-  "module": "dist/index.esm.js",
+  "module": "dist/esm/index.js",
   "types": "dist/src/index.d.ts",
   "type": "module",
   "scripts": {
@@ -25,6 +25,7 @@
     "@babel/plugin-transform-runtime": "^7.18.2",
     "@rollup/plugin-commonjs": "^22.0.0",
     "lit": "^2.1.2",
+    "monaco-editor": "^0.33.0",
     "webgl-plot": "^0.7.0"
   },
   "devDependencies": {
@@ -52,8 +53,6 @@
     "image-webpack-loader": "^8.1.0",
     "postcss": "^8.4.5",
     "postcss-loader": "^6.2.1",
-    "prism-themes": "^1.9.0",
-    "prismjs": "^1.27.0",
     "resize-observer-polyfill": "^1.5.1",
     "rollup": "^2.67.0",
     "rollup-plugin-import-css": "^3.0.2",

@@ -264,14 +264,15 @@ export class Select extends LitElement {
 
     constructor(props: SelectProps = {}) {
       super();
+
       this.options = props.options ?? []
+      const val =  getPersistent(props)
+      // Only Use Cached Value if Included In Options
+      this.value = props.value ?? (val && this.options.includes(val)) ? val : undefined;
+
       if (props.onChange) this.onChange = props.onChange
       if (props.label) this.label = props.label
       if (props.persist) this.persist = props.persist
-      const val =  getPersistent(props)
-
-      // Only Use Cached Value if Included In Options
-      if (val && this.options.includes(val)) this.value = val
     }
 
     updateCustomSelectHovered = (newIndex) => {
