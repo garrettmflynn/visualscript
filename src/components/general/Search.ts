@@ -24,6 +24,8 @@ export class Search extends LitElement {
     return css`
 
     :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+
       display: flex;
       align-items: center;
       padding: 10px;

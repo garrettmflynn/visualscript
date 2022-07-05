@@ -21,6 +21,8 @@ export class File extends LitElement {
     return css`
 
     :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+      
       display: flex;
       justify-content: center;
       overflow: hidden;

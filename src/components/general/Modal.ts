@@ -27,7 +27,7 @@ export class Modal extends LitElement {
 /* Modal Header */
 
   :host {
-    
+    font-family: var(--visualscript-font-family, sans-serif);
     z-index: 101;
   }
   

@@ -10,6 +10,10 @@ export class Overlay extends LitElement {
   static get styles() {
     return css`
 
+    :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+    }
+
     div {
       opacity: 0;
       width: 100vw;

@@ -22,6 +22,9 @@ export class GraphNode extends LitElement {
     return css`
 
     :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+
+
       position: absolute;
       box-sizing: border-box;
       top: 10px;

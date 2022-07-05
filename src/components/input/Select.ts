@@ -56,6 +56,10 @@ export class Select extends LitElement {
   static get styles() {
     return css`
 
+    :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+    }
+
     #container { 
       position: relative;
     }

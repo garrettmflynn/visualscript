@@ -52,7 +52,8 @@ Separate independent functionality into separate files imported using E66 syntax
 - wrap libraries (???)
 
 ## Creating a Theme
-???
+### CSS Variables
+- --visualscript-font-family
 
 ## Publish to the Community
 ### Create Metadata

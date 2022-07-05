@@ -21,6 +21,7 @@ export class ObjectEditor extends LitElement {
     return css`
 
     :host * {
+      font-family: var(--visualscript-font-family, sans-serif);
       box-sizing: border-box;
     }
 

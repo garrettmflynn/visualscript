@@ -51,6 +51,8 @@ export class Nav extends LitElement {
 
     
     :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+
       z-index: 2;
       border-bottom: 1px solid rgb(180,180,180);
       background: white;

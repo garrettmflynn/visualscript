@@ -11,6 +11,8 @@ export class Footer extends LitElement {
     return css`
 
     :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+
       padding: 25px;
       border-top: 1px solid rgb(180,180,180);
       background: white;

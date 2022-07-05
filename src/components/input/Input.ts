@@ -36,7 +36,7 @@ export class Input extends LitElement {
 
         const val =  getPersistent(props)        
         this.value = props.value ?? (val) ? val : "";
-        
+
         this.outline = props.outline ?? false;
         this.disabled = props.disabled ?? false;
         this.label = props.label;
@@ -53,10 +53,11 @@ export class Input extends LitElement {
         return css`
 
         :host {
+            font-family: var(--visualscript-font-family, sans-serif);
             width: 100%;
             font-size: 15px;
-
         }
+        
 *{
 box-sizing: border-box;
 }

@@ -20,7 +20,10 @@ export class Switch extends LitElement {
 
   static get styles() {
     return css`
-
+    :host{
+      font-family: var(--visualscript-font-family, sans-serif);
+    }
+    
     :host * {
       box-sizing: border-box;
     }

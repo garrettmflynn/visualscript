@@ -25,6 +25,10 @@ export class Button extends LitElement {
   static get styles() {
     return css`
 
+    :host {
+      font-family: var(--visualscript-font-family, sans-serif);
+    }
+
     .storybook-button {
       font-weight: 700;
       border: 0;
