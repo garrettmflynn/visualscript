@@ -1,13 +1,13 @@
 
 import { LitElement, html, css } from 'lit';
 import { Icon } from '../general/Icon';
-import { Tree } from './Tree';
+// import { Tree } from './Tree';
 
 type keyType = string
 export type TreeItemProps = {
   type?: string | 'folder' | 'openfolder' | 'file',
   key: keyType,
-  parent: Tree,
+  parent: any,
   value: any,
   onClick: Function
 }
@@ -137,7 +137,9 @@ export class TreeItem extends LitElement {
             <span class="name">${this.key}</span>
             </div>
           </div>
-          ${(this.open) ? new Tree({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick}) : ''}
+          ${(this.open) 
+            ? new this.parent.constructor({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick}) // Create new tree from parent constructor (to avoid circular dependency)
+            : ''}
         </li>
       `
     }

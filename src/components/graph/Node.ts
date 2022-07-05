@@ -30,15 +30,10 @@ export class GraphNode extends LitElement {
       z-index: 1;
     }
 
-    :host {
-        --grid-color: rgb(210, 210, 210);
-    }
-
     :host > div {
-        width: 50px;
-        background: rgb(60,60,60);
-        cursor: move;
-    }
+      width: 50px;
+      background: rgb(60,60,60);
+  }
 
     #header {
       color: white;
@@ -54,10 +49,6 @@ export class GraphNode extends LitElement {
 
     @media (prefers-color-scheme: dark) { 
 
-      :host {
-          --grid-color: rgb(45, 45, 45);
-      }
-      
     }
 
     `;
@@ -99,16 +90,21 @@ export class GraphNode extends LitElement {
       this.info.x = this.x = props.x ?? this.info.x ?? 0
       this.info.y = this.y = props.y ?? this.info.y ?? 0
 
-      if (this.info){
-        // console.log(this.info)
-        this.info.arguments.forEach((value,tag) => {
-          // console.log('arg', tag, value)
-          this.addPort({
-            tag,
-            value
-          })
+      if (this.info) this.updateArguments(this.info.arguments)
+    }
+
+    setInfo = (info) => {
+      this.info = info
+      this.updateArguments(info.arguments)
+    }
+
+    updateArguments = (args) => {
+      if (args) args.forEach((value,tag) => {
+        this.addPort({
+          tag,
+          value
         })
-      }
+      })
     }
 
     willUpdate = (updatedProps) => {
@@ -117,12 +113,9 @@ export class GraphNode extends LitElement {
         this.info.x = this.x        // brainsatplay extension
         this.info.y = this.y       // brainsatplay extension
       }
-    }
 
-    // set = async (tree={}) => {
-    //   this.tree = tree
-    //   this.keys = Object.keys(this.tree)
-    // }
+      if (updatedProps.has('info')) this.updateArguments(this.info.arguments)
+    }
 
     updated(changedProperties) {
       this.element = this.shadowRoot.querySelector("div")

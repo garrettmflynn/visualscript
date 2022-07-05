@@ -29,7 +29,7 @@ export class GraphWorkspace extends LitElement {
         --grid-color: rgb(210, 210, 210);
     }
 
-    :host #grid {
+    #grid {
         position: relative;
         background-image:
         repeating-linear-gradient(var(--grid-color) 0 1px, transparent 1px 100%),
@@ -39,7 +39,11 @@ export class GraphWorkspace extends LitElement {
         height: 100%;
     }
 
-    :host #grid:active:hover {
+    #grid:active:hover {
+      cursor: move;
+    }
+
+    visualscript-graph-node {
       cursor: move;
     }
 

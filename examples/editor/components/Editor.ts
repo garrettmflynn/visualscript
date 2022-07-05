@@ -1,18 +1,16 @@
 
 import { LitElement, html, css } from 'lit';
 import "../../../src/components/dashboard/tabs"
-import "../../../src/components/editors"
 import { Tab, Panel } from '../../../src/components/dashboard/tabs';
 
 import { Plugin } from './Plugin';
 import App from '../App';
 import { Tree } from '../../../src/components/tree';
-import { CodeEditor, ObjectEditor, GraphEditor} from '../../../src/components/editors';
+import { CodeEditor} from '../../../src/components/code/Editor';
+import { ObjectEditor} from '../../../src/components/object/Editor';
+import { GraphEditor} from '../../../src/components/graph/Editor';
 import Plugins from '../Plugins';
 import { Modal } from '../../../src';
-import { Icon } from '../../../src/components/general/Icon';
-import { Container } from 'postcss';
-import file from '@babel/core/lib/transformation/file/file';
 
 export type EditorProps = {
   app?: App,

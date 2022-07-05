@@ -4,8 +4,8 @@ import { GraphWorkspace } from './Workspace';
 
 export type IOTypes = 'input' | 'output'
 export type IOType = {
-  output?: GraphPort
-  input?: GraphPort
+  output?: any
+  input?: any
 }
 
 export type GraphEdgeProps = {
@@ -157,7 +157,8 @@ export class GraphEdge extends LitElement {
 
   toResolve: {
     type: IOTypes,
-    callback: Function
+    callback: Function,
+    listeners: any[]
   }
 
   firstUp?: boolean
@@ -195,7 +196,9 @@ export class GraphEdge extends LitElement {
       if (port) {
         const res = this.resolveIO(port, this.toResolve.type, this.toResolve.callback)
         if (res) {
+          console.log('link success')
           this.toResolve.callback(true)
+          this.toResolve.listeners.forEach(l => globalThis.removeEventListener(l.name, l.function))
           this.toResolve = null
         } else return false
       }
@@ -275,24 +278,36 @@ export class GraphEdge extends LitElement {
 
     let hasType = this.getOtherType(typeNeeded)
 
+
+    console.log('Go',  this.output, this.input)
     if (el instanceof GraphPort) {
+    // if (el.constructor && 'output' in el && 'input' in el) {
       const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }))
 
+      console.log('expectedID', expectedID, this[hasType], this[hasType].shadowRoot.host.contains(el))
+     
+      console.log('Has',  this[hasType], el, this[hasType].shadowRoot.host)
+      
       if (expectedID) {
+        console.log('Edge already exists...')
         callback('Edge already exists...')
         return false
-      } else if (this[hasType].shadowRoot.contains(el)) {
-        callback('Cannot connect to self...')
+      } else if ( !this.output || !this.input) {
+        console.log('Cannot connect to self...')
+        callback(false)
         return false
       } else {
+        console.log('Good...', this[hasType] === el)
 
         // const parentClassList = el.parentNode.parentNode.classList as DOMTokenList
 
         // if (Array.from(parentClassList).find(str => str.includes(typeNeeded))){
 
-            this[typeNeeded] = el
-            callback(true)
-            return true
+        this[typeNeeded] = el
+        callback(true)
+        return true
+
+
             // } else {
             //   callback('Cannot connect two ports of the same type.')
             //   return false
@@ -345,22 +360,22 @@ export class GraphEdge extends LitElement {
 
     this.toResolve = {
       type,
-      callback: (res) => {
-        upCallback(res)
-        this.workspace.element.removeEventListener('mouseup', onMouseUp)
-        this.workspace.element.removeEventListener('mousemove', onMouseMove)
-      }
+      listeners: [],
+      callback: upCallback
     }
 
     let onMouseUp = (e) => {
       if (this.firstUp == undefined) this.firstUp = true
       else this.firstUp = false
       this.resolveIO(e.target, type, this.toResolve.callback, 'up')
+      console.log('mouse is up')
     }
+
+    this.toResolve.listeners.push({name: 'mouseup', function: onMouseUp})
+    this.toResolve.listeners.push({name: 'mousemove', function: onMouseMove})
 
     this.workspace.element.addEventListener('mouseup', onMouseUp)
   }
-
 
   init = async () => {
     return new Promise(async (resolve, reject) => {
