@@ -1,7 +1,7 @@
 # visualscript
 A New Paradigm in Visual Reactive Programming
 
-**visualscript** is the official low-code programming system for [graphscript](https://github.com/brainsatplay/graphscript) (our library for high-performance web applications), designed for real end-user applications.
+**visualscript** is the official low-code programming system for [graphscript](https://github.com/brainsatplay/graphscript) (our library for high-performance web applications)and the [brainsatplay](https://github.com/brainsatplay/brainsatplay) project, designed for real end-user applications.
 
 Our vision is that **anyone can code**. Moreover, the results are reusable, performant *files* that can be exported anywhere by the user.
 
