@@ -189,16 +189,15 @@ export class GraphEdge extends LitElement {
     })
   }
 
-  link = (info: IOType) => {
+  link = async (info: IOType) => {
 
     if (this.toResolve) {
       const port = info[this.toResolve.type]
       if (port) {
-        const res = this.resolveIO(port, this.toResolve.type, this.toResolve.callback)
+        const res = await this.resolveIO(port, this.toResolve.type, this.toResolve.callback)
         if (res) {
-          console.log('link success')
           this.toResolve.callback(true)
-          this.toResolve.listeners.forEach(l => globalThis.removeEventListener(l.name, l.function))
+          this.toResolve.listeners.forEach(l => this.workspace.element.removeEventListener(l.name, l.function))
           this.toResolve = null
         } else return false
       }
@@ -239,7 +238,7 @@ export class GraphEdge extends LitElement {
 
     this.node = node
 
-    const res = await this.init().catch(e => this.resolveReady.reject(e))
+    const res = await this.init().catch(e =>this.resolveReady.reject(e))
     if (res) this.resolveReady.resolve(true)
   }
 
@@ -274,35 +273,30 @@ export class GraphEdge extends LitElement {
     return `${output.node.id}-${output.tag}_${input.node.id}-${input.tag}`
   }
 
-  resolveIO = (el: HTMLElement, typeNeeded: IOTypes, callback: Function, origin?) => {
+  resolveIO = async (el: HTMLElement, typeNeeded: IOTypes, callback: Function, origin?) => {
 
     let hasType = this.getOtherType(typeNeeded)
 
-
-    console.log('Go',  this.output, this.input)
     if (el instanceof GraphPort) {
     // if (el.constructor && 'output' in el && 'input' in el) {
-      const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }))
-
-      console.log('expectedID', expectedID, this[hasType], this[hasType].shadowRoot.host.contains(el))
-     
-      console.log('Has',  this[hasType], el, this[hasType].shadowRoot.host)
-      
+      const expectedID = this[hasType].edges.has(this.getEdgeName({ [hasType]: this[hasType], [typeNeeded]: el }))      
       if (expectedID) {
-        console.log('Edge already exists...')
         callback('Edge already exists...')
         return false
-      } else if ( !this.output || !this.input) {
-        console.log('Cannot connect to self...')
-        callback(false)
+      } 
+      else if ( 
+        el === this[hasType] // Is the element
+        || this[hasType].shadowRoot.contains(el) // Is within the element
+        ) {
+        if (this.firstUp === false) callback('Cannot connect to self...')
         return false
-      } else {
-        console.log('Good...', this[hasType] === el)
+      } 
+      else {
 
         // const parentClassList = el.parentNode.parentNode.classList as DOMTokenList
 
         // if (Array.from(parentClassList).find(str => str.includes(typeNeeded))){
-
+        this.workspace.editing = null
         this[typeNeeded] = el
         callback(true)
         return true
@@ -332,7 +326,6 @@ export class GraphEdge extends LitElement {
     let otherType = this.getOtherType(type)
 
     let onMouseMove = (e) => {
-
       this.resize()
 
       let dims = this[otherType].shadowRoot.querySelector(`.${type}`).getBoundingClientRect()
@@ -360,21 +353,20 @@ export class GraphEdge extends LitElement {
 
     this.toResolve = {
       type,
-      listeners: [],
+      listeners: [
+        {name: 'mousemove', function: onMouseMove},
+        // {name: 'mouseup', function: onMouseUp}
+      ],
       callback: upCallback
     }
 
-    let onMouseUp = (e) => {
-      if (this.firstUp == undefined) this.firstUp = true
-      else this.firstUp = false
-      this.resolveIO(e.target, type, this.toResolve.callback, 'up')
-      console.log('mouse is up')
-    }
+    // let onMouseUp = (e) => {
+    //   if (this.firstUp == undefined) this.firstUp = true
+    //   else this.firstUp = false
+    //   this.resolveIO(e.target, type, this.toResolve.callback, 'up')
+    // }
 
-    this.toResolve.listeners.push({name: 'mouseup', function: onMouseUp})
-    this.toResolve.listeners.push({name: 'mousemove', function: onMouseMove})
-
-    this.workspace.element.addEventListener('mouseup', onMouseUp)
+    // this.workspace.element.addEventListener('mouseup', onMouseUp)
   }
 
   init = async () => {

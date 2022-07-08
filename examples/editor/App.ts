@@ -6,7 +6,7 @@ export default class App {
     graph: Graph | null;
     import: any; // ES6 Module
     animated: {[key: string]: Graph}
-
+    
     constructor(tree) {
         this.set(tree)
         this.graph = null
@@ -14,16 +14,14 @@ export default class App {
         this.animated = {}
     }
 
-    init = async () => {
-        await this.compile()
-        await this.start()
-    }
 
     set = (tree) => {
         this.tree = tree
     }
 
     start = async () => {
+
+            await this.compile()
 
             this.graph = new Graph(this.tree, 'graph')
     

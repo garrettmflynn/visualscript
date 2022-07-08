@@ -127,7 +127,7 @@ export class GraphPort extends LitElement {
         if (!this.resolving){
           this.resolving = true
           const type = (ev.path[0].classList.contains('input')) ? 'input' : 'output'
-          if (this.node.workspace) await this.node.workspace.resolveEdge({[type]: this})
+          if (this.node.workspace) await this.node.workspace.resolveEdge({[type]: this}, undefined, true)
           this.resolving = false
         }
     }

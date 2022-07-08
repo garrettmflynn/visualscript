@@ -90,6 +90,11 @@ export class GraphWorkspace extends LitElement {
     nodes: Map<string, GraphNode> = new Map()
     edges: Map<string, GraphEdge> = new Map()
 
+    firstRender: boolean = true
+
+
+    onEdgesReady = () => {}
+
     constructor(props: GraphWorkspaceProps = {}) {
       super();
 
@@ -122,25 +127,42 @@ export class GraphWorkspace extends LitElement {
 
     set = async (graph) => {
       this.graph = graph
-      this.triggerUpdate()
+      this.triggerUpdate(true)
     }
 
     updated() {
-      this.element = this.shadowRoot.querySelector("div")
-      this.addEventListener('mousedown', e => { this.mouseDown = true} )
-      window.addEventListener('mouseup', e => { this.mouseDown = false} )
-      this.addEventListener('wheel', this._scale)
-      this.addEventListener('mousemove', this._pan)
 
-      this.nodes.forEach((node: GraphNode) => {
-        drag(this, node, () => {
-          this.resize([node])
-        }, () => { 
-          if (!this.editing) this.editing = node
-        }, () => {
-          if (this.editing instanceof GraphNode) this.editing = null
-        })
-    })
+      // Rerender when All Edges have been Readied
+      if (this.firstRender) {
+        this.onEdgesReady = () => {
+          this.firstRender = false
+          this.triggerUpdate()
+          this.onEdgesReady = () => {}
+        }
+      } 
+      
+      // Apply Final Methods
+      else {
+
+        this.element = this.shadowRoot.querySelector("div")
+        this.addEventListener('mousedown', e => { this.mouseDown = true} )
+        window.addEventListener('mouseup', e => { this.mouseDown = false} )
+        this.addEventListener('wheel', this._scale)
+        this.addEventListener('mousemove', this._pan)
+
+        this.nodes.forEach((node: GraphNode) => {
+          drag(this, node, () => {
+            this.resize([node])
+          }, () => { 
+            if (!this.editing) this.editing = node
+          }, () => {
+            if (this.editing instanceof GraphNode) this.editing = null
+          })
+      })
+    }
+
+    this.resize() // Catch first edge to resize
+
   }
 
   resize = (nodes = Array.from(this.nodes.values())) => {
@@ -148,29 +170,36 @@ export class GraphWorkspace extends LitElement {
   }
 
 
-    triggerUpdate = () => {
+    triggerUpdate = (reset=false) => {
+      if (reset) this.firstRender = true // Reset first render of this graph
       this.updateCount = this.updateCount + 1
     }
 
-    resolveEdge = async (info, rerender = true) => {
+    resolveEdge = async (info, rerender = true, willAwait=false) => {
 
       if (!(this.editing instanceof GraphEdge)){
+
         const tempId = `${Math.round( 10000 * Math.random())}`
         const edge = new GraphEdge(Object.assign({workspace: this}, info))
         this.editing = edge
-        this.edges.set(tempId, edge)
-        if (rerender) this.triggerUpdate()
-        const res = await edge.ready.catch(e => console.error(e))
 
-        if (res) {
-          this.edges.delete(tempId)
-          this.edges.set(edge.id, edge)
-          edge.resize()
-        }
+        this.edges.set(tempId, edge) // Place temp into DOM to trigger edge.rendered
+
+        if (rerender) this.triggerUpdate()
+
+        edge.ready.then(res => {
+          if (res){
+            this.edges.delete(tempId)
+            this.edges.set(edge.id, edge)
+            edge.resize()
+          }
+        }).catch(e => console.error(e))
+
+        if (willAwait) await edge.ready // Wait until the edge is complete
 
         this.editing = null
         return edge
-      } else this.editing.link(info)
+      } else await this.editing.link(info) // Link second port to the current edge
     }
 
     autolayout = () => {
@@ -184,7 +213,7 @@ export class GraphWorkspace extends LitElement {
       })
     }
 
-    createUIFromGraph = () => {
+    createUIFromGraph = async () => {
 
       let nodes:any = ''
       let hasMoved = false
@@ -208,6 +237,8 @@ export class GraphWorkspace extends LitElement {
 
         // Create Edges to Children
         const nodeArr = Array.from(this.nodes.values()) as GraphNode[]
+        // const hasChildren = nodeArr.map(n => n.info.children.length > 0)
+        // const lastNodeWithChildren = hasChildren.lastIndexOf(true)
         const createEdges = async () => {
           for (let i = 0; i < nodeArr.length; i++){
             let n = nodeArr[i]
@@ -221,14 +252,20 @@ export class GraphWorkspace extends LitElement {
                 await this.resolveEdge({
                   input,
                   output 
-                })
+                }, false)// i === lastNodeWithChildren && j === n.info.children.length - 1)
               }
             }
           }
         }
 
-        createEdges()
+        // this.edges.forEach((e, k) => {
+
+        // })
+
+        await createEdges()
         if (!hasMoved) this.autolayout()
+
+        this.onEdgesReady()
       }
 
       return nodes
@@ -236,8 +273,9 @@ export class GraphWorkspace extends LitElement {
     
     render(){
 
-      // Get Nodes from Graph
-      this.createUIFromGraph()      
+      // Get Nodes from Graph on First Render
+      if (this.firstRender) this.createUIFromGraph()  
+
 
       // Auto Layout
         return html`

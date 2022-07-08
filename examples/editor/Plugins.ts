@@ -34,7 +34,6 @@ export default class Plugins {
 
     init = async () => {
 
-
         // Remote Plugins
         if (!this.filesystem){
             this.filesystem = new freerange.System('plugins', {
@@ -56,10 +55,12 @@ export default class Plugins {
         
         // Get Metadata from Local Plugins
         else {
-
             // Loading Current Plugins
             this.filesystem.files.list.forEach(f => this.set(f))
         }
+
+        // Monitor for new files
+        this.filesystem.addGroup('plugins', undefined, (f) => this.set(f))
 
         this.readyState = true // Switch readyState to true
     }
@@ -70,6 +71,8 @@ export default class Plugins {
             path: f.path,
             module: f
         }
+
+        this.metadata(f.path)
     }
 
     get = async (url) => {

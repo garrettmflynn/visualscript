@@ -4,6 +4,7 @@ import * as freerange from './external/freerange/index.esm.js'
 import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
+import FileApp from './FileApp';
 
 // -------------- File System Generator--------------
 let systems = {}
@@ -49,7 +50,7 @@ const nav = document.querySelector('visualscript-nav')
 let editor = document.querySelector('visualscript-editor')
 
 // -------------- Setup Default App --------------
-let app = new App()
+let app = new FileApp()
 editor.setApp(app)
 
 // -------------- Show History --------------
@@ -91,42 +92,26 @@ document.onkeydown = async (e) => {
     }
 };
 
-const startApp = (system) => {
+const startApp = async (system) => {
 
     console.log(`File System Selected (${system.name})`, system.files)
 
-    // TODO: Make it so that only new information is fully re-imported
-    app.onsave = async () => {
-        await system.save()
+    app.oncompile = () => {
+        editor.start()
     }
 
+    await app.start(system)
 
-    app.oncompile = async () => {
-        const packageContents = await (await system.open('package.json')).body
-        if (packageContents){
-            const file = await system.open(packageContents.main) // Get main file
-            if (file) {
-                editor.setSystem(system)
-                const imported = await file.body
-                return imported
-            } else console.error('The "main" field in the supplied package.json is not pointing to an appropriate entrypoint.')
-        }
-    }
+    const ui = new TimeSeries()
+    editor.setUI(ui)
 
-    app.onstart = () => {
-
-        const ui = new TimeSeries()
-        editor.setUI(ui)
-
-        app.graph.nodes.forEach(n => {
-            if (n.tag === 'sine') n.subscribe((data) => {
-                ui.data = [data]
-                ui.draw() // FORCE DRAW: Update happens too fast for UI
-            })
+    app.active.graph.nodes.forEach(n => {
+        if (n.tag === 'sine') n.subscribe((data) => {
+            ui.data = [data]
+            ui.draw() // FORCE DRAW: Update happens too fast for UI
         })
+    })
 
-        editor.setGraph(app.graph)
-    }
+    editor.setGraph(app.active.graph)
 
-    app.init()
 }

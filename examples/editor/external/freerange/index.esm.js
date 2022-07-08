@@ -28,7 +28,7 @@ var get = (type7, name2, codecs) => {
   let mimeType = type7;
   const isZipped = zipped(fullSuffix(name2), mimeType, codecs);
   const sfx = suffix(name2);
-  if (isZipped || !mimeType || mimeType === 'text/plain')
+  if (isZipped || !mimeType || mimeType === "text/plain")
     mimeType = codecs.getType(sfx);
   if (esm(sfx, mimeType))
     mimeType = codecs.getType("js");
@@ -4097,11 +4097,7 @@ var transferEach = async (f, system) => {
     f.storage = await f.getFileData();
   const blob = new Blob([f.storage.buffer]);
   blob.name = f.name;
-  let newFile = await system.open(path, true);
-  if (!f.fileSystemHandle) {
-    f.fileSystemHandle = newFile.fileSystemHandle;
-    f.method = "transferred";
-  }
+  await system.open(path, true);
 };
 var transfer = async (previousSystem, targetSystem, transferList) => {
   if (!transferList)
@@ -4125,8 +4121,8 @@ var transfer = async (previousSystem, targetSystem, transferList) => {
     await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
     const toc = performance.now();
     console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
-    await Promise.all(notTransferred.map(async (f) => f.save(true)));
     previousSystem.apply(targetSystem);
+    await Promise.all(notTransferred.map(async (f) => f.save(true)));
   }
 };
 var transfer_default = transfer;
@@ -4306,10 +4302,10 @@ var RangeFile = class {
       } else
         console.warn("Valid file object not provided...");
     };
-    this.init = async () => {
-      if (!this.file && this.fileSystemHandle) {
-        this.file = await this.fileSystemHandle.getFile();
-        this.loadFileInfo(this.file);
+    this.init = async (file = this.file) => {
+      if (!file && this.fileSystemHandle) {
+        file = await this.fileSystemHandle.getFile();
+        this.loadFileInfo(file);
       }
       const loader = this.system.codecs.get(this.mimeType);
       const rangeConfig = loader?.config;
@@ -4321,8 +4317,8 @@ var RangeFile = class {
       }
       this.rangeSupported = !!this.rangeConfig;
       let converted = false;
-      if (this.method === "native") {
-        this.storage = await this.getFileData().catch(this.onError);
+      if (this.method != "remote") {
+        this.storage = await this.getFileData(file).catch(this.onError);
         if (!converted) {
           if (this.storage?.buffer)
             this.file = await this.createFile(this.storage.buffer);
@@ -4568,6 +4564,13 @@ var RangeFile = class {
           await this.rangeConfig.metadata(this["#body"], this.rangeConfig);
       }
     };
+    this.apply = (newFile) => {
+      if (!this.fileSystemHandle) {
+        this.fileSystemHandle = newFile.fileSystemHandle;
+        this.method = "transferred";
+      }
+      this.init(newFile.file);
+    };
     this.getRemote = async (property = {}) => {
       let { start, length } = property;
       const options = Object.assign({}, this.remoteOptions);
@@ -4591,23 +4594,24 @@ var RangeFile = class {
         return o.buffer;
       }
     };
-    this.getFileData = () => {
+    this.getFileData = (file = this.file) => {
       return new Promise(async (resolve, reject) => {
         if (this.method === "remote") {
           const buffer = await this.getRemote();
-          this.file = await this.createFile(buffer);
-          resolve({ file: this.file, buffer });
+          this.file = file = await this.createFile(buffer);
+          resolve({ file, buffer });
         } else {
+          this.file = file;
           let method = "buffer";
-          if (this.file.type && (this.file.type.includes("image/") || this.file.type.includes("video/")))
+          if (file.type && (file.type.includes("image/") || file.type.includes("video/")))
             method = "dataurl";
           if (globalThis.FREERANGE_NODE) {
             const methods = {
               "dataurl": "dataURL",
               "buffer": "arrayBuffer"
             };
-            const data = await this.file[methods[method]]();
-            resolve({ file: this.file, [method]: this.handleData(data) });
+            const data = await file[methods[method]]();
+            resolve({ file, [method]: this.handleData(data) });
           } else {
             const methods = {
               "dataurl": "readAsDataURL",
@@ -4619,14 +4623,14 @@ var RangeFile = class {
                 if (!e.target.result)
                   return reject(`No result returned using the ${method} method on ${this.file.name}`);
                 let data = e.target.result;
-                resolve({ file: this.file, [method]: this.handleData(data) });
+                resolve({ file, [method]: this.handleData(data) });
               } else if (e.target.readyState == FileReader.EMPTY) {
                 if (this.debug)
                   console.warn(`${this.file.name} is empty`);
-                resolve({ file: this.file, [method]: new Uint8Array() });
+                resolve({ file, [method]: new Uint8Array() });
               }
             };
-            reader[methods[method]](this.file);
+            reader[methods[method]](file);
           }
         }
       });
@@ -4641,9 +4645,9 @@ var RangeFile = class {
       else
         return data;
     };
-    if (file.constructor.name === "FileSystemFileHandle") {
+    if (file.constructor.name === "FileSystemFileHandle")
       this.fileSystemHandle = file;
-    } else
+    else
       this.file = file;
     this.config = options;
     this.debug = options.debug;
@@ -5201,7 +5205,7 @@ var System = class {
       if (!this.files.list.has(file.path)) {
         this.groupConditions.forEach((func) => func(file, file.path, this.files));
       } else
-        console.warn(`${this.name}/${file.path} already exists!`);
+        console.warn(`${file.path} already exists in the ${this.name} system!`);
     };
     this.isNative = () => false;
     this.openRemote = open_default2;
@@ -5221,7 +5225,7 @@ var System = class {
     this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
     this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
     this.transfer = async (target) => await transfer_default(this, target);
-    this.apply = (system) => {
+    this.apply = async (system) => {
       this.name = system.name;
       if (system.native)
         this.native = system.native;
@@ -5237,6 +5241,18 @@ var System = class {
         this.codecs = system.codecs;
       else
         this.codecs = new Codecs([codecs_exports, system.codecs]);
+      const files = system.files?.list;
+      if (files) {
+        await iterate_default(files, async (newFile) => {
+          console.log("NewFile", newFile);
+          const path = newFile.path;
+          let f = this.files.list.get(newFile.path);
+          if (!f)
+            await this.load(newFile, path);
+          else
+            f.apply(newFile);
+        });
+      }
       this.root = system.root;
     };
     this.apply(Object.assign(systemInfo, { name: name2 }));

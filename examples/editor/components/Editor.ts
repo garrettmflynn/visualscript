@@ -4,17 +4,15 @@ import "../../../src/components/dashboard/tabs"
 import { Tab, Panel } from '../../../src/components/dashboard/tabs';
 
 import { Plugin } from './Plugin';
-import App from '../App';
 import { Tree } from '../../../src/components/tree';
 import { CodeEditor} from '../../../src/components/code/Editor';
 import { ObjectEditor} from '../../../src/components/object/Editor';
 import { GraphEditor} from '../../../src/components/graph/Editor';
-import Plugins from '../Plugins';
 import { Modal } from '../../../src';
+import FileApp from '../FileApp';
 
 export type EditorProps = {
-  app?: App,
-  filesystem?: any;
+  app?: FileApp,
   plugins?: any[]
   ui?: HTMLElement
 }
@@ -87,17 +85,12 @@ export class Editor extends LitElement {
     tree: Tree = new Tree()
 
 
-    plugins: Plugins
-    filesystem: any;
-
-
     constructor(props:EditorProps={}) {
       super();
 
       this.ui.setAttribute('name', 'UI')
       if (props.app) this.setApp(props.app)
       if (props.ui) this.setUI(props.ui)
-      if (props.filesystem) this.setSystem(props.filesystem)
     }
 
     setApp = (app) => {
@@ -117,7 +110,7 @@ export class Editor extends LitElement {
       return f.mimeType === 'application/javascript' && !f.path.includes('/.brainsatplay/')
     }
 
-    setSystem = async (system: any) => {
+    start = async () => {
 
       // TODO: Reset File Viewer with Same Tabs Open
       // const toOpen: any[] = []
@@ -127,73 +120,12 @@ export class Editor extends LitElement {
       // })
       this.files.reset() 
 
-      this.filesystem = system
-
-      this.plugins = new Plugins(this.filesystem)
-      await this.plugins.init()
-
       const previousTabs = new Set(Object.keys(this.fileHistory))
 
       const allProperties = {}
 
-      const importedFileInfo = {}
-      const importedFileMetadata = {}
-      const importedPluginPackage = {}
-
-      // Get All Properties
-      const getFileInfo = async (f, types=['module', 'metadata']) => {
-        let module = importedFileInfo[f.path]
-        let metadata = importedFileMetadata[f.path]
-        let packageInfo = importedPluginPackage[f.path]
-
-        if (types.includes('module')){
-          if (!module) module = importedFileInfo[f.path] = await this.plugins.module(f.path) ?? await f.body
-        }
-
-        if (types.includes('metadata')){
-
-        if (!metadata) {
-          metadata = await this.plugins.metadata(f.path)
-          if (metadata) {
-            importedFileMetadata[f.path] = metadata
-          }
-        }
-
-        // Merge closest package.json file into file metadata
-        if (!packageInfo) {
-          packageInfo = await this.plugins.package(f.path)
-          console.log('Info', packageInfo)
-          if (packageInfo) {
-            importedPluginPackage[f.path] = packageInfo
-            metadata = importedFileMetadata[f.path] = Object.assign(JSON.parse(JSON.stringify(packageInfo)), importedFileMetadata[f.path])
-          }
-        }
-      }
-
-        // Only Show ESM at Top Level
-        const isValidPlugin = this.isPlugin(f)
-        if (isValidPlugin) allProperties[metadata?.name ?? f.path] = importedFileInfo[f.path]
-        return {metadata, module}
-      }
-
-      const packageFile = this.filesystem.files.list.get('package.json')
-      const packageContents = await packageFile.body
-
-      // Get Primary Module Info (will fill the system...)
-      const metadataFilesToGet: any[] = []
-      // TODO: remove group
-      this.filesystem.addGroup('metadata', null, async (file, path, files) => {
-        metadataFilesToGet.push(file)
-      })
-
-      const main = this.filesystem.files.list.get(packageContents.main)
-      await getFileInfo(main)
-
-      // actually get the files
-      metadataFilesToGet.map(async f => {
-        this.plugins.set(f)
-        await getFileInfo(f)
-      })
+      // TODO: Only Show ESM at Top Level. Show editable things
+      // const isValidPlugin = this.isPlugin(f)
 
       const openTabs: {[x:string]: Tab} = {}
 
@@ -203,10 +135,15 @@ export class Editor extends LitElement {
 
         if (!openTabs[f.path]){
 
-        const {metadata, module} = await getFileInfo(f)
+          let metadata = await this.app.plugins.metadata(f.path) ?? await f.body
+          const module = await this.app.plugins.module(f.path)
+          const pkg = await this.app.plugins.package(f.path)
+
+          // Merge package with metadata
+          if (pkg) metadata = Object.assign(JSON.parse(JSON.stringify(pkg)), metadata)
 
         let tabInfo = this.fileHistory[f.path]
-        // const plugin = this.plugins.plugins[f.path]
+        // const plugin = this.app.plugins.plugins[f.path]
   
         previousTabs.delete(f.path)
 
@@ -230,12 +167,12 @@ export class Editor extends LitElement {
           }
 
           // Show Property Editor for Objects (including esm modules)
-          if (typeof await f.body === 'object') {
-            const objectTab = new Tab({name: "Properties"})
-            tabInfo.object = new ObjectEditor()
-            objectTab.appendChild(tabInfo.object)
-            container.addTab(objectTab)
-          }
+          // if (typeof await f.body === 'object') {
+          //   const objectTab = new Tab({name: "Properties"})
+          //   tabInfo.object = new ObjectEditor()
+          //   objectTab.appendChild(tabInfo.object)
+          //   container.addTab(objectTab)
+          // }
 
           // Always Show Code Editor
           tabInfo.code = new CodeEditor()
@@ -265,7 +202,7 @@ export class Editor extends LitElement {
         tabInfo.code.onInput = (text) => f.text = text,
         tabInfo.code.onSave = async () => {
             await f.save()
-            await this.app.init()
+            await this.app.start()
         }
 
         openTabs[f.path] = tabInfo.tab
@@ -284,7 +221,7 @@ export class Editor extends LitElement {
     })
 
     // Actually Display Tree
-    this.tree.set(system.files.system)
+    this.tree.set(this.app.filesystem.files.system)
     this.fileUpdate = this.fileUpdate + 1
 
     }
@@ -316,6 +253,11 @@ export class Editor extends LitElement {
       //     <visualscript-tab-bar>
       //       ${tabs.map(t => t.toggle)}
       //     </visualscript-tab-bar>
+
+
+    //   <visualscript-tab name="Properties">
+    //   ${this.properties}
+    // </visualscript-tab>
       return html`
           <div>
             ${this.ui}
@@ -323,9 +265,6 @@ export class Editor extends LitElement {
             <visualscript-tab name="Graph">
             ${this.graph}
           </visualscript-tab>
-              <visualscript-tab name="Properties">
-                ${this.properties}
-              </visualscript-tab>
                 <visualscript-tab name="Files">
                 <div id="files">
                   ${this.tree}
