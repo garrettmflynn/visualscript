@@ -1,7 +1,7 @@
 # visualscript
 A New Paradigm in Visual Reactive Programming
 
-**visualscript** is the official low-code programming system for [brainsatplay](https://github.com/brainsatplay/brainsatplay) (our library for high-performance web applications), designed for real end-user applications.
+**visualscript** is the official low-code programming system for [graphscript](https://github.com/brainsatplay/graphscript) (our library for high-performance web applications), designed for real end-user applications.
 
 Our vision is that **anyone can code**. Moreover, the results are reusable, performant *files* that can be exported anywhere by the user.
 
@@ -10,7 +10,7 @@ Our vision is that **anyone can code**. Moreover, the results are reusable, perf
 
 🧩 **Familiar:** We don't lock users into unnecessary abstractions. Just format code files as ES Modules!
 
-⚡ **Performant:** The brainsatplay library guarantees high-performance event-based logic.
+⚡ **Performant:** The graphscript library guarantees high-performance event-based logic.
 
 ♿ **Inclusive:** Our fully accessible visual programming system uses the **Accessify** library to guarantee accessibility support for resulting applications through multimodal I/O support.
 
@@ -18,7 +18,7 @@ Our vision is that **anyone can code**. Moreover, the results are reusable, perf
 
 🖥️ **Backend Support:** Edit workspaces running in Node.js, local or the cloud.
 
-🌐 **Social:** Derivative plugins can be published as NPM packages and registered on the awesome-brainsatplay library to be shared with the world.
+🌐 **Social:** Derivative plugins can be published as NPM packages and registered on the awesome-graphscript library to be shared with the world.
 
 📜 **Open Source:** This library is licensed under the AGPL license. All derivatives are also free and open-source software!
 
@@ -70,4 +70,4 @@ Load into our online viewer to preview.
 On GitHub and/or NPM
 
 ### Let Us Know
-Provide link to source package.json file as a pull request to awesome-brainsatplay.
+Provide link to source package.json file as a pull request to awesome-graphscript.
