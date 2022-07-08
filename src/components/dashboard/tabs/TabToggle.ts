@@ -10,7 +10,8 @@ import { TabBar } from './TabBar';
 export type TabToggleProps = {
   tab: Tab,
   selected?: boolean,
-  grow?: boolean
+  grow?: boolean,
+  close?: boolean
 }
 
 
@@ -26,6 +27,10 @@ export const TabTogglePropsList = {
   grow: {
     type: Boolean,
     reflect: true
+  },
+  close: {
+    type: Boolean,
+    reflect: true
   }
 }
 
@@ -33,12 +38,14 @@ export class TabToggle extends LitElement {
 
   to: Tab
   selected: TabToggleProps['selected']
+  close: TabToggleProps['close']
 
   static get styles() {
     return css`
 
     :host {
       user-select: none;
+      position: relative;
     }
 
     :host([grow]) {
@@ -78,6 +85,14 @@ export class TabToggle extends LitElement {
         background: rgb(230,230,230);
       }
 
+      #close {
+        position: absolute;
+        top: 50%;
+        right: 5px;
+        width: 15px;
+        height: 15px;
+        transform: translateY(-50%);
+      }
 
       @media (prefers-color-scheme: dark) {
         button {
@@ -107,11 +122,13 @@ export class TabToggle extends LitElement {
     }
 
     grow: TabToggleProps['grow'] = false
+    bar: TabBar
 
     constructor(props: TabToggleProps) {
       super();
         this.to = props.tab
         if (props.grow) this.grow = props.grow
+        if (props.close) this.close = props.close
         if (props.selected) this.selected = props.selected
     }
 
@@ -121,13 +138,13 @@ export class TabToggle extends LitElement {
 
         // Show Correct Tab
         if (!toggles){
-          let parent = this.parentNode as TabBar | any
-          let bar = ((!(parent instanceof HTMLElement)) ? parent.host : parent) as TabBar
-           toggles = bar.querySelectorAll('visualscript-tab-toggle') // Get toggles
-           if (toggles.length === 0) toggles = bar.shadowRoot.querySelectorAll('visualscript-tab-toggle')
+           toggles = this.bar.querySelectorAll('visualscript-tab-toggle') // Get toggles
+           if (toggles.length === 0) toggles = this.bar.shadowRoot.querySelectorAll('visualscript-tab-toggle')
         }
        
+
         if (toggles){
+
           this.selected = true
 
           // if (this.to.style.display === 'none') {
@@ -154,11 +171,21 @@ export class TabToggle extends LitElement {
           }
         }
     }
+
+    updated = () => {
+      let parent = this.parentNode as TabBar | any
+      this.bar = ((!(parent instanceof HTMLElement)) ? parent.host : parent) as TabBar
+    }
     
     render() {
 
       return html`
-      <button @click=${() => this.select()}>${this.to.name ?? `Tab`}</button>
+      <button @click=${() => {
+        if (this.parentNode) this.select() // Only allow if in the DOM
+      }}>
+        ${this.to.name ?? `Tab`}
+        ${(this.close === true) ? html`<visualscript-icon id=close type=close @click=${() => this.bar.delete(this.to.name)}></visualscript-icon>` : ''}
+      </button>
     `
     }
   }

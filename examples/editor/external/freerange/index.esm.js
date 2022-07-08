@@ -17,7 +17,7 @@ var suffix = (fileName = "") => {
 var name = (path) => path ? path.split("/").slice(-1)[0] : void 0;
 var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0;
 var esm = (suffix2, type7) => {
-  if (suffix2 === "js" || suffix2 === "mjs")
+  if (suffix2.slice(-2) === "js")
     return true;
   else if (type7 && type7.includes("javascript"))
     return true;

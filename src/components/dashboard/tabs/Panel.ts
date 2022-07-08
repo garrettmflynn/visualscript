@@ -2,7 +2,6 @@
 import { LitElement, html, css } from 'lit';
 import { Tab } from './Tab';
 import './TabToggle';
-import './TabBar';
 import { TabBar } from './TabBar';
 
 export type PanelProps = {
@@ -89,7 +88,7 @@ export class Panel extends LitElement {
     removeTab = (tab: Tab | string) => {
       if (tab instanceof Tab) tab = tab.name
       const tabObj = this.tabs.get(tab)
-      tabObj.remove()
+      tabObj.delete(true)
       this.updateTabs()
       this.tabs.delete(tab)
     }

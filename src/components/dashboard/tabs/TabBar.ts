@@ -77,6 +77,15 @@ export class TabBar extends LitElement {
       super();
     }
 
+    delete = (name) => {
+      const i = this.tabs.findIndex(t => t.name === name)
+      this.tabs[i].delete()
+      this.tabs.splice(i,1)
+      // this.tabs = this.tabs
+      const toSwitch =  this.tabs[i-1] ??  this.tabs[i]
+      if (toSwitch) toSwitch.toggle.select() // Select previous tab
+    }
+
     render() {
 
       return html`

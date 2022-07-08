@@ -36,6 +36,7 @@ export type TabProps = {
   name?: string;
   controls?: ControlProps[],
   type?: 'app' | 'tab' | 'dropdown',
+  close?: boolean,
   on?: (target:TabToggle)=> any,
   off?: (target:TabToggle)=> any,
 }
@@ -54,6 +55,10 @@ export const TabPropsLit = {
     type: Function,
     reflect: true
   },
+  close: {
+    type: Boolean,
+    reflect: true
+  },
   type: {
     type: String,
     reflect: true
@@ -68,6 +73,8 @@ export class Tab extends LitElement {
 
   name: TabProps['name']
   controls: TabProps['controls'] = []
+  close: TabProps['close']
+
   on: TabProps['on'] = () => {}
   off: TabProps['off'] = () => {}
   type: TabProps['type'] = 'tab'
@@ -89,6 +96,8 @@ export class Tab extends LitElement {
       super();
       if (props.name) this.name = props.name
       if (props.controls) this.controls = props.controls // Will also check for controls in the <slot> later
+      if (props.close) this.close = props.close
+
       if (props.on) this.on = props.on
       if (props.off) this.off = props.off
 
@@ -101,7 +110,8 @@ export class Tab extends LitElement {
 
       // Create a toggle
       this.toggle = new TabToggle({
-        tab: this
+        tab: this,
+        close: this.close
       })
 
       this.dashboard.addEventListener('close', (ev) => {
@@ -116,12 +126,22 @@ export class Tab extends LitElement {
         this.controls.forEach(o => {
           this.addControl(new Control(o))
         })
-
       }
+
+      if (changedProps.has('close')) {
+        this.toggle.close = this.close // Pass to toggle
+      }
+    
     }
 
     addControl = (instance: Control) => {
       this.controlPanel.appendChild(instance)
+    }
+
+    delete = (fromParent=false) => {
+      if (!fromParent && (this.parentNode as any)?.removeTab instanceof Function) this.parentNode.removeTab(this)
+      this.remove()
+      this.toggle.remove()
     }
 
     updated = () => {

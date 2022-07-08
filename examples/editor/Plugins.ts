@@ -137,7 +137,7 @@ export default class Plugins {
 
             if (metadata) {
                 this.plugins[name].metadata = metadata
-                return await this.plugins[name].metadata.body
+                return await metadata.body
             } else return {}
         } else {
             console.warn(`No metadata for ${name}.`)

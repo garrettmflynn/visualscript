@@ -132,29 +132,36 @@ export class Editor extends LitElement {
       // Add Tab On Click
       this.tree.onClick = async (key, f) => {
 
-
-        if (!openTabs[f.path]){
+        const existingTab = this.files.tabs.get(f.path)
+        if (!existingTab){
 
           let metadata = await this.app.plugins.metadata(f.path) ?? await f.body
+          console.log(metadata, await f.body)
+
           const module = await this.app.plugins.module(f.path)
           const pkg = await this.app.plugins.package(f.path)
 
           // Merge package with metadata
           if (pkg) metadata = Object.assign(JSON.parse(JSON.stringify(pkg)), metadata)
+          console.log(metadata, module, pkg)
 
         let tabInfo = this.fileHistory[f.path]
         // const plugin = this.app.plugins.plugins[f.path]
   
         previousTabs.delete(f.path)
 
-        if (!tabInfo) {
+        const tab = new Tab({
+          close: true,
+          name: f.path
+        })
+
+        if (tabInfo) tabInfo.tab = tab
+        else {
           
-          const tab = new Tab()
           tabInfo = {tab} // Start tracking essential tab information
-          tab.name = `${f.path}`
 
           // Create File Editors
-          let container = new Panel({minTabs: 2})
+          tabInfo.container = new Panel({minTabs: 2})
           const codeTab = new Tab({name: "File"});
 
           // Conditionally Show Information
@@ -163,7 +170,7 @@ export class Editor extends LitElement {
             const infoTab = new Tab({name: 'Info'})
             tabInfo.plugin = new Plugin()
             infoTab.appendChild(tabInfo.plugin)
-            container.addTab(infoTab)
+            tabInfo.container.addTab(infoTab)
           }
 
           // Show Property Editor for Objects (including esm modules)
@@ -177,12 +184,12 @@ export class Editor extends LitElement {
           // Always Show Code Editor
           tabInfo.code = new CodeEditor()
           codeTab.appendChild(tabInfo.code)
-          container.addTab(codeTab)
-
-          tab.appendChild(container)
-          this.files.addTab(tab, true)
-          this.fileHistory[f.path] = tabInfo
+          tabInfo.container.addTab(codeTab)
         }
+
+        tab.appendChild(tabInfo.container)
+        this.files.addTab(tab, true)
+        this.fileHistory[f.path] = tabInfo
         
         // ---------- Update Editors ----------
 
@@ -207,7 +214,7 @@ export class Editor extends LitElement {
 
         openTabs[f.path] = tabInfo.tab
       } else {
-        openTabs[f.path].toggle.select()
+        existingTab.toggle.select()
       }
     } 
 
