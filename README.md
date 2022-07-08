@@ -18,7 +18,7 @@ Our vision is that **anyone can code**. Moreover, the results are reusable, perf
 
 🖥️ **Backend Support:** Edit workspaces running in Node.js, local or the cloud.
 
-🌐 **Social:** Derivative plugins can be published as NPM packages and registered on the awesome-graphscript library to be shared with the world.
+🌐 **Social:** Derivative plugins can be published as NPM packages and registered on the awesome-brainsatplay library to be shared with the world.
 
 📜 **Open Source:** This library is licensed under the AGPL license. All derivatives are also free and open-source software!
 
@@ -70,4 +70,4 @@ Load into our online viewer to preview.
 On GitHub and/or NPM
 
 ### Let Us Know
-Provide link to source package.json file as a pull request to awesome-graphscript.
+Provide link to source package.json file as a pull request to awesome-brainsatplay.
