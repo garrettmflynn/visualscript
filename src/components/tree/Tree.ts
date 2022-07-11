@@ -19,7 +19,7 @@ export class Tree extends LitElement {
       box-sizing: border-box;
     }
 
-    :host > * {
+    :host > div {
       background: white;
       height: 100%;
       width: 100%;
@@ -54,6 +54,20 @@ export class Tree extends LitElement {
       font-size: 80%;
     }
 
+    #header {
+      display: flex;
+      overflow-x: scroll;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    visualscript-icon {
+      width: 18px;
+      height: 18px;
+      padding; 10px;
+      cursor: pointer;
+    }
+
     @media (prefers-color-scheme: dark) {
       :host > * {
         background-color: rgb(40, 40, 40);
@@ -80,6 +94,9 @@ export class Tree extends LitElement {
         onClick: {
           type: Function,
           reflect: true,
+        },
+        input: {
+          type: Boolean
         }
       };
     }
@@ -88,6 +105,10 @@ export class Tree extends LitElement {
     onClick: TreeProps['onClick']
     keys: (keyType)[]
     depth: TreeProps['depth'] = 0
+    items: TreeItem[] = []
+    input: TreeItem
+    oncreate: Function
+
 
     constructor(props: TreeProps = {target: {}}) {
       super();
@@ -96,6 +117,19 @@ export class Tree extends LitElement {
       if (props.onClick) this.onClick = props.onClick
 
       this.set(props.target)
+
+      window.addEventListener('click', (ev:any) => {
+        const hasTree = ev.path.find(el => el === this)
+
+        const drill = (o) => {
+          o.items.forEach(item => {
+            if (item.li && !item.li.classList.contains('last')) item.removeClass('selected')
+            if (item.tree) drill(item.tree)
+          })
+        }
+        
+        if (!hasTree) drill(this)
+      })
     }
 
     set = async (target={}) => {
@@ -103,11 +137,7 @@ export class Tree extends LitElement {
       this.keys = Object.keys(this.target)
     }
 
-    getElement = async (key:keyType, o: any) => {
-
-      const value = o[key]
-      let type = (value.constructor.name === 'Object') ? 'folder' : 'file'
-
+    createItem = (type, key?, value?) => {
       const treeItem = new TreeItem({
         key,
         type,
@@ -118,16 +148,61 @@ export class Tree extends LitElement {
 
       return treeItem
     }
+
+    getElement = async (key:keyType, o: any) => {
+
+      const value = o[key]
+      let type = (value.constructor.name === 'Object') ? 'folder' : 'file'
+      return this.createItem(type, key, value)
+    }
+
+    add = (key ,value) => {
+      this.set(Object.assign({[key]: value}, this.target)) // reset target
+    }
+
+    create = async (type, targetTree?:Tree) => {
+      if (this === targetTree) {
+        this.input = targetTree.createItem(type)
+        await this.input.ready
+
+        console.log(type, this.oncreate)
+        let value = (this.oncreate instanceof Function) ? await this.oncreate(type,  this.input) : undefined
+        if (value == undefined && type === 'folder') value = {} // Correct folders
+
+        this.add(this.input.key, value)
+        this.input = undefined
+      } else {
+        const targetTree = ((this.querySelector('.last') as TreeItem)?.parent ?? this)
+        targetTree.create(type, targetTree)
+      }
+    }
   
     render() {
-      const content = (this.keys?.map(key => this.getElement(key, this.target)))
+      const content = (this.keys?.map(key => {
+        return this.getElement(key, this.target)
+      }))
 
       return until(Promise.all(content).then((data) => {
 
+        this.items = data
+
         return html`
+        <div>
+        ${this.depth === 0 ? html`
+          <div id=header>
+          <visualscript-icon type="newFile" @click=${()=>{
+            this.create('file')
+          }}></visualscript-icon>
+          <visualscript-icon type="newFolder" @click=${()=>{
+            this.create('folder')
+          }}></visualscript-icon>
+        </div>
+      ` : ''}
           <ul class="container">
                 ${data}
+                ${this.input}
           </ul>
+        </div>
       `
       }), html`<span>Loading...</span>`)
 

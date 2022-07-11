@@ -4098,6 +4098,7 @@ var transferEach = async (f, system) => {
   const blob = new Blob([f.storage.buffer]);
   blob.name = f.name;
   await system.open(path, true);
+  await f.sync();
 };
 var transfer = async (previousSystem, targetSystem, transferList) => {
   if (!transferList)
@@ -4121,7 +4122,7 @@ var transfer = async (previousSystem, targetSystem, transferList) => {
     await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
     const toc = performance.now();
     console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
-    previousSystem.apply(targetSystem);
+    await previousSystem.apply(targetSystem);
     await Promise.all(notTransferred.map(async (f) => f.save(true)));
   }
 };
@@ -4174,7 +4175,7 @@ var getURL = (path) => {
   try {
     url = new URL(path).href;
   } catch {
-    url = get2(path, window.location.href);
+    url = get2(path, globalThis.location.href);
   }
   return url;
 };
@@ -4534,28 +4535,34 @@ var RangeFile = class {
       }
     };
     this.setupByteGetters = async () => {
-      Object.defineProperties(this, {
-        ["body"]: {
-          enumerable: true,
-          get: async () => this.get(),
-          set: (val) => this.set(val)
-        },
-        [`#body`]: {
-          writable: true,
-          enumerable: false
-        }
-      });
-      Object.defineProperties(this, {
-        ["text"]: {
-          enumerable: true,
-          get: async () => this.get("text", text_exports),
-          set: (val) => this.set(val, "text")
-        },
-        [`#text`]: {
-          writable: true,
-          enumerable: false
-        }
-      });
+      if (!("body" in this)) {
+        Object.defineProperties(this, {
+          ["body"]: {
+            enumerable: true,
+            get: async () => this.get(),
+            set: (val) => this.set(val)
+          },
+          [`#body`]: {
+            writable: true,
+            enumerable: false
+          }
+        });
+      }
+      if (!("text" in this)) {
+        Object.defineProperties(this, {
+          ["text"]: {
+            enumerable: true,
+            get: async () => this.get("text", text_exports),
+            set: (val) => this.set(val, "text")
+          },
+          [`#text`]: {
+            writable: true,
+            enumerable: false
+          }
+        });
+      }
+      this["#body"] = "";
+      this["#text"] = "";
       if (this.rangeSupported) {
         this[`#body`] = {};
         for (let key in this.rangeConfig.properties)
@@ -4564,12 +4571,15 @@ var RangeFile = class {
           await this.rangeConfig.metadata(this["#body"], this.rangeConfig);
       }
     };
-    this.apply = (newFile) => {
+    this.apply = async (newFile, applyData = true) => {
       if (!this.fileSystemHandle) {
         this.fileSystemHandle = newFile.fileSystemHandle;
         this.method = "transferred";
       }
-      this.init(newFile.file);
+      if (applyData)
+        await this.init(newFile.file);
+      this["#body"] = null;
+      this["#text"] = null;
     };
     this.getRemote = async (property = {}) => {
       let { start, length } = property;
@@ -5055,6 +5065,7 @@ var System = class {
     this.dependents = {};
     this.changelog = [];
     this.files = {};
+    this.ignore = [];
     this.groups = {};
     this.groupConditions = /* @__PURE__ */ new Set();
     this.init = async () => {
@@ -5243,14 +5254,14 @@ var System = class {
         this.codecs = new Codecs([codecs_exports, system.codecs]);
       const files = system.files?.list;
       if (files) {
-        await iterate_default(files, async (newFile) => {
+        await iterate_default(Array.from(files.values()), async (newFile) => {
           console.log("NewFile", newFile);
           const path = newFile.path;
           let f = this.files.list.get(newFile.path);
           if (!f)
             await this.load(newFile, path);
           else
-            f.apply(newFile);
+            await f.apply(newFile, false);
         });
       }
       this.root = system.root;
@@ -5442,7 +5453,6 @@ var getCache = async () => {
     return;
 };
 var setCache = async (info) => {
-  console.log("Init", info);
   let history = await get3(cacheName);
   if (!history)
     history = [info];

@@ -21,10 +21,12 @@ export default class App {
 
     start = async () => {
 
-            await this.compile()
+        console.log('TRYING TO COMPILE APP!')
 
+            await this.compile()
             this.graph = new Graph(this.tree, 'graph')
-    
+            console.log('COMPILED APP!', this.graph)
+
             // Run the top-level nodes
             for (let key in this.graph.tree) {
                 const nodeInfo = this.graph.tree[key]
@@ -44,12 +46,16 @@ export default class App {
         this.graph = null
 
         // Let User Specify the New Tree
-        if (this.oncompile instanceof Function) this.tree = await this.oncompile()
+        if (this.oncompile instanceof Function) {
+            this.tree = await this.oncompile()
+        }
+        return this.tree
     }
 
     save = async () => {
+        console.log('SAVING APP!')
         if (this.onsave instanceof Function) await this.onsave()
-        await this.init()
+        await this.start()
     }
 
     // -------------- Events --------------

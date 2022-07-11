@@ -72,6 +72,7 @@ export class GraphWorkspace extends LitElement {
 
     graph: GraphWorkspaceProps['graph']
     updateCount: number = 0
+    
     context: {
       scale: number
     } = {

@@ -328,24 +328,26 @@ export class GraphEdge extends LitElement {
     let onMouseMove = (e) => {
       this.resize()
 
-      let dims = this[otherType].shadowRoot.querySelector(`.${type}`).getBoundingClientRect()
-      let svgO = this.svgPoint(this.element, dims.left + dims.width / 2, dims.top + dims.height / 2)
-      let svgP = this.svgPoint(this.element, e.clientX, e.clientY)
+      if (this[otherType]?.shadowRoot){
+        let dims = this[otherType].shadowRoot.querySelector(`.${type}`).getBoundingClientRect()
+        let svgO = this.svgPoint(this.element, dims.left + dims.width / 2, dims.top + dims.height / 2)
+        let svgP = this.svgPoint(this.element, e.clientX, e.clientY)
 
-      if (isNaN(svgP.x)) svgP.x = svgO.x
-      if (isNaN(svgP.y)) svgP.y = svgO.y
-      this.updateElement(
-        this.node[label],
-        {
-          cx: svgP.x,
-          cy: svgP.y
-        }
-      );
+        if (isNaN(svgP.x)) svgP.x = svgO.x
+        if (isNaN(svgP.y)) svgP.y = svgO.y
+        this.updateElement(
+          this.node[label],
+          {
+            cx: svgP.x,
+            cy: svgP.y
+          }
+        );
 
-      let points = ((type === 'output') ? [svgP, svgO] : [svgO, svgP]) as [DOMPoint, DOMPoint]
+        let points = ((type === 'output') ? [svgP, svgO] : [svgO, svgP]) as [DOMPoint, DOMPoint]
 
-      this.updateControlPoints(...points)
-      this.drawCurve();
+        this.updateControlPoints(...points)
+        this.drawCurve();
+      }
     }
 
     this.workspace.element.addEventListener('mousemove', onMouseMove)

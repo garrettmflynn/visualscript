@@ -8,7 +8,9 @@ import { Tree } from '../../../src/components/tree';
 import { CodeEditor} from '../../../src/components/code/Editor';
 import { ObjectEditor} from '../../../src/components/object/Editor';
 import { GraphEditor} from '../../../src/components/graph/Editor';
-import { Modal } from '../../../src';
+import { Modal } from '../../../src/components/general/Modal';
+import { ContextMenu } from '../../../src/components/context/ContextMenu';
+
 import FileApp from '../FileApp';
 
 export type EditorProps = {
@@ -85,6 +87,9 @@ export class Editor extends LitElement {
     tree: Tree = new Tree()
 
 
+    contextMenu: ContextMenu = new ContextMenu()
+
+
     constructor(props:EditorProps={}) {
       super();
 
@@ -98,6 +103,35 @@ export class Editor extends LitElement {
     }
 
     setGraph = (graph) => {
+
+      // Setting Context Menu Response
+      this.contextMenu.set('editorGraph', {
+        condition: (el) => {
+          const root = this.graph.workspace.shadowRoot
+          if (root){
+            return el === this.graph.workspace // Is the workspace
+            || root.contains(el) // Is the workspace grid
+          } else return false
+        },
+        contents: () => {
+          return [
+            {
+              text: 'Create new node',
+              onclick: () => {
+                console.warn('MUST CREATE NODE')
+            },
+          },
+             {
+              text: 'Do another thing',
+              onclick: () => {
+                console.warn('MUST DO SOMETHING')
+            }
+          }
+          ]
+          
+        }
+      })
+
       this.graph.set(graph) // Set tree on graph
     }
 
@@ -130,6 +164,15 @@ export class Editor extends LitElement {
       const openTabs: {[x:string]: Tab} = {}
 
       // Add Tab On Click
+      this.tree.oncreate = async (type, item) => {
+
+        if (type === 'file') {
+          const path = item.key
+          const rangeFile = this.app.filesystem.open(path, true)
+          return rangeFile
+        }
+      }
+
       this.tree.onClick = async (key, f) => {
 
         const existingTab = this.files.tabs.get(f.path)
@@ -266,6 +309,7 @@ export class Editor extends LitElement {
     //   ${this.properties}
     // </visualscript-tab>
       return html`
+          ${this.contextMenu}
           <div>
             ${this.ui}
             <visualscript-panel>
