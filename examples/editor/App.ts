@@ -21,11 +21,8 @@ export default class App {
 
     start = async () => {
 
-        console.log('TRYING TO COMPILE APP!')
-
             await this.compile()
             this.graph = new Graph(this.tree, 'graph')
-            console.log('COMPILED APP!', this.graph)
 
             // Run the top-level nodes
             for (let key in this.graph.tree) {
@@ -53,7 +50,6 @@ export default class App {
     }
 
     save = async () => {
-        console.log('SAVING APP!')
         if (this.onsave instanceof Function) await this.onsave()
         await this.start()
     }

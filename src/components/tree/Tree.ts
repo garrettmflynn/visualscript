@@ -1,6 +1,7 @@
 
 import { LitElement, html, css } from 'lit';
 import {until} from 'lit-html/directives/until.js';
+import context from 'src/instances/context';
 import { TreeItem } from './TreeItem';
 
 type keyType = string
@@ -165,7 +166,6 @@ export class Tree extends LitElement {
         this.input = targetTree.createItem(type)
         await this.input.ready
 
-        console.log(type, this.oncreate)
         let value = (this.oncreate instanceof Function) ? await this.oncreate(type,  this.input) : undefined
         if (value == undefined && type === 'folder') value = {} // Correct folders
 
@@ -175,6 +175,40 @@ export class Tree extends LitElement {
         const targetTree = ((this.querySelector('.last') as TreeItem)?.parent ?? this)
         targetTree.create(type, targetTree)
       }
+    }
+
+
+    addContextOptions = () => {
+
+      // Setting Context Menu Response
+      context.set('visualscript-tree', {
+        condition: (el) => {
+          const root = this.shadowRoot
+          if (root){
+            console.log('MATCHING', el)
+            return el === this 
+            // || root.contains(el) // Is the workspace grid
+          } else return false
+        },
+        contents: () => {
+          return [
+            {
+              text: 'Rename',
+              onclick: () => {
+                console.warn('MUST RENAME FILE')
+            },
+          },
+             {
+              text: 'Delete',
+              onclick: () => {
+                console.warn('MUST DELETE FILE')
+            }
+          }
+          ]
+          
+        }
+      })
+
     }
   
     render() {

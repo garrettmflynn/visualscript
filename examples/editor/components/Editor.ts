@@ -9,9 +9,9 @@ import { CodeEditor} from '../../../src/components/code/Editor';
 import { ObjectEditor} from '../../../src/components/object/Editor';
 import { GraphEditor} from '../../../src/components/graph/Editor';
 import { Modal } from '../../../src/components/general/Modal';
-import { ContextMenu } from '../../../src/components/context/ContextMenu';
 
 import FileApp from '../FileApp';
+import context from '../../../src/instances/context';
 
 export type EditorProps = {
   app?: FileApp,
@@ -86,10 +86,6 @@ export class Editor extends LitElement {
     properties: ObjectEditor = new ObjectEditor()
     tree: Tree = new Tree()
 
-
-    contextMenu: ContextMenu = new ContextMenu()
-
-
     constructor(props:EditorProps={}) {
       super();
 
@@ -105,7 +101,7 @@ export class Editor extends LitElement {
     setGraph = (graph) => {
 
       // Setting Context Menu Response
-      this.contextMenu.set('editorGraph', {
+      context.set('visualscript-graph-editor', {
         condition: (el) => {
           const root = this.graph.workspace.shadowRoot
           if (root){
@@ -309,7 +305,6 @@ export class Editor extends LitElement {
     //   ${this.properties}
     // </visualscript-tab>
       return html`
-          ${this.contextMenu}
           <div>
             ${this.ui}
             <visualscript-panel>

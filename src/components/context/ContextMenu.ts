@@ -16,7 +16,7 @@ export interface ContextMenuProps {
 }
 
 
-// Note: Must be in a top-level element
+// Is automatically instantiated globally on import
 export class ContextMenu extends LitElement {
 
   static get styles() {
@@ -93,7 +93,9 @@ export class ContextMenu extends LitElement {
             e.preventDefault();
 
             // Correct for Parent Window Offset
-            var rect = (this.parentNode as any).host.getBoundingClientRect()
+            let parent = (this.parentNode as any)
+            if (parent.host) parent = parent.host // LitElement correction
+            var rect = parent.getBoundingClientRect()
             this.style.left = e.pageX - rect.left + 'px'
             this.style.top = e.pageY - rect.top + 'px'
             this.style.display = 'block'
