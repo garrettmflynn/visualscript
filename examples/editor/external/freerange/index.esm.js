@@ -4122,6 +4122,7 @@ var transfer = async (previousSystem, targetSystem, transferList) => {
     await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
     const toc = performance.now();
     console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+    targetSystem.writable = false;
     await previousSystem.apply(targetSystem);
     await Promise.all(notTransferred.map(async (f) => f.save(true)));
   }
@@ -4816,7 +4817,7 @@ var safeESMImport = async (text, config = {}, onBlob) => {
     const needsRoot = config.system.root && !config.system.native;
     let childBase = needsRoot ? get2(base, config.system.root) : base;
     const importInfo = {};
-    var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+    var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])([ \n\t]*assert[ \n\t]*{type:[ \n\t]*(['"])([^'"\n]+)(?:['"])})?/g;
     let m;
     do {
       m = re.exec(text);
@@ -4831,19 +4832,14 @@ var safeESMImport = async (text, config = {}, onBlob) => {
     for (let path in importInfo) {
       let correctPath = get2(path, childBase);
       const variables = importInfo[path];
-      const existingFile = config.system.files.list.get(get2(correctPath));
-      let blob = existingFile?.file;
-      if (!blob) {
+      let existingFile = config.system.files.list.get(get2(correctPath));
+      if (!existingFile?.file) {
         const info = await handleFetch(correctPath);
-        blob = new Blob([info.buffer], { type: info.type });
-        await config.system.load(blob, correctPath);
+        let blob = new Blob([info.buffer], { type: info.type });
+        existingFile = await config.system.load(blob, correctPath);
       }
       config.system.trackDependency(correctPath, config.path);
-      let thisText = await blob.text();
-      const imported = await safeESMImport(thisText, {
-        path: correctPath,
-        system: config.system
-      }, onBlob);
+      let imported = await existingFile.body;
       if (variables.length > 1) {
         variables.forEach((str) => {
           text = `const ${str} = ${objToString(imported[str])}
@@ -4886,7 +4882,10 @@ var Codecs = class {
       suffixes7.forEach((suffix2) => this.suffixToType[suffix2] = codec.type);
     };
     this.get = (mimeType) => this.collection.get(mimeType);
-    this.getType = (suffix2) => this.suffixToType[suffix2];
+    this.getType = (suffix2) => {
+      let k = Object.keys(this.suffixToType).find((k2) => suffix2.slice(-k2.length) === k2);
+      return this.suffixToType[k];
+    };
     this.decode = (o, type7, name2, config) => decode_default(o, type7, name2, config, void 0, this);
     this.encode = (o, type7, name2, config) => encode_default(o, type7, name2, config, void 0, this);
     this.hasDependencies = (file) => {

@@ -135,7 +135,8 @@ export class Tree extends LitElement {
 
     set = async (target={}) => {
       this.target = target
-      this.keys = Object.keys(this.target)
+      let keys = Object.keys(this.target)
+      this.keys = keys.sort() // Sort alphabetically
     }
 
     createItem = (type, key?, value?) => {

@@ -133,8 +133,8 @@ export class Spectrogram extends LitElement {
     }
     
     if (changedProps.has('data')) {
-      this.plotData[0].z = this.transpose(this.data)
-      this.Plotly.newPlot(this.div, this.plotData, this.layout, this.getConfig());
+      this.Plotly.restyle(this.div, 'z', this.plotData[0].z);
+      // this.Plotly.newPlot(this.div, this.plotData, this.layout, this.getConfig());
     }
   }
 

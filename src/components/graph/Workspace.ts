@@ -9,7 +9,7 @@ import { GraphEdge } from './Edge';
 
 export type GraphWorkspaceProps = {
   // tree: {[x:string]: any}
-  graph?: {[x:string]: any};
+  app?: {[x:string]: any};
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -70,7 +70,7 @@ export class GraphWorkspace extends LitElement {
       };
     }
 
-    graph: GraphWorkspaceProps['graph']
+    app: GraphWorkspaceProps['app']
     updateCount: number = 0
     
     context: {
@@ -99,7 +99,7 @@ export class GraphWorkspace extends LitElement {
     constructor(props: GraphWorkspaceProps = {}) {
       super();
 
-      if (props?.graph) this.set(props.graph)
+      if (props?.app) this.set(props.app)
 
       // Resize with Window Resize
       window.addEventListener('resize', () => {
@@ -126,8 +126,8 @@ export class GraphWorkspace extends LitElement {
       // })
     }
 
-    set = async (graph) => {
-      this.graph = graph
+    set = async (app) => {
+      this.app = app
       this.triggerUpdate(true)
     }
 
@@ -219,9 +219,9 @@ export class GraphWorkspace extends LitElement {
       let nodes:any = ''
       let hasMoved = false
 
-      if (this.graph){
+      if (this.app){
 
-        this.graph.nodes.forEach((n:any) => {
+        this.app.graph.nodes.forEach((n:any) => {
           let gN = this.nodes.get(n.tag)
           if (!gN){
             gN = new GraphNode({
@@ -245,10 +245,13 @@ export class GraphWorkspace extends LitElement {
             let n = nodeArr[i]
             if (n.info.children) {
               for (let j = 0; j < n.info.children.length; j++){
-                const node = n.info.children[j] as any
+                let nodeTag = n.info.children[j] as any
+                if (typeof nodeTag !== 'string') nodeTag = nodeTag.tag
+
                 const gNParent = this.nodes.get(n.info.tag)
                 const output = gNParent.ports.get(gNParent.info.arguments.keys().next().value) // First key
-                const gNChild = this.nodes.get(node.tag)
+                const gNChild = this.nodes.get(nodeTag)
+
                 const input = gNChild.ports.get(gNChild.info.arguments.keys().next().value) // First key
                 await this.resolveEdge({
                   input,

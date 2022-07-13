@@ -3,6 +3,7 @@ import { LitElement, html, css } from 'lit';
 import { Dashboard } from '../Dashboard';
 import { TabToggle } from './TabToggle';
 import { Control, ControlProps } from '../Control';
+import { Panel } from './Panel';
 
 export const tabStyle = css`
 
@@ -139,7 +140,7 @@ export class Tab extends LitElement {
     }
 
     delete = (fromParent=false) => {
-      if (!fromParent && (this.parentNode as any)?.removeTab instanceof Function) this.parentNode.removeTab(this)
+      if (!fromParent && (this.parentNode as any)?.removeTab instanceof Function) (this.parentNode as Panel).removeTab(this)
       this.remove()
       this.toggle.remove()
     }

@@ -128,7 +128,7 @@ export class Editor extends LitElement {
         }
       })
 
-      this.graph.set(graph) // Set tree on graph
+      this.graph.set(this.app.active) // Set tree on graph
     }
 
     setUI = (ui) => {

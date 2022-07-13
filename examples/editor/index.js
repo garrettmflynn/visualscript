@@ -1,26 +1,9 @@
 import * as visualscript from '../../src/index'
 // import * as freerange from 'https://cdn.jsdelivr.net/npm/freerange@0.0.24/dist/index.esm.js'
 import * as freerange from './external/freerange/index.esm.js'
-import App from './App';
 import './components/Editor';
 import { TimeSeries } from '../../src/components/streams/data';
-import FileApp from './FileApp';
-
-// -------------- File System Generator--------------
-let systems = {}
-
-const createSystem = async (input) => {
-    let system = new freerange.System(input, {
-        debug: true,
-        ignore: ['.DS_Store', '.git']
-    })
-
-    await system.init()
-    systems[system.name] = system
-
-    console.log(`----------------------- New System (${system.name}) -----------------------`)
-    return system
-}
+import * as brainsatplay from './external/brainsatplay/index.esm.js';
 
 // const createPlugins = async (src) => {
 //     const plugins = new Plugins(src)
@@ -35,6 +18,7 @@ const createSystem = async (input) => {
 
 // -------------- Remote App --------------
 const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/package.json'
+// const appPath = 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/nightly/package.json'
 // const appPath = `./app/index.js` // Automatically relative to window.location.href
 
 // createPlugins()
@@ -50,7 +34,9 @@ const nav = document.querySelector('visualscript-nav')
 let editor = document.querySelector('visualscript-editor')
 
 // -------------- Setup Default App --------------
-let app = new FileApp()
+let app = new brainsatplay.editable.App(undefined, {
+    debug: false
+})
 editor.setApp(app)
 
 // -------------- Show History --------------
@@ -61,8 +47,7 @@ freerange.getCache().then(arr => {
             "id": "select",
             "type": "button",
             onClick: async () => {
-                const system = await createSystem()
-                startApp(system)
+                start()
             }
         }
     ]
@@ -81,8 +66,7 @@ freerange.getCache().then(arr => {
 })
 
 // -------------- Create System --------------
-createSystem(appPath).then((system) => startApp(system))
-.catch(e => console.error('Remote app not available', e))
+start(appPath)
 
 // -------------- Setup Keyboard Shortcuts --------------
 document.onkeydown = async (e) => {
@@ -92,26 +76,36 @@ document.onkeydown = async (e) => {
     }
 };
 
-const startApp = async (system) => {
-
-    console.log(`File System Selected (${system.name})`, system.files)
-
-    app.oncompile = () => {
-        editor.start()
-    }
-
-    await app.start(system)
+async function start(input){
 
     const ui = new TimeSeries()
     editor.setUI(ui)
 
-    app.active.graph.nodes.forEach(n => {
-        if (n.tag === 'sine') n.subscribe((data) => {
-            ui.data = [data]
-            ui.draw() // FORCE DRAW: Update happens too fast for UI
-        })
-    })
+    app.onstart = () => {
 
-    editor.setGraph(app.active.graph)
+        editor.start()
+
+        let sub = null
+        let node = null
+        app.active.graph.nodes.forEach(n => {
+            if (!node && n.tag.includes('sine')) {
+                node = n
+                sub = n.subscribe((data) => {
+                    ui.data = [data]
+                    ui.draw()
+                })
+                return true
+            }
+        })
+
+        app.onstop = () => {
+            if (node) node.unsubscribe(sub)
+        }
+    }
+
+   const ok = await app.start(input).catch(e => console.error('Invalid App', e))
+   console.log(`File System Selected (${app.filesystem.name})`, app.filesystem.files)
+
+    if (ok) editor.setGraph(app.active.graph)
 
 }

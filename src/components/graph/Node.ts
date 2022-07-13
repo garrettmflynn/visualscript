@@ -93,7 +93,9 @@ export class GraphNode extends LitElement {
       this.info.x = this.x = props.x ?? this.info.x ?? 0
       this.info.y = this.y = props.y ?? this.info.y ?? 0
 
-      if (this.info) this.updateArguments(this.info.arguments)
+      if (this.info) {
+        this.updateArguments(this.info.arguments)
+      }
     }
 
     setInfo = (info) => {

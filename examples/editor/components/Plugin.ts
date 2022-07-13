@@ -1,6 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
-import {getFnParamInfo} from '../external/brainsatplay/Graph'
+import {getFnParamInfo} from '../utils/parse'
 
 export type PluginProps = {
   // tag?: string,
