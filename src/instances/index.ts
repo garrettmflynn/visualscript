@@ -6,3 +6,7 @@ globalThis.visualscriptContextMenu = context
 
 // Append to Document
 document.body.appendChild(context)
+
+export {
+    context
+}

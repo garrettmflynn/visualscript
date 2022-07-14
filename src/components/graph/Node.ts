@@ -11,9 +11,9 @@ export type GraphNodeProps = {
   // onPlot?: Function
   // preprocess?: Function,
   workspace?: GraphWorkspace
-  x?: number;
-  y?: number;
-  info?: any;
+  x?: graphscriptNode['y'];
+  y?: graphscriptNode['x'];
+  info?: graphscriptNode;
 }
 
 export class GraphNode extends LitElement {
@@ -86,7 +86,7 @@ export class GraphNode extends LitElement {
       super();
 
       this.workspace = props.workspace
-      this.info = props.info ?? {}
+      this.info = props.info ?? {tag: 'node'}
 
       this.id = `${this.info.tag}${Math.round(10000*Math.random())}` // TODO: Make these informative
 

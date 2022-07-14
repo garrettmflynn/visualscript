@@ -24,6 +24,10 @@ Our vision is that **anyone can code**. Moreover, the results are reusable, perf
 
 🪄 **Meta:** Customize the editor by writing extensions in itself!
 
+## Notable Projects
+### [Brains@Play Editor](https://github.com/brainsatplay/editor)
+This editor was created to allow users to rapidly construct high-performance web applications on the browser.
+
 ## Getting Started with visualscript
 ### Select a Template
 Say move.
@@ -32,12 +36,11 @@ Say move.
 Quick select screen for input and output modality.
 
 ### Explore Different Views
-- File Tree
-- Code
-- Properties
-- Relations List (IFTTT)
-- Graph
-
+[x] File Tree
+[x] Code
+[x] Graph
+[ ] Properties
+[ ] Relations List (IFTTT)
 
 ## Authoring a Plugin
 ### What is a Plugin?

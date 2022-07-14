@@ -1,7 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
 import { GraphNode } from './Node';
-import { GraphEdge } from './Edge';
 
 export type GraphPortProps = {
   // tree: {[x:string]: any}
@@ -87,7 +86,7 @@ export class GraphPort extends LitElement {
     input: HTMLDivElement = document.createElement('div')
 
     resolving: boolean = false
-    edges: Map<string, GraphEdge> = new Map()
+    edges: Map<string, any> = new Map()
 
     constructor(props: GraphPortProps = {}) {
       super();
@@ -135,7 +134,12 @@ export class GraphPort extends LitElement {
     onmousedown = this.resolveEdge
 
     onmouseup = (ev) => {
-      if (this.node.workspace.editing instanceof GraphEdge) this.resolveEdge(ev)
+      const maybeEdge = this.node.workspace.editing
+      if (
+        'node' in maybeEdge 
+        && 'box' in maybeEdge 
+        && 'svgInfo' in maybeEdge
+      ) this.resolveEdge(ev)
     }
     
     render() {

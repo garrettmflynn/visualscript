@@ -1,7 +1,7 @@
 
 import { LitElement, html, css } from 'lit';
 import {until} from 'lit-html/directives/until.js';
-import context from 'src/instances/context';
+import context from '../../instances/context';
 import { TreeItem } from './TreeItem';
 
 type keyType = string

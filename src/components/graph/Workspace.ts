@@ -5,11 +5,10 @@ import './Edge';
 import './Node';
 import drag from './utils/drag'
 import { GraphEdge } from './Edge';
-// import { Edge } from 'src/brainatplay/ui/Edge';
 
 export type GraphWorkspaceProps = {
   // tree: {[x:string]: any}
-  app?: {[x:string]: any};
+  app?: brainsatplayApp;
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -221,7 +220,7 @@ export class GraphWorkspace extends LitElement {
 
       if (this.app){
 
-        this.app.graph.nodes.forEach((n:any) => {
+        this.app.graph.nodes.forEach((n) => {
           let gN = this.nodes.get(n.tag)
           if (!gN){
             gN = new GraphNode({
@@ -261,10 +260,6 @@ export class GraphWorkspace extends LitElement {
             }
           }
         }
-
-        // this.edges.forEach((e, k) => {
-
-        // })
 
         await createEdges()
         if (!hasMoved) this.autolayout()
