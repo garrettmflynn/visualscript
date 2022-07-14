@@ -36,11 +36,11 @@ Say move.
 Quick select screen for input and output modality.
 
 ### Explore Different Views
-[x] File Tree
-[x] Code
-[x] Graph
-[ ] Properties
-[ ] Relations List (IFTTT)
+- [x] File Tree
+- [x] Code
+- [x] Graph
+- [ ] Properties
+- [ ] Relations List (i.e. "if this, then that")
 
 ## Authoring a Plugin
 ### What is a Plugin?

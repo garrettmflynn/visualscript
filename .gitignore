@@ -2,5 +2,4 @@ node_modules
 *.lock
 **/package-lock.json
 /dist
-examples/intensities/dist
 *.log
