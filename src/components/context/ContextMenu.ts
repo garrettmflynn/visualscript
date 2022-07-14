@@ -83,10 +83,10 @@ export class ContextMenu extends LitElement {
     onContextMenu = (e) => {
       
         const selected = e.path[0]
-        console.log(selected)
+        // console.log(selected)
 
         this.responses.forEach((o) => {
-          console.log(o, o.condition(selected))
+          // console.log(o, o.condition(selected))
 
           const isMatch = o.condition(selected)
           if (isMatch) {

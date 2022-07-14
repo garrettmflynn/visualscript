@@ -99,7 +99,7 @@ export class GraphEditor extends LitElement {
     set = async (graph) => {
       this.graph = graph
       this.workspace.set(this.graph)
-      this.keys = Object.keys(this.graph)
+      this.keys = (this.graph) ? Object.keys(this.graph) : []
     }
 
     getElement = async (key:keyType, o: any) => {
