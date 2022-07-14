@@ -9,7 +9,7 @@
   "types": "dist/src/index.d.ts",
   "type": "module",
   "scripts": {
-    "start": "tinybuild",
+    "start": "cd docs && tinybuild",
     "lint": "eslint ./src --ext .ts,.tsx",
     "build": "rollup -c && tsc",
     "storybook": "start-storybook -p 6006",

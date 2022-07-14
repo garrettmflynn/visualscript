@@ -6,6 +6,7 @@ export * from './plots';
 export * from './tree';
 
 // Editors
+export *  from './app';
 export *  from './graph';
 export *  from './code';
 export *  from './object';
