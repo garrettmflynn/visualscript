@@ -213,7 +213,6 @@ export class GraphWorkspace extends LitElement {
       let nodes:any = ''
       let hasMoved = false
 
-      console.log('Graph', this.graph)
       if (this.graph){
 
         this.graph.nodes.forEach((n) => {
