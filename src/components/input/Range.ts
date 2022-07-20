@@ -148,4 +148,4 @@ export class Range extends LitElement {
     }
   }
   
-  customElements.define('visualscript-range', Range);
+  customElements.get('visualscript-range') || customElements.define('visualscript-range',  Range);

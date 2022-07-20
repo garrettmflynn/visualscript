@@ -52,4 +52,4 @@ export class SessionEditor extends LitElement {
     }
   }
   
-  customElements.define('visualscript-session-editor', SessionEditor);
+  customElements.get('visualscript-session-editor') || customElements.define('visualscript-session-editor',  SessionEditor);

@@ -160,4 +160,4 @@ export class Tab extends LitElement {
     }
   }
   
-  customElements.define('visualscript-tab', Tab);
+  customElements.get('visualscript-tab') || customElements.define('visualscript-tab',  Tab);

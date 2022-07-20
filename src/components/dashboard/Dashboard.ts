@@ -247,4 +247,4 @@ export class Dashboard extends LitElement {
   // </div>
   }
   
-  customElements.define('visualscript-dashboard', Dashboard);
+  customElements.get('visualscript-dashboard') || customElements.define('visualscript-dashboard',  Dashboard);

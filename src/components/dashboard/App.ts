@@ -77,4 +77,4 @@ export class App extends Tab {
     }
   }
   
-  customElements.define('visualscript-app', App);
+  customElements.get('visualscript-app') || customElements.define('visualscript-app',  App);

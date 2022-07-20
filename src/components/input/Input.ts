@@ -153,4 +153,4 @@ opacity: 0.5;
     }
 }
 
-customElements.define("visualscript-input", Input);
+customElements.get("visualscript-input") || customElements.define("visualscript-input",  Input);

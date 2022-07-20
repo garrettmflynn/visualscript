@@ -86,4 +86,4 @@ export class Volume extends LitElement {
     }
   }
   
-  customElements.define('visualscript-audio-volume', Volume);
+  customElements.get('visualscript-audio-volume') || customElements.define('visualscript-audio-volume',  Volume);

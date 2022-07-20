@@ -264,4 +264,4 @@ export class ObjectEditor extends LitElement {
     }
   }
   
-  customElements.define('visualscript-object-editor', ObjectEditor);
+  customElements.get('visualscript-object-editor') || customElements.define('visualscript-object-editor',  ObjectEditor);

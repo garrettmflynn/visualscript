@@ -138,4 +138,4 @@ export class Button extends LitElement {
     }
   }
   
-  customElements.define('visualscript-button', Button);
+  customElements.get('visualscript-button') || customElements.define('visualscript-button',  Button);

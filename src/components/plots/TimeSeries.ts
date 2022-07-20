@@ -205,4 +205,4 @@ export class TimeSeries extends LitElement {
     }
   }
   
-  customElements.define('visualscript-timeseries', TimeSeries);
+  customElements.get('visualscript-timeseries') || customElements.define('visualscript-timeseries',  TimeSeries);

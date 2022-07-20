@@ -9,6 +9,7 @@ export type GraphPortProps = {
   // preprocess?: Function,
   tag?: string
   node?: GraphNode
+  ref?: any
 }
 
 export class GraphPort extends LitElement {
@@ -87,12 +88,14 @@ export class GraphPort extends LitElement {
 
     resolving: boolean = false
     edges: Map<string, any> = new Map()
+    ref: GraphPortProps['ref']
 
     constructor(props: GraphPortProps = {}) {
       super();
 
       this.node = props.node
       this.tag = props.tag
+      this.ref = props.ref
 
 
       this.output.classList.add('port')
@@ -122,7 +125,7 @@ export class GraphPort extends LitElement {
       this.node.deleteEdge(id) // Nodify node
     }
 
-    resolveEdge = async (ev) => {
+    resolveEdge = async (ev) => { 
         if (!this.resolving){
           this.resolving = true
           const type = (ev.path[0].classList.contains('input')) ? 'input' : 'output'
@@ -155,4 +158,4 @@ export class GraphPort extends LitElement {
     }
   }
   
-  customElements.define('visualscript-graph-port', GraphPort);
+  customElements.get('visualscript-graph-port') || customElements.define('visualscript-graph-port',  GraphPort);

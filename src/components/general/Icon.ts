@@ -59,4 +59,4 @@ export class Icon extends LitElement {
     }
   }
   
-  customElements.define('visualscript-icon', Icon);
+  customElements.get('visualscript-icon') || customElements.define('visualscript-icon',  Icon);

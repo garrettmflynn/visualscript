@@ -51,4 +51,4 @@ export class DeviceEditor extends LitElement {
     }
   }
   
-  customElements.define('visualscript-device-editor', DeviceEditor);
+  customElements.get('visualscript-device-editor') || customElements.define('visualscript-device-editor',  DeviceEditor);

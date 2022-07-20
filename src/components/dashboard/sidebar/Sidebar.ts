@@ -188,4 +188,4 @@ export class Sidebar extends LitElement {
     }
   }
   
-  customElements.define('visualscript-sidebar', Sidebar);
+  customElements.get('visualscript-sidebar') || customElements.define('visualscript-sidebar',  Sidebar);

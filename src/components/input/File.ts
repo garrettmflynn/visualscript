@@ -160,4 +160,4 @@ export class File extends LitElement {
     }
   }
   
-  customElements.define('visualscript-file', File);
+  customElements.get('visualscript-file') || customElements.define('visualscript-file',  File);

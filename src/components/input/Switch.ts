@@ -127,4 +127,4 @@ export class Switch extends LitElement {
     }
   }
   
-  customElements.define('visualscript-switch', Switch);
+  customElements.get('visualscript-switch') || customElements.define('visualscript-switch',  Switch);

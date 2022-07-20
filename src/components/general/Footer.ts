@@ -62,4 +62,4 @@ export class Footer extends LitElement {
     }
   }
   
-  customElements.define('visualscript-footer', Footer);
+  customElements.get('visualscript-footer') || customElements.define('visualscript-footer',  Footer);

@@ -229,4 +229,4 @@ export class Control extends LitElement {
     }
   }
   
-  customElements.define('visualscript-control', Control);
+  customElements.get('visualscript-control') || customElements.define('visualscript-control',  Control);

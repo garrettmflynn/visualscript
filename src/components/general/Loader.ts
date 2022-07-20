@@ -223,4 +223,4 @@ export class Loader extends LitElement {
 
   }
   
-  customElements.define('visualscript-loader', Loader);
+  customElements.get('visualscript-loader') || customElements.define('visualscript-loader',  Loader);

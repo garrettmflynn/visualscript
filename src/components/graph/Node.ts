@@ -34,7 +34,7 @@ export class GraphNode extends LitElement {
     }
 
     :host > div {
-      width: 50px;
+      min-width: 50px;
       background: rgb(60,60,60);
   }
 
@@ -43,6 +43,7 @@ export class GraphNode extends LitElement {
       font-size: 8px;
       background: black;
       padding: 5px;
+      padding-right: 25px;
       font-weight: 800;
     }
 
@@ -94,20 +95,20 @@ export class GraphNode extends LitElement {
       this.info.y = this.y = props.y ?? this.info.y ?? 0
 
       if (this.info) {
-        this.updateArguments(this.info.arguments)
+        this.updatePorts(this.info.nodes)
       }
     }
 
     setInfo = (info) => {
       this.info = info
-      this.updateArguments(info.arguments)
+      this.updatePorts(info.nodes)
     }
 
-    updateArguments = (args) => {
-      if (args) args.forEach((value,tag) => {
+    updatePorts = (args) => {
+      if (args) args.forEach((ref, tag) => {
         this.addPort({
           tag,
-          value
+          ref
         })
       })
     }
@@ -119,7 +120,7 @@ export class GraphNode extends LitElement {
         this.info.y = this.y       // brainsatplay extension
       }
 
-      if (updatedProps.has('info')) this.updateArguments(this.info.arguments)
+      if (updatedProps.has('info')) this.updatePorts(this.info.nodes)
     }
 
     updated(changedProperties) {
@@ -129,7 +130,9 @@ export class GraphNode extends LitElement {
 
     setEdge = (edge) => this.edges.set(edge.id, edge)
 
-    deleteEdge = (id) => this.edges.delete(id)
+    deleteEdge = (id) => {
+      this.edges.delete(id)
+    }
 
     addPort = (info) => {
       const port = new GraphPort(Object.assign({node: this}, info))
@@ -162,4 +165,4 @@ export class GraphNode extends LitElement {
     }
   }
   
-  customElements.define('visualscript-graph-node', GraphNode);
+  customElements.get('visualscript-graph-node') || customElements.define('visualscript-graph-node',  GraphNode);

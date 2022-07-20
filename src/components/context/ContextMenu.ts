@@ -131,4 +131,4 @@ export class ContextMenu extends LitElement {
     }
   }
   
-  customElements.define('visualscript-context-menu', ContextMenu);
+  customElements.get('visualscript-context-menu') || customElements.define('visualscript-context-menu',  ContextMenu);

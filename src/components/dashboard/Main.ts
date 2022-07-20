@@ -83,4 +83,4 @@ export class Main extends LitElement {
     }
   }
   
-  customElements.define('visualscript-main', Main);
+  customElements.get('visualscript-main') || customElements.define('visualscript-main',  Main);

@@ -57,6 +57,10 @@ export class GraphEdge extends LitElement {
         transition: stroke-width 0.5s;
         cursor: pointer;
       }
+
+      :host path:hover {
+        opacity: 0.5;
+      }
     
       :host path.updated {
         /* stroke: rgb(255, 105, 97); */
@@ -183,6 +187,7 @@ export class GraphEdge extends LitElement {
           this.id = this.getEdgeName()
           this.output.setEdge(this)
           this.input.setEdge(this)
+          this.workspace.onedgeadded(this)
           resolve(arg)
         }, reject
       }
@@ -627,6 +632,7 @@ export class GraphEdge extends LitElement {
   }
 
   deinit = () => {
+    this.workspace.onedgeremoved(this)
     if (this.output) this.output.deleteEdge(this.id)
     if (this.input) this.input.deleteEdge(this.id)
     // this.output.node.info.unsubscribe(this.input.node.info.id)
@@ -669,4 +675,4 @@ export class GraphEdge extends LitElement {
 }
 
 
-customElements.define('visualscript-graph-edge', GraphEdge);
+customElements.get('visualscript-graph-edge') || customElements.define('visualscript-graph-edge',  GraphEdge);

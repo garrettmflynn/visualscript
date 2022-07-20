@@ -6,7 +6,7 @@ import { GraphWorkspace } from './Workspace';
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
-  graph?: {[x:string]: any}
+  graph: graphscriptGraph
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -89,11 +89,21 @@ export class GraphEditor extends LitElement {
     history: any[] = []
     workspace: GraphWorkspace
 
-    constructor(props: GraphEditorProps = {}) {
+
+    constructor(props?: GraphEditorProps) {
       super();
 
+      // Define Setters and Getters for Workspace Events
+      const events = ['onedgeadded', 'onedgeremoved', 'onnodeadded', 'onnoderemoved']
+      events.forEach(ev => {
+        Object.defineProperty(this, ev, {
+          get: () => this.workspace[ev],
+          set: (f) => this.workspace[ev] = f
+        })
+      })
+
       this.workspace = new GraphWorkspace(props)
-      if (props?.graph) this.set(props.graph)
+      if (props) this.set(props.graph)
     }
 
     set = async (graph) => {
@@ -151,4 +161,4 @@ export class GraphEditor extends LitElement {
     }
   }
   
-  customElements.define('visualscript-graph-editor', GraphEditor);
+  customElements.get('visualscript-graph-editor') || customElements.define('visualscript-graph-editor',  GraphEditor);

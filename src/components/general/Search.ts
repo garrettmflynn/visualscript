@@ -118,4 +118,4 @@ export class Search extends LitElement {
     }
   }
   
-  customElements.define('visualscript-search', Search);
+  customElements.get('visualscript-search') || customElements.define('visualscript-search',  Search);

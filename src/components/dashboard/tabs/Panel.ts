@@ -134,4 +134,4 @@ export class Panel extends LitElement {
     }
   }
   
-  customElements.define('visualscript-panel', Panel);
+  customElements.get('visualscript-panel') || customElements.define('visualscript-panel',  Panel);

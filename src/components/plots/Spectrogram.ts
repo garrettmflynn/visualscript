@@ -182,4 +182,4 @@ export class Spectrogram extends LitElement {
     }
   }
   
-  customElements.define('visualscript-spectrogram', Spectrogram);
+  customElements.get('visualscript-spectrogram') || customElements.define('visualscript-spectrogram',  Spectrogram);

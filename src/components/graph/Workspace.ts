@@ -1,6 +1,6 @@
 
 import { LitElement, html, css } from 'lit';
-import { GraphNode } from './Node';
+import { GraphNode, GraphNodeProps } from './Node';
 import './Edge';
 import './Node';
 import drag from './utils/drag'
@@ -8,7 +8,7 @@ import { GraphEdge } from './Edge';
 
 export type GraphWorkspaceProps = {
   // tree: {[x:string]: any}
-  app?: brainsatplayApp;
+  graph: graphscriptGraph;
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -69,7 +69,7 @@ export class GraphWorkspace extends LitElement {
       };
     }
 
-    app: GraphWorkspaceProps['app']
+    graph: GraphWorkspaceProps['graph']
     updateCount: number = 0
     
     context: {
@@ -95,38 +95,19 @@ export class GraphWorkspace extends LitElement {
 
     onEdgesReady = () => {}
 
-    constructor(props: GraphWorkspaceProps = {}) {
+    constructor(props?: GraphWorkspaceProps) {
       super();
 
-      if (props?.app) this.set(props.app)
+      if (props) this.set(props.graph)
 
       // Resize with Window Resize
       window.addEventListener('resize', () => {
         this.resize()
       })
-
-
-      // let i = 0
-      // window.addEventListener('keydown', (ev) => {
-      //   switch(ev.code) {
-      //     case 'Enter': 
-      //       const tag = `Node${i}`
-      //       let gN = new GraphNode({
-      //         info: {
-      //           tag
-      //         },
-      //         workspace: this
-      //       })
-      //       this.nodes.set(tag, gN)
-      //       this.triggerUpdate()
-      //       i++
-      //       break;
-      //   }
-      // })
     }
 
-    set = async (app) => {
-      this.app = app
+    set = async (graph) => {
+      this.graph = graph
       this.triggerUpdate(true)
     }
 
@@ -213,53 +194,110 @@ export class GraphWorkspace extends LitElement {
       })
     }
 
+    removeNode = (name) => {
+      const node = this.nodes.get(name)
+      this.onnoderemoved(node)
+      this.nodes.delete(name)
+    }
+
+    addNode = (props: GraphNodeProps) => {
+      if (!props.workspace) props.workspace = this
+     const gN = new GraphNode(props)
+      this.nodes.set(gN.info.tag, gN)
+      this.onnodeadded(gN)
+      return gN
+    }
+
     createUIFromGraph = async () => {
 
       let nodes:any = ''
       let hasMoved = false
 
-      if (this.app){
+      console.log('Graph', this.graph)
+      if (this.graph){
 
-        this.app.graph.nodes.forEach((n) => {
-          let gN = this.nodes.get(n.tag)
-          if (!gN){
-            gN = new GraphNode({
-              info: n,
-              workspace: this
-            })
+        this.graph.nodes.forEach((n) => {
 
-            this.nodes.set(gN.info.tag, gN)
+          // Filter for the current level on the graph
+          if (!n.graph || this.graph === n.graph){
+
+            let gN = this.nodes.get(n.tag)
+            if (!gN){
+
+              gN = this.addNode({
+                info: n,
+                workspace: this
+              })
+            }
+
+            hasMoved = gN.x !== 0 && gN.y !== 0
+            return gN
           }
-
-          hasMoved = gN.x !== 0 && gN.y !== 0
-          return gN
         })
 
         // Create Edges to Children
-        const nodeArr = Array.from(this.nodes.values()) as GraphNode[]
-        // const hasChildren = nodeArr.map(n => n.info.children.length > 0)
-        // const lastNodeWithChildren = hasChildren.lastIndexOf(true)
         const createEdges = async () => {
-          for (let i = 0; i < nodeArr.length; i++){
-            let n = nodeArr[i]
-            if (n.info.children) {
-              for (let j = 0; j < n.info.children.length; j++){
-                let nodeTag = n.info.children[j] as any
-                if (typeof nodeTag !== 'string') nodeTag = nodeTag.tag
 
-                const gNParent = this.nodes.get(n.info.tag)
-                const output = gNParent.ports.get(gNParent.info.arguments.keys().next().value) // First key
-                const gNChild = this.nodes.get(nodeTag)
+          // Look Two Levels Down
+          const edges = {}
+          const maxDepth = 2
 
-                const input = gNChild.ports.get(gNChild.info.arguments.keys().next().value) // First key
-                await this.resolveEdge({
-                  input,
-                  output 
-                }, false)// i === lastNodeWithChildren && j === n.info.children.length - 1)
+          const condition = (node) => node?.graph && node?.graph != this.graph
+          const drillForMatchingGraph = (node, tag=node.tag) => {
+                let tags = [tag];
+                do {
+                  const hasCondition = condition(node)
+                  node = this.graph.nodes.get(node.graph?.tag)
+                  if (hasCondition) tags.unshift(node.tag);
+                } while (condition(node))
+
+                let portName = tags.pop()
+                let match = this.nodes.get(tag);
+                tags.forEach(t => {
+                  const temp = this.nodes.get(t)
+                  if (temp) match = temp
+                })
+
+                if (tags.length === 0) portName = match.info.nodes.keys().next().value // fallback to first node
+                const port = match.ports.get(portName);
+
+                return {
+                  port,
+                  match
+                }
+          }
+          const checkNodesForEdges = async (nodes: Map<string, (GraphNode | GraphNode['info'])>, depth=0) => {
+            const nodeArr = Array.from(nodes.entries());
+
+          for (let i = 0; i < nodeArr.length; i++) {
+
+            const [key, value] = nodeArr[i]
+            let nodeInfo = (depth === 0) ? (value as GraphNode).info : value as GraphNode['info']
+
+            if (nodeInfo.children) {
+              for (let nodeTag in nodeInfo.children) {
+
+                const output = drillForMatchingGraph(nodeInfo, key)
+                const input = drillForMatchingGraph(nodeInfo.children[nodeTag], nodeTag)
+
+                // Don't duplicate on construction
+                const outTag = output.port.tag
+                if (!edges[outTag]) edges[outTag] = []
+                if (!edges[outTag].includes(input.port.tag)){
+                  await this.resolveEdge({
+                    input: input.port,
+                    output: output.port
+                  }, false);    
+
+                  edges[outTag].push(input.port.tag)
+                }   
               }
             }
+            if (nodeInfo.nodes && depth < maxDepth) await checkNodesForEdges(nodeInfo.nodes, depth + 1)
           }
-        }
+          }
+          await checkNodesForEdges(this.nodes)
+        };
 
         await createEdges()
         if (!hasMoved) this.autolayout()
@@ -285,10 +323,13 @@ export class GraphWorkspace extends LitElement {
       `
     }
 
-
+    // Events
+    onedgeadded: (edge:GraphEdge) => void = () => {}
+    onedgeremoved: (edge:GraphEdge) => void = () => {}
+    onnodeadded: (node:GraphNode) => void = () => {}
+    onnoderemoved: (node:GraphNode) => void = () => {}
 
     // Behavior
-
     _scale = (e) => {
       this.context.scale += 0.01*-e.deltaY
       if (this.context.scale < 0.1) this.context.scale = 0.1 // clamp
@@ -327,4 +368,4 @@ export class GraphWorkspace extends LitElement {
 
   }
   
-  customElements.define('visualscript-graph-workspace', GraphWorkspace);
+  customElements.get('visualscript-graph-workspace') || customElements.define('visualscript-graph-workspace',  GraphWorkspace);

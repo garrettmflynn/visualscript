@@ -95,4 +95,4 @@ export class TabBar extends LitElement {
     }
   }
   
-  customElements.define('visualscript-tab-bar', TabBar);
+  customElements.get('visualscript-tab-bar') || customElements.define('visualscript-tab-bar',  TabBar);

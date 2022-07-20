@@ -469,4 +469,4 @@ export class Select extends LitElement {
     }
   }
   
-  customElements.define('visualscript-select', Select);
+  customElements.get('visualscript-select') || customElements.define('visualscript-select',  Select);

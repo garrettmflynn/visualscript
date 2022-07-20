@@ -201,4 +201,4 @@ export class TreeItem extends LitElement {
     }
   }
   
-  customElements.define('visualscript-tree-item', TreeItem);
+  customElements.get('visualscript-tree-item') || customElements.define('visualscript-tree-item',  TreeItem);

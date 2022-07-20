@@ -80,4 +80,4 @@ export class Player extends LitElement {
     }
   }
   
-  customElements.define('visualscript-video-player', Player);
+  customElements.get('visualscript-video-player') || customElements.define('visualscript-video-player',  Player);

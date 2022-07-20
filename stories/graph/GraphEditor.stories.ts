@@ -10,6 +10,7 @@ export default {
 
 const Template: Story<Partial<GraphEditorProps>> = (args:any) => new GraphEditor(args);
 
+console.log('graph', graph)
 export const Default = Template.bind({});
 Default.args = {
   graph: graph

@@ -190,4 +190,4 @@ export class TabToggle extends LitElement {
     }
   }
   
-  customElements.define('visualscript-tab-toggle', TabToggle);
+  customElements.get('visualscript-tab-toggle') || customElements.define('visualscript-tab-toggle',  TabToggle);

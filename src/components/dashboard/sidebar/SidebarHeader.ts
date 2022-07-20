@@ -51,4 +51,4 @@ export class SidebarHeader extends LitElement {
     }
   }
   
-  customElements.define('visualscript-sidebar-header', SidebarHeader);
+  customElements.get('visualscript-sidebar-header') || customElements.define('visualscript-sidebar-header',  SidebarHeader);

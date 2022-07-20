@@ -72,4 +72,4 @@ export class Overlay extends LitElement {
     }
   }
   
-  customElements.define('visualscript-overlay', Overlay);
+  customElements.get('visualscript-overlay') || customElements.define('visualscript-overlay',  Overlay);

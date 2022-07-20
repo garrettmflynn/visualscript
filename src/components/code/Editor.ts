@@ -3550,4 +3550,4 @@ export class CodeEditor extends LitElement {
     }
   }
   
-  customElements.define('visualscript-code-editor', CodeEditor);
+  customElements.get('visualscript-code-editor') || customElements.define('visualscript-code-editor',  CodeEditor);

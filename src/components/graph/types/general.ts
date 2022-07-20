@@ -5,7 +5,11 @@ type graphscriptNode = {
 
     // Additional Visualscript Metadata
     x?: number,
-    y?: number
+    y?: number,
+
+
+    graph?: graphscriptGraph // Use if nested graphs
+    nodes?: Map<string, graphscriptNode>
 }
 
 type graphscriptGraph = {

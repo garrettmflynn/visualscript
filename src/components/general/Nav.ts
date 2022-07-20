@@ -267,4 +267,4 @@ export class Nav extends LitElement {
     }
   }
   
-  customElements.define('visualscript-nav', Nav);
+  customElements.get('visualscript-nav') || customElements.define('visualscript-nav',  Nav);

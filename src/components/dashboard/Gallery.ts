@@ -122,4 +122,4 @@ export class Gallery extends LitElement {
     }
   }
   
-  customElements.define('visualscript-gallery', Gallery);
+  customElements.get('visualscript-gallery') || customElements.define('visualscript-gallery',  Gallery);

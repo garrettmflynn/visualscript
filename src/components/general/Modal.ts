@@ -166,4 +166,4 @@ export class Modal extends LitElement {
     }
   }
   
-  customElements.define('visualscript-modal', Modal);
+  customElements.get('visualscript-modal') || customElements.define('visualscript-modal',  Modal);
