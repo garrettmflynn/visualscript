@@ -1,3 +1,3 @@
-import { ContextMenu } from '../components/context/ContextMenu'
-const context = new ContextMenu()
+import '../components/context/ContextMenu'
+const context = document.createElement('visualscript-context-menu')
 export default context
