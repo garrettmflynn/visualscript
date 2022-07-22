@@ -25,6 +25,7 @@ export class GraphWorkspace extends LitElement {
 
     :host {
         overflow: hidden;
+        --grid-size: 1000%;
         --grid-color: rgb(210, 210, 210);
     }
 
@@ -34,8 +35,8 @@ export class GraphWorkspace extends LitElement {
         repeating-linear-gradient(var(--grid-color) 0 1px, transparent 1px 100%),
         repeating-linear-gradient(90deg, var(--grid-color) 0 1px, transparent 1px 100%);
         background-size: 20px 20px;
-        width: 100%;
-        height: 100%;
+        width: var(--grid-size);
+        height: var(--grid-size);
     }
 
     #grid:active:hover {
@@ -83,6 +84,12 @@ export class GraphWorkspace extends LitElement {
       x: number, 
       y: number
     } = {x: 0, y:0}
+
+    middle:{
+      x: number, 
+      y: number
+    } = {x: 0, y:0}
+
     relXParent?: number
     relYParent?: number
     element: HTMLDivElement
@@ -131,7 +138,16 @@ export class GraphWorkspace extends LitElement {
         this.addEventListener('wheel', this._scale)
         this.addEventListener('mousemove', this._pan)
 
+        const rect = this.element.getBoundingClientRect()
+
+        this.middle = {
+          x: rect.width / 2,
+          y: rect.height / 2
+        }
+
+        let hasMoved = false
         this.nodes.forEach((node: GraphNode) => {
+
           drag(this, node, () => {
             this.resize([node])
           }, () => { 
@@ -139,7 +155,12 @@ export class GraphWorkspace extends LitElement {
           }, () => {
             if (this.editing instanceof GraphNode) this.editing = null
           })
+
+          hasMoved = node.x !== 0 && node.y !== 0
       })
+
+      if (!hasMoved) this.autolayout()
+      this._transform() // Move to center
     }
 
     this.resize() // Catch first edge to resize
@@ -188,10 +209,11 @@ export class GraphWorkspace extends LitElement {
       let rowLen = 5
       let offset = 20
       this.nodes.forEach((n) => {
-        n.x = offset + 100*(count % rowLen)
-        n.y =  offset + 150*(Math.floor(count/rowLen))
+        n.x = this.middle.x + offset + 100*(count % rowLen)
+        n.y =  this.middle.y + offset + 150*(Math.floor(count/rowLen))
         count++
       })
+
     }
 
     removeNode = (name) => {
@@ -229,7 +251,6 @@ export class GraphWorkspace extends LitElement {
               })
             }
 
-            hasMoved = gN.x !== 0 && gN.y !== 0
             return gN
           }
         })
@@ -299,7 +320,6 @@ export class GraphWorkspace extends LitElement {
         };
 
         await createEdges()
-        if (!hasMoved) this.autolayout()
 
         this.onEdgesReady()
       }
@@ -330,14 +350,15 @@ export class GraphWorkspace extends LitElement {
 
     // Behavior
     _scale = (e) => {
+      e.preventDefault()
       this.context.scale += 0.01*-e.deltaY
-      if (this.context.scale < 0.1) this.context.scale = 0.1 // clamp
+      if (this.context.scale < 0.4) this.context.scale = 0.4 // clamp
       if (this.context.scale > 3.0) this.context.scale = 3.0 // clamp
       this._transform()
   }
 
     _transform = () => {
-        this.element.style['transform'] = `translate(${this.translation.x}px, ${this.translation.y}px) scale(${this.context.scale*100}%)`
+        this.element.style['transform'] = `translate(calc(-50% + ${this.translation.x}px), calc(-50% + ${this.translation.y}px)) scale(${this.context.scale*100}%)`
     }
 
     _pan = (e) => {

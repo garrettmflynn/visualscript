@@ -126,6 +126,8 @@ export class GraphNode extends LitElement {
     updated(changedProperties) {
       this.element = this.shadowRoot.querySelector("div")
       if (!this.workspace) this.workspace = (this.parentNode.parentNode as any).host
+
+      this.edges.forEach(e => e.resize()) // resize all edges after
     }
 
     setEdge = (edge) => this.edges.set(edge.id, edge)
@@ -140,7 +142,6 @@ export class GraphNode extends LitElement {
     }
     
     render() {
-
 
         return html`
 
