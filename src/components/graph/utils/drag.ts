@@ -42,11 +42,11 @@ const dragElement = (workspace:GraphWorkspace, dragItem: GraphNode, onMove, onDo
     function dragStart(e) {
       
       if (e.type === "touchstart") {
-        initialX = (e.touches[0].clientX - (workspace.context.scale*defaultScale)*dragItem.x);
-        initialY = (e.touches[0].clientY - (workspace.context.scale*defaultScale)*dragItem.y);
+        initialX = (e.touches[0].clientX - (workspace.context.zoom*defaultScale)*dragItem.x);
+        initialY = (e.touches[0].clientY - (workspace.context.zoom*defaultScale)*dragItem.y);
       } else {
-        initialX = (e.clientX - (workspace.context.scale*defaultScale)*dragItem.x);
-        initialY = (e.clientY - (workspace.context.scale*defaultScale)*dragItem.y);
+        initialX = (e.clientX - (workspace.context.zoom*defaultScale)*dragItem.x);
+        initialY = (e.clientY - (workspace.context.zoom*defaultScale)*dragItem.y);
       }
 
       // Account For Nested Control Objects
@@ -70,11 +70,11 @@ const dragElement = (workspace:GraphWorkspace, dragItem: GraphNode, onMove, onDo
         e.preventDefault();
       
         if (e.type === "touchmove") {
-          currentX = (e.touches[0].clientX - initialX)/(workspace.context.scale*defaultScale);
-          currentY = (e.touches[0].clientY - initialY)/(workspace.context.scale*defaultScale);
+          currentX = (e.touches[0].clientX - initialX)/(workspace.context.zoom*defaultScale);
+          currentY = (e.touches[0].clientY - initialY)/(workspace.context.zoom*defaultScale);
         } else {
-          currentX = (e.clientX - initialX)/(workspace.context.scale*defaultScale);
-          currentY = (e.clientY - initialY)/(workspace.context.scale*defaultScale);
+          currentX = (e.clientX - initialX)/(workspace.context.zoom*defaultScale);
+          currentY = (e.clientY - initialY)/(workspace.context.zoom*defaultScale);
         }
 
         dragItem.x = currentX;

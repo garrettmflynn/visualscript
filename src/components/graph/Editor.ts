@@ -3,6 +3,7 @@ import { LitElement, html, css } from 'lit';
 import './Workspace';
 import {Input} from '../input/Input'
 import { GraphWorkspace } from './Workspace';
+import context from '../../instances/context'
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
@@ -104,6 +105,51 @@ export class GraphEditor extends LitElement {
 
       this.workspace = new GraphWorkspace(props)
       if (props) this.set(props.graph)
+
+            // Setting Context Menu Response
+            context.set('visualscript-graph-editor', {
+              condition: (el) => {
+                const root =  this.workspace.shadowRoot
+                if (root){
+                  return el ===  this.workspace // Is the workspace
+                  || root.contains(el) // Is the workspace grid
+                } else return false
+              },
+              contents: (ev) => {
+                return [
+                  {
+                    text: 'Create new node',
+                    onclick: () => {
+                        const tag = `Node${Math.floor(1000*Math.random())}`
+
+                              // e = Mouse click event.
+                              var rect = this.workspace.element.getBoundingClientRect();
+                              var x = ev.clientX - rect.left; //x position within the element.
+                              var y = ev.clientY - rect.top;  //y position within the element.
+                        
+                          this.workspace.addNode({
+                            info: {
+                              tag,
+                              nodes: new Map([['input', undefined]]),
+                              graph: this.graph,
+
+                              // Extension
+                              x,
+                              y
+                            },
+                        })
+                        this.workspace.triggerUpdate()
+                  },
+                },
+                   {
+                    text: 'Do another thing',
+                    onclick: () => {
+                      console.warn('MUST DO SOMETHING')
+                  }
+                }
+                ]
+              }
+            })
     }
 
     set = async (graph) => {

@@ -49,7 +49,7 @@ export class GraphEdge extends LitElement {
     
       :host path {
         pointer-events: all;
-        stroke-width: 2;
+        stroke-width: 0.4px;
         stroke: rgb(60, 60, 60);
         stroke-linecap: round;
         fill: none;

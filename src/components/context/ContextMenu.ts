@@ -9,7 +9,7 @@ type MenuItem = {
 
 type Response = {
   condition: (target: HTMLElement) => boolean
-  contents: () => MenuItem[];
+  contents: (ev: MouseEvent) => MenuItem[];
 }
 
 export interface ContextMenuProps {
@@ -89,6 +89,7 @@ export class ContextMenu extends LitElement {
           // console.log(o, o.condition(selected))
 
           const isMatch = o.condition(selected)
+          console.log(e, isMatch)
           if (isMatch) {
             e.preventDefault();
 
@@ -99,7 +100,7 @@ export class ContextMenu extends LitElement {
             this.style.left = e.pageX - rect.left + 'px'
             this.style.top = e.pageY - rect.top + 'px'
             this.style.display = 'block'
-            const list = o.contents() ?? []
+            const list = o.contents(e) ?? []
             
             this.list.innerHTML = ''
             

@@ -74,9 +74,18 @@ export class GraphWorkspace extends LitElement {
     updateCount: number = 0
     
     context: {
-      scale: number
+      zoom: number,
+      minZoom: number,
+      maxZoom: number,
+      lastMousePos: {
+        x: number,
+        y: number
+      }
     } = {
-        scale: 1
+        zoom: 1,
+        minZoom: 0.4,
+        maxZoom: 3.0,
+        lastMousePos: {x: 0, y: 0}
     }
     editing: HTMLElement | null = null
     mouseDown:boolean = false
@@ -144,6 +153,8 @@ export class GraphWorkspace extends LitElement {
           x: rect.width / 2,
           y: rect.height / 2
         }
+
+        this.setZoomOrigin()
 
         let hasMoved = false
         this.nodes.forEach((node: GraphNode) => {
@@ -224,6 +235,11 @@ export class GraphWorkspace extends LitElement {
 
     addNode = (props: GraphNodeProps) => {
       if (!props.workspace) props.workspace = this
+ 
+      // shift position to the middle
+      if (props.info.x) props.info.x = props.info.x// + this.middle.x - this.translation.x
+      if (props.info.y) props.info.y = props.info.y// + this.middle.y - this.translation.y
+
      const gN = new GraphNode(props)
       this.nodes.set(gN.info.tag, gN)
       this.onnodeadded(gN)
@@ -233,7 +249,6 @@ export class GraphWorkspace extends LitElement {
     createUIFromGraph = async () => {
 
       let nodes:any = ''
-      let hasMoved = false
 
       if (this.graph){
 
@@ -351,21 +366,33 @@ export class GraphWorkspace extends LitElement {
     // Behavior
     _scale = (e) => {
       e.preventDefault()
-      this.context.scale += 0.01*-e.deltaY
-      if (this.context.scale < 0.4) this.context.scale = 0.4 // clamp
-      if (this.context.scale > 3.0) this.context.scale = 3.0 // clamp
+      this.context.zoom += 0.01*-e.deltaY
+      if (this.context.zoom < this.context.minZoom) this.context.zoom = this.context.minZoom // clamp
+      if (this.context.zoom > this.context.maxZoom) this.context.zoom = this.context.maxZoom // clamp
       this._transform()
   }
 
+      setZoomOrigin = (ev?:MouseEvent, translation = this.translation) => {
+        // this.element.style.transformOrigin = `0px 0px`
+        this.element.style.transformOrigin = `${this.middle.x - translation.x + ev?.clientX ?? 0}px ${this.middle.y - translation.y + ev?.clientY ?? 0}px`
+      }
+
     _transform = () => {
-        this.element.style['transform'] = `translate(calc(-50% + ${this.translation.x}px), calc(-50% + ${this.translation.y}px)) scale(${this.context.scale*100}%)`
+        this.element.style['transform'] = `translate(calc(-50% + ${this.translation.x}px), calc(-50% + ${this.translation.y}px)) scale(${this.context.zoom*100}%)`
     }
+    
+
 
     _pan = (e) => {
+
+      this.context.lastMousePos.x = e.clientX
+      this.context.lastMousePos.y = e.clientY
 
       if (!this.editing){
 
         if (e.target.parentNode){
+
+          this.setZoomOrigin(e)
 
             // Transform relative to Parent
             let rectParent = e.target.parentNode.getBoundingClientRect();
