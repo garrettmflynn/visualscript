@@ -4,6 +4,9 @@ import './Workspace';
 import {Input} from '../input/Input'
 import { GraphWorkspace } from './Workspace';
 import context from '../../instances/context'
+import { Modal, Overlay } from '../general';
+import { ObjectEditor } from '../object';
+import { Tree } from '../tree';
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
@@ -89,7 +92,10 @@ export class GraphEditor extends LitElement {
     keys: (keyType)[]
     history: any[] = []
     workspace: GraphWorkspace
-
+    onedgeadded: GraphWorkspace['onedgeadded']
+    onedgeremoved: GraphWorkspace['onedgeremovedd']
+    onnodeadded: GraphWorkspace['onnodeadded']
+    onnoderemoved: GraphWorkspace['onnoderemoved']
 
     constructor(props?: GraphEditorProps) {
       super();
@@ -120,24 +126,65 @@ export class GraphEditor extends LitElement {
                   {
                     text: 'Create new node',
                     onclick: () => {
-                        const tag = `Node${Math.floor(1000*Math.random())}`
 
-                              // e = Mouse click event.
-                              var rect = this.workspace.element.getBoundingClientRect();
-                              var x = ev.clientX - rect.left; //x position within the element.
-                              var y = ev.clientY - rect.top;  //y position within the element.
+                      const tag = `Node${Math.floor(1000*Math.random())}`
+
+                      var rect = this.workspace.element.getBoundingClientRect();
+                      var x = ev.clientX - rect.left; //x position within the element.
+                      var y = ev.clientY - rect.top;  //y position within the element.
+
+                      // Blur the Background
+                      const overlay = new Overlay()
+
+                      // Create a Modal
+                      const modal = new Modal({open: true, header: 'Plugins', footer: '<small>All plugins can be found on <a href="https://github.com/brainsatplay/awesome-brainsatplay">awesome-brainsatplay</a></small>'})
+                      overlay.appendChild(modal)
+
+                      modal.onClose = () => {
+                        overlay.open = false
+                      }
+
+                      // Show Node Options in a List
+                      let onResolve = null;
+                      const list = new Tree({
+                        target: {
+                          header: {
+                            option: 'wow',
+                            again: 'wow'
+                          },
+                          tag: {
+                            option: 'wow',
+                            again: 'wow'
+                          }
+                        },
+                        onClick: (type, thing) => {
+                          console.log(type, thing)
+                          // if (typeof onResolve === 'function') onResolve()
+                        }
+                      })
+                      modal.appendChild(list)
+
+
+                      this.workspace.parentNode.appendChild(overlay)
+                      overlay.open = true
+
+                      
+                      // Wait for user to select an option
+                      const info = {
+                        tag,
+                        nodes: new Map([['input', undefined]]),
+                        graph: this.graph,
+
+                        // Extension
+                        x,
+                        y
+                      }
+
+                      info.x = x
+                      info.y = y
+
                         
-                          this.workspace.addNode({
-                            info: {
-                              tag,
-                              nodes: new Map([['input', undefined]]),
-                              graph: this.graph,
-
-                              // Extension
-                              x,
-                              y
-                            },
-                        })
+                        this.workspace.addNode({info})
                         this.workspace.triggerUpdate()
                   },
                 },
@@ -158,42 +205,8 @@ export class GraphEditor extends LitElement {
       this.keys = (this.graph) ? Object.keys(this.graph) : []
     }
 
-    getElement = async (key:keyType, o: any) => {
-        let display;
-
-        const val = await Promise.resolve(o[key])
-
-        if (typeof val === 'string' && val.includes('data:image')) {
-          display = document.createElement('img') as HTMLImageElement
-          display.src = val
-          display.style.height = '100%'
-        } else {
-          display = new Input()
-          display.value = val
-          display.oninput = () => {
-            o[key] = display.value // Modify original data
-          }
-        }
-
-        const isObject = typeof val === 'object' 
-
-        return html`
-        <div class="attribute separate">
-        <div class="info">
-          <span class="name">${key}</span><br>
-          <span class="value">${(
-            isObject
-            ? (Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`)
-            : '')}</span>
-        </div>
-          ${key}${o}
-        </div>`
-
-    }
-  
     render() {
 
-      // const content = this.keys?.map(key => this.getElement(key, this.graph)) 
 
       // return until(Promise.all(content).then((data) => {
         

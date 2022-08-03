@@ -168,7 +168,7 @@ export class ObjectEditor extends LitElement {
     set = async (target={}, plot=false) => {
       if (this.preprocess instanceof Function) this.target = await this.preprocess(target)
       else this.target = target
-      this.keys = Object.keys(this.target)
+      this.keys = Object.keys(this.target).sort()
       this.mode = this.getMode(this.target, plot)
     }
 
@@ -220,12 +220,12 @@ export class ObjectEditor extends LitElement {
         <div class="attribute separate">
         <div class="info">
           <span class="name">${key}</span><br>
-          <span class="value">${(
-            isObject
+          <span class="value">${(val ? (
+            (isObject)
             ? (Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`)
-            : '')}</span>
+            : '') : val)}</span>
         </div>
-          ${isObject ? await this.getActions(key, o) : display}
+          ${val && isObject ? await this.getActions(key, o) : display}
         </div>`
 
     }

@@ -18,6 +18,9 @@ export interface ModalProps {
    * Optional click handler
    */
   onClick?: () => void;
+  onClose?: () => void;
+  onOpen?: () => void;
+
 }
 
 export class Modal extends LitElement {
@@ -124,6 +127,8 @@ export class Modal extends LitElement {
     open: ModalProps['open']
     header: ModalProps['header']
     footer: ModalProps['footer']
+    onClose: ModalProps['onClose']
+    onOpen: ModalProps['onOpen']
 
     backgroundColor: ModalProps['backgroundColor']
     size: ModalProps['size']
@@ -134,6 +139,7 @@ export class Modal extends LitElement {
       this.open = props.open
       this.header = props.header
       this.footer = props.footer
+      this.onClose = props.onClose
 
     }
     
@@ -144,10 +150,18 @@ export class Modal extends LitElement {
       // }
     }
 
-    toggle = () => this.open = !this.open
+    toggle = () => {
+      this.open = !this.open
+
+      if (!this.open) this.onClose()
+      else this.onOpen()
+
+    }
 
     render() {
 
+      const span = document.createElement('span')
+      span.innerHTML = this.footer
       return html`
       <div class="modal-content ${this.open ? 'open' : ''}">
       <div class="modal-header">
@@ -157,9 +171,7 @@ export class Modal extends LitElement {
         <div class="modal-body">
           <slot>No content</slot>
         </div>
-        ${(this.footer) ? html`<div class="modal-footer">
-          <span>${this.footer}</span>
-        </div>` : ''}
+        ${(this.footer) ? html`<div class="modal-footer">${span}</div>` : ''}
       </div>
       <visualscript-overlay .open=${this.open}></visualscript-overlay>
     `

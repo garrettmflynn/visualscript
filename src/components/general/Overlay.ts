@@ -18,18 +18,16 @@ export class Overlay extends LitElement {
       opacity: 0;
       width: 100vw;
       height: 100vh;
-      transition: 0.5s;
+      transition: 2.0s;
       position: fixed;
       top: 0;
       left: 0;
       pointer-events: none;
       z-index: 50;
       color: black;
-      background: rgb(255,255, 255, 0.7);
     }
-    
 
-    div[open] {
+    :host([open]) div {
       opacity: 1;
       pointer-events: all;
       backdrop-filter: blur(3px);
@@ -38,7 +36,6 @@ export class Overlay extends LitElement {
     @media (prefers-color-scheme: dark) {
       div {
         color: white;
-        background: rgb(0,0,0, 0.5);
       }
     }
 
@@ -65,7 +62,7 @@ export class Overlay extends LitElement {
     render() {
 
       return html`
-      <div ?open=${this.open ? true : false}>
+      <div>
         <slot></slot>
       </div>
     `

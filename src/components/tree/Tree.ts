@@ -8,7 +8,8 @@ type keyType = string
 export type TreeProps = {
   target: {[x:string]: any}
   depth?: number,
-  onClick?: Function
+  onClick?: Function,
+  mode?: 'filesystem' 
 }
 
 export class Tree extends LitElement {
@@ -98,17 +99,23 @@ export class Tree extends LitElement {
         },
         input: {
           type: Boolean
+        },
+        mode: {
+          type: String,
+          reflect: true
         }
       };
     }
 
     target: TreeProps['target']
     onClick: TreeProps['onClick']
+    mode: TreeProps['mode']
+
     keys: (keyType)[]
     depth: TreeProps['depth'] = 0
     items: TreeItem[] = []
     input: TreeItem
-    oncreate: Function
+    oncreate?: Function
 
 
     constructor(props: TreeProps = {target: {}}) {
@@ -116,21 +123,26 @@ export class Tree extends LitElement {
 
       if (props.depth) this.depth = props.depth
       if (props.onClick) this.onClick = props.onClick
+      if (props.mode) this.mode = props.mode
 
       this.set(props.target)
 
-      window.addEventListener('click', (ev:any) => {
-        const hasTree = ev.path.find(el => el === this)
+      // Drill first tree for open items
+      if (this.depth === 0){
+        window.addEventListener('click', (ev:any) => {
+          const hasTree = ev.path.find(el => el === this)
 
-        const drill = (o) => {
-          o.items.forEach(item => {
-            if (item.li && !item.li.classList.contains('last')) item.removeClass('selected')
-            if (item.tree) drill(item.tree)
-          })
-        }
-        
-        if (!hasTree) drill(this)
-      })
+          const drill = (o) => {
+
+            o.items.forEach(item => {
+              if (item.li && !item.li.classList.contains('last')) item.removeClass('selected')
+              if (item.tree) drill(item.tree)
+            })
+          }
+          
+          if (hasTree) drill(this)
+        })
+      }
     }
 
     set = async (target={}) => {
@@ -154,7 +166,16 @@ export class Tree extends LitElement {
     getElement = async (key:keyType, o: any) => {
 
       const value = o[key]
-      let type = (value.constructor.name === 'Object') ? 'folder' : 'file'
+      let type;
+      switch(this.mode){
+        case 'filesystem':
+          type = (value.constructor.name === 'Object') ? 'folder' : 'file'
+          break;
+
+        default: 
+          type = (value.constructor.name === 'Object') ? 'object' : 'value'
+      }
+
       return this.createItem(type, key, value)
     }
 
@@ -223,7 +244,7 @@ export class Tree extends LitElement {
 
         return html`
         <div>
-        ${this.depth === 0 ? html`
+        ${(this.oncreate && this.depth === 0) ? html`
           <div id=header>
           <visualscript-icon type="newFile" @click=${()=>{
             this.create('file')

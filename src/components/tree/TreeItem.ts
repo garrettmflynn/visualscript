@@ -3,9 +3,13 @@ import { LitElement, html, css } from 'lit';
 import { Icon } from '../general/Icon';
 // import { Tree } from './Tree';
 
+
+const valueStrings = ['file', 'value']
+const filesystemStrings = ['file', 'folder', 'openfolder']
+
 type keyType = string
 export type TreeItemProps = {
-  type?: string | 'folder' | 'openfolder' | 'file'
+  type?: string | 'folder' | 'openfolder' | 'file' | 'value' | 'object'
   key?: keyType,
   parent: any,
   value?: any,
@@ -85,7 +89,7 @@ export class TreeItem extends LitElement {
       };
     }
 
-    type: TreeItemProps['type'] = 'folder'
+    type: TreeItemProps['type'] = 'value'
     key: TreeItemProps['key']
     li?: HTMLLIElement
     value: TreeItemProps['value'];
@@ -123,6 +127,7 @@ export class TreeItem extends LitElement {
     }
 
     removeClass = (str: 'selected' | 'last'): any => {
+      console.log('removing', str)
         if (this.li) this.li.classList.remove(str)
     }
 
@@ -150,8 +155,10 @@ export class TreeItem extends LitElement {
         this.editing = (this.key) ? false : true
         this.error = (this.value) ? false : true
 
+        const isUsingFilesystemStrings = filesystemStrings.includes(this.type)
+
         this.tree = (this.open) 
-        ? new this.parent.constructor({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick}) // Create new tree from parent constructor (to avoid circular dependency)
+        ? new this.parent.constructor({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick, mode: (isUsingFilesystemStrings) ? 'filesystem': undefined}) // Create new tree from parent constructor (to avoid circular dependency)
         : undefined
 
         return html`
@@ -160,6 +167,7 @@ export class TreeItem extends LitElement {
 
           if (!this.editing && !this.error) {
             this.li = this.shadowRoot.querySelector('li')
+
 
             this.li.classList.add('last')
             this.li.classList.add('selected')
@@ -172,25 +180,24 @@ export class TreeItem extends LitElement {
             window.addEventListener('mousedown', remove)
     
             // Switch Icons (if ready)
-              if (this.type === 'file'){
+              if (valueStrings.includes(this.type)){
                 if (this.key && this.value){
                   if (this.onClick instanceof Function) this.onClick(this.key, this.value)
                 }
               } else {
-                if (this.type === 'folder') {
-                  this.type = 'openfolder'
-                  this.open = true
-                }
-                else {
-                    this.type = 'folder'
-                    this.open = false
-                }
+
+                // Filesystem-Specific Reaction
+                if (this.type === 'folder') this.type = 'openfolder'
+                else if (this.type === 'openfolder') this.type = 'folder'
+
+                // Global Toggle
+                this.open = !this.open
               }
             }
           }}>
             <div style="padding-left: ${leftPad}px">
-             ${icon}
-            <span class="name">
+             ${filesystemStrings.includes(this.type) ? icon : ''}
+            <span class="name" style="padding-left: ${filesystemStrings.includes(this.type) ? '0' : '7'}px">
               ${content}
             </span>
             </div>
