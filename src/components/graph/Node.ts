@@ -4,16 +4,13 @@ import { GraphWorkspace } from './Workspace';
 import './Port';
 import { GraphEdge } from './Edge';
 import { GraphPort } from './Port';
+import { getFnParamInfo } from './utils/parse';
 
 export type GraphNodeProps = {
-  // tree: {[x:string]: any}
-  // plot?: Function[],
-  // onPlot?: Function
-  // preprocess?: Function,
   workspace?: GraphWorkspace
-  x?: graphscriptNode['y'];
-  y?: graphscriptNode['x'];
-  info?: graphscriptNode;
+  x?: number;
+  y?: number;
+  info?: waslNode;
 }
 
 export class GraphNode extends LitElement {
@@ -91,20 +88,34 @@ export class GraphNode extends LitElement {
 
       this.id = `${this.info.tag}${Math.round(10000*Math.random())}` // TODO: Make these informative
 
-      this.info.x = this.x = props.x ?? this.info.x ?? 0
-      this.info.y = this.y = props.y ?? this.info.y ?? 0
+      if (this.info.extensions?.visualscript){
+        this.info.extensions.visualscript.x = this.x = props.x ?? this.info.extensions.visualscript.x ?? 0
+        this.info.extensions.visualscript.y = this.y = props.y ?? this.info.extensions.visualscript.y ?? 0
+      }
 
       if (this.info) {
-        this.updatePorts(this.info.nodes)
+        this.updatePorts()
       }
     }
 
     setInfo = (info) => {
       this.info = info
-      this.updatePorts(info.nodes)
+      this.updatePorts(info)
     }
 
-    updatePorts = (args) => {
+    updatePorts = (info=this.info) => {
+
+      // Derive function arguments (NOTE: Contains knowledge of graphscript requirements)
+      let args;
+      if (info.src?.operator) args = getFnParamInfo(info.src?.operator) ?? new Map()
+      else {
+        args = new Map(Object.entries(info.src).filter(([_,o]) => o.operator instanceof Function).map(([k]) => [k, undefined]))
+      }      
+      
+      // Set trigger port
+      if (args.size === 0) args.set('trigger', undefined)
+
+      // Add ports from arguments
       if (args) args.forEach((ref, tag) => {
         this.addPort({
           tag,
@@ -115,12 +126,12 @@ export class GraphNode extends LitElement {
 
     willUpdate = (updatedProps) => {
 
-      if (updatedProps.has('x') || updatedProps.has('y')){
-        this.info.x = this.x        // brainsatplay extension
-        this.info.y = this.y       // brainsatplay extension
+      if ((updatedProps.has('x') || updatedProps.has('y')) && this.info.extensions?.visualscript){
+        this.info.extensions.visualscript.x = this.x        // brainsatplay extension
+        this.info.extensions.visualscript.y = this.y       // brainsatplay extension
       }
 
-      if (updatedProps.has('info')) this.updatePorts(this.info.nodes)
+      if (updatedProps.has('info')) this.updatePorts()
     }
 
     updated(changedProperties) {

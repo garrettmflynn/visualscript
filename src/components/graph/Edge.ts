@@ -120,6 +120,7 @@ export class GraphEdge extends LitElement {
     };
   }
 
+  info: waslEdge = {}
   output: GraphEdgeProps['output']
   input: GraphEdgeProps['input']
 
@@ -185,13 +186,45 @@ export class GraphEdge extends LitElement {
       this.resolveReady = {
         resolve: (arg) => {
           this.id = this.getEdgeName()
+
+          // update ui
           this.output.setEdge(this)
           this.input.setEdge(this)
+
+          // update user
           this.workspace.onedgeadded(this)
+
+          // update wasl
+          const outputTag = this.getTag()
+          const inputTag = this.getTag(outputTag)
+
+          if (!this.workspace.graph.edges[outputTag]) this.workspace.graph.edges[outputTag] = {}
+          this.workspace.graph.edges[outputTag][inputTag] = this.info
+
           resolve(arg)
         }, reject
       }
     })
+  }
+
+  getTag = (outName?:string) => {
+    const type = (outName) ? 'input' : 'output'
+    const firstPort  = this[type].node.ports.keys().next().value
+    const nodeTag = this[type].node.info.tag
+
+    const base = this[type].tag
+    const route =  `${nodeTag}.${base}`
+
+    let tag = route
+
+    // use route if already in use (otherwise target node and fallback to first port)
+    if (firstPort === base) {
+      const target = (type === 'input' && outName) ? this.workspace.graph.edges[outName] : this.workspace.graph.edges
+      if (target[nodeTag]) tag = nodeTag
+      else tag = route
+    }
+
+    return tag
   }
 
   link = async (info: IOType) => {
@@ -632,11 +665,21 @@ export class GraphEdge extends LitElement {
   }
 
   deinit = () => {
+
+    // update user
     this.workspace.onedgeremoved(this)
+
+    // update ui
     if (this.output) this.output.deleteEdge(this.id)
     if (this.input) this.input.deleteEdge(this.id)
     // this.output.node.info.unsubscribe(this.input.node.info.id)
     this.remove()
+
+    // update wasl
+    const outputTag = this.getTag()
+    const inputTag = this.getTag(outputTag)
+    if (this.workspace.graph.edges[outputTag]) delete this.workspace.graph.edges[outputTag][inputTag]
+    else console.error('incorrect tag', outputTag, this.workspace.graph.edges)
   }
 
   resize = () => {

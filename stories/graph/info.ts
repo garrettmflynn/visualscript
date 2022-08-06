@@ -1,27 +1,27 @@
+import plugins from "./plugins"
 
+const p3Copy = Object.assign({}, plugins.default.plugin3)
+p3Copy.tag = `${p3Copy.tag}_1`
+export const node3 = p3Copy
 
-export const node2 = {
-    tag: 'node2',
-    nodes: new Map([['target', 0]]),
-    operator: (input) => {
-        console.log('target', input)
-    },
-}
+const p2Copy = Object.assign({}, plugins.default.plugin2)
+p2Copy.tag = `${p2Copy.tag}_1`
+export const node2 = p2Copy
 
-export const node1 = {
-    tag: 'node1',
-    nodes: new Map([['target', 0]]),
-    children: {
-        [node2.tag]: true
-    },
-    operator: () => {
-        return 1
-    }
-}
+const p1Copy = Object.assign({}, plugins.default.plugin1)
+p1Copy.tag = `${p1Copy.tag}_1`
+export const node1 = p1Copy
 
 export const graph = {
-   nodes: new Map([
-        [node1.tag, node1], 
-        [node2.tag, node2]
-    ])
+   nodes: {
+    [node1.tag]: node1,
+    [node2.tag]: node2,
+    [node3.tag]: node3,
+   },
+    edges: {
+        [node1.tag]: {
+            [node2.tag]: {},
+            [node3.tag]: {}
+        }
+    }
 }

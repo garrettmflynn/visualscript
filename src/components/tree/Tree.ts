@@ -9,7 +9,10 @@ export type TreeProps = {
   target: {[x:string]: any}
   depth?: number,
   onClick?: Function,
-  mode?: 'filesystem' 
+  mode?: 'filesystem',
+  conditions?: {
+    value: (value: any) => boolean
+  }
 }
 
 export class Tree extends LitElement {
@@ -110,6 +113,7 @@ export class Tree extends LitElement {
     target: TreeProps['target']
     onClick: TreeProps['onClick']
     mode: TreeProps['mode']
+    conditions: TreeProps['conditions']
 
     keys: (keyType)[]
     depth: TreeProps['depth'] = 0
@@ -124,6 +128,7 @@ export class Tree extends LitElement {
       if (props.depth) this.depth = props.depth
       if (props.onClick) this.onClick = props.onClick
       if (props.mode) this.mode = props.mode
+      if (props.conditions) this.conditions = props.conditions
 
       this.set(props.target)
 
@@ -166,14 +171,20 @@ export class Tree extends LitElement {
     getElement = async (key:keyType, o: any) => {
 
       const value = o[key]
+
+      // check conditions
+      const defaultCondition = value.constructor.name === 'Object'
+      let complexCondition = (defaultCondition && this.conditions) ? !this.conditions.value(value) : defaultCondition
+
+      // assign type
       let type;
       switch(this.mode){
         case 'filesystem':
-          type = (value.constructor.name === 'Object') ? 'folder' : 'file'
+          type = complexCondition ? 'folder' : 'file'
           break;
 
         default: 
-          type = (value.constructor.name === 'Object') ? 'object' : 'value'
+          type = complexCondition ? 'object' : 'value'
       }
 
       return this.createItem(type, key, value)

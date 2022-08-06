@@ -127,7 +127,6 @@ export class TreeItem extends LitElement {
     }
 
     removeClass = (str: 'selected' | 'last'): any => {
-      console.log('removing', str)
         if (this.li) this.li.classList.remove(str)
     }
 
@@ -158,7 +157,13 @@ export class TreeItem extends LitElement {
         const isUsingFilesystemStrings = filesystemStrings.includes(this.type)
 
         this.tree = (this.open) 
-        ? new this.parent.constructor({target: this.value, depth: this.parent.depth + 1, onClick: this.onClick, mode: (isUsingFilesystemStrings) ? 'filesystem': undefined}) // Create new tree from parent constructor (to avoid circular dependency)
+        ? new this.parent.constructor({
+          target: this.value, 
+          depth: this.parent.depth + 1, 
+          conditions: this.parent.conditions, 
+          onClick: this.onClick, 
+          mode: (isUsingFilesystemStrings) ? 'filesystem': undefined
+        }) // Create new tree from parent constructor (to avoid circular dependency)
         : undefined
 
         return html`

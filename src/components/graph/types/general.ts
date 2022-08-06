@@ -1,21 +1,45 @@
-type graphscriptNode = {
+type visualscriptExtension = {
+    x: number,
+    y: number
+}
+
+
+type nodeSrcInfo = {
+    operator: Function,
+}
+
+
+// Types representing the basic information visualized from wasl / brainsatplay
+type waslNode = {
     tag: string,
-    children?: Node[]
-    arguments?: Map<string, any>
-
-    // Additional Visualscript Metadata
-    x?: number,
-    y?: number,
-
-
-    graph?: graphscriptGraph // Use if nested graphs
-    nodes?: Map<string, graphscriptNode>
+    // children?: Node[]
+    // arguments?: Map<string, any>
+    // graph?: waslGraph // Use if nested graphs
+    // nodes?: Map<string, waslNode>
+    src?: nodeSrcInfo | {[x:string]: nodeSrcInfo}, // NOTE: Can be nested
+    extensions?: {
+        [x:string]: {
+            [x:string]: any
+        },
+        visualscript?: visualscriptExtension
+    }
 }
 
-type graphscriptGraph = {
-    nodes: Map<string, graphscriptNode>
+type waslEdge = {
+
 }
 
-type brainsatplayApp = {
-    graph: graphscriptGraph
+
+type waslEdges = {
+    // Source (output)
+    [x:string]: { 
+
+        // Target (input)
+        [x:string]: waslEdge
+    }
+}
+
+type waslGraph = {
+    nodes: Map<string, waslNode>
+    edges: Map<string, waslEdges>
 }

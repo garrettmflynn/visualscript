@@ -89,7 +89,6 @@ export class ContextMenu extends LitElement {
           // console.log(o, o.condition(selected))
 
           const isMatch = o.condition(selected)
-          console.log(e, isMatch)
           if (isMatch) {
             e.preventDefault();
 

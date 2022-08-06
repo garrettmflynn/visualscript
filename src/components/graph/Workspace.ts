@@ -8,7 +8,7 @@ import { GraphEdge } from './Edge';
 
 export type GraphWorkspaceProps = {
   // tree: {[x:string]: any}
-  graph: graphscriptGraph;
+  graph: waslGraph;
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -70,29 +70,38 @@ export class GraphWorkspace extends LitElement {
       };
     }
 
-    graph: GraphWorkspaceProps['graph']
+    graph: GraphWorkspaceProps['graph'] // NOTE: This graph should remain consistent with the visual graph (!!!)
     updateCount: number = 0
     
     context: {
       zoom: number,
+
       minZoom: number,
       maxZoom: number,
       lastMousePos: {
         x: number,
         y: number
+      },
+
+      start: {
+        x: number,
+        y: number
+      },
+      point: {
+        x: number,
+        y: number
       }
     } = {
         zoom: 1,
-        minZoom: 0.4,
+        minZoom: 0.6 / window.devicePixelRatio,
         maxZoom: 3.0,
-        lastMousePos: {x: 0, y: 0}
+        lastMousePos: {x: 0, y: 0},
+        start: {x: 0, y: 0},
+        point: {x: 0, y: 0}
+
     }
     editing: HTMLElement | null = null
     mouseDown:boolean = false
-    translation:{
-      x: number, 
-      y: number
-    } = {x: 0, y:0}
 
     middle:{
       x: number, 
@@ -142,7 +151,10 @@ export class GraphWorkspace extends LitElement {
       else {
 
         this.element = this.shadowRoot.querySelector("div")
-        this.addEventListener('mousedown', e => { this.mouseDown = true} )
+        this.addEventListener('mousedown', e => { 
+          this.context.start = { x: e.clientX - this.context.point.x, y: e.clientY - this.context.point.y };
+          this.mouseDown = true
+        } )
         window.addEventListener('mouseup', e => { this.mouseDown = false} )
         this.addEventListener('wheel', this._scale)
         this.addEventListener('mousemove', this._pan)
@@ -154,9 +166,7 @@ export class GraphWorkspace extends LitElement {
           y: rect.height / 2
         }
 
-        this.setZoomOrigin()
-
-        let hasMoved = false
+        let notMoved = []
         this.nodes.forEach((node: GraphNode) => {
 
           drag(this, node, () => {
@@ -167,10 +177,13 @@ export class GraphWorkspace extends LitElement {
             if (this.editing instanceof GraphNode) this.editing = null
           })
 
-          hasMoved = node.x !== 0 && node.y !== 0
+          if (node.info.extensions?.visualscript) {
+            const info = node.info.extensions.visualscript
+            if (info.x != 0 && info.y != 0) notMoved.push(node)
+          } else notMoved.push(node)
       })
 
-      if (!hasMoved) this.autolayout()
+      this.autolayout(notMoved)
       this._transform() // Move to center
     }
 
@@ -215,11 +228,11 @@ export class GraphWorkspace extends LitElement {
       } else await this.editing.link(info) // Link second port to the current edge
     }
 
-    autolayout = () => {
+    autolayout = (nodes: GraphNode[] | Map<string, GraphNode> = this.nodes) => {
       let count = 0
       let rowLen = 5
       let offset = 20
-      this.nodes.forEach((n) => {
+      nodes.forEach((n) => {
         n.x = this.middle.x + offset + 100*(count % rowLen)
         n.y =  this.middle.y + offset + 150*(Math.floor(count/rowLen))
         count++
@@ -230,6 +243,11 @@ export class GraphWorkspace extends LitElement {
     removeNode = (name) => {
       const node = this.nodes.get(name)
       this.onnoderemoved(node)
+
+      // update wasl
+      delete this.graph.nodes[node.info.tag]
+
+      // update ui
       this.nodes.delete(name)
     }
 
@@ -237,12 +255,17 @@ export class GraphWorkspace extends LitElement {
       if (!props.workspace) props.workspace = this
  
       // shift position to the middle
-      if (props.info.x) props.info.x = props.info.x// + this.middle.x - this.translation.x
-      if (props.info.y) props.info.y = props.info.y// + this.middle.y - this.translation.y
+      if (props.info?.extensions?.visualscript?.x) props.x = props.info.extensions.visualscript.x
+      if (props.info?.extensions?.visualscript?.y) props.y = props.info.extensions.visualscript.y
 
+      // update ui
      const gN = new GraphNode(props)
       this.nodes.set(gN.info.tag, gN)
       this.onnodeadded(gN)
+
+      // update wasl
+      this.graph.nodes[gN.info.tag] = gN.info
+
       return gN
     }
 
@@ -252,95 +275,140 @@ export class GraphWorkspace extends LitElement {
 
       if (this.graph){
 
-        this.graph.nodes.forEach((n) => {
-
-          // Filter for the current level on the graph
-          if (!n.graph || this.graph === n.graph){
-
-            let gN = this.nodes.get(n.tag)
+        for (let key in this.graph.nodes) {
+          const n = this.graph.nodes[key]
+            if (!n.tag) n.tag = key
+            let gN = this.nodes.get(n.tag);
             if (!gN){
-
               gN = this.addNode({
                 info: n,
                 workspace: this
               })
             }
+        }
 
-            return gN
-          }
-        })
+        for (let key in this.graph.edges) {
+          const nodeEdges = this.graph.edges[key]
+          for (let targetKey in nodeEdges) {
 
-        // Create Edges to Children
-        const createEdges = async () => {
+          const output = this.match(key)
+          const input = this.match(targetKey)
 
-          // Look Two Levels Down
           const edges = {}
-          const maxDepth = 2
 
-          const condition = (node) => node?.graph && node?.graph != this.graph
-          const drillForMatchingGraph = (node, tag=node.tag) => {
-                let tags = [tag];
-                do {
-                  const hasCondition = condition(node)
-                  node = this.graph.nodes.get(node.graph?.tag)
-                  if (hasCondition) tags.unshift(node.tag);
-                } while (condition(node))
+          // Don't duplicate on construction
+          const outTag = output.port.tag
+          if (!edges[outTag]) edges[outTag] = []
+          if (!edges[outTag].includes(input.port.tag)){
 
-                let portName = tags.pop()
-                let match = this.nodes.get(tag);
-                tags.forEach(t => {
-                  const temp = this.nodes.get(t)
-                  if (temp) match = temp
-                })
+            await this.resolveEdge({
+              input: input.port,
+              output: output.port
+            }, false);    
 
-                if (tags.length === 0) portName = match.info.nodes.keys().next().value // fallback to first node
-                const port = match.ports.get(portName);
+            edges[outTag].push(input.port.tag)
+          }   
 
-                return {
-                  port,
-                  match
-                }
-          }
-          const checkNodesForEdges = async (nodes: Map<string, (GraphNode | GraphNode['info'])>, depth=0) => {
-            const nodeArr = Array.from(nodes.entries());
+        }
+      }
 
-          for (let i = 0; i < nodeArr.length; i++) {
 
-            const [key, value] = nodeArr[i]
-            let nodeInfo = (depth === 0) ? (value as GraphNode).info : value as GraphNode['info']
+        // // Create Edges to Children
+        // const createEdges = async () => {
 
-            if (nodeInfo.children) {
-              for (let nodeTag in nodeInfo.children) {
+        //   // Look Two Levels Down
+        //   const edges = {}
+        //   const maxDepth = 2
 
-                const output = drillForMatchingGraph(nodeInfo, key)
-                const input = drillForMatchingGraph(nodeInfo.children[nodeTag], nodeTag)
+        //   const condition = (node) => node?.graph && node?.graph != this.graph
+        //   const drillForMatchingGraph = (node, tag=node.tag) => {
+        //         let tags = [tag];
+        //         do {
+        //           const hasCondition = condition(node)
+        //           node = this.graph.nodes.get(node.graph?.tag)
+        //           if (hasCondition) tags.unshift(node.tag);
+        //         } while (condition(node))
 
-                // Don't duplicate on construction
-                const outTag = output.port.tag
-                if (!edges[outTag]) edges[outTag] = []
-                if (!edges[outTag].includes(input.port.tag)){
-                  await this.resolveEdge({
-                    input: input.port,
-                    output: output.port
-                  }, false);    
+        //         let portName = tags.pop()
+        //         let match = this.nodes.get(tag);
+        //         tags.forEach(t => {
+        //           const temp = this.nodes.get(t)
+        //           if (temp) match = temp
+        //         })
 
-                  edges[outTag].push(input.port.tag)
-                }   
-              }
-            }
-            if (nodeInfo.nodes && depth < maxDepth) await checkNodesForEdges(nodeInfo.nodes, depth + 1)
-          }
-          }
-          await checkNodesForEdges(this.nodes)
-        };
+        //         if (tags.length === 0) portName = match.info.nodes.keys().next().value // fallback to first node
+        //         const port = match.ports.get(portName);
 
-        await createEdges()
+        //         return {
+        //           port,
+        //           match
+        //         }
+        //   }
+        //   const checkNodesForEdges = async (nodes: Map<string, (GraphNode | GraphNode['info'])>, depth=0) => {
+        //     const nodeArr = Array.from(nodes.entries());
+
+        //   for (let i = 0; i < nodeArr.length; i++) {
+
+        //     const [key, value] = nodeArr[i]
+        //     let nodeInfo = (depth === 0) ? (value as GraphNode).info : value as GraphNode['info']
+
+        //     if (nodeInfo.children) {
+        //       for (let nodeTag in nodeInfo.children) {
+
+        //         const output = drillForMatchingGraph(nodeInfo, key)
+        //         const input = drillForMatchingGraph(nodeInfo.children[nodeTag], nodeTag)
+
+        //         // Don't duplicate on construction
+        //         const outTag = output.port.tag
+        //         if (!edges[outTag]) edges[outTag] = []
+        //         if (!edges[outTag].includes(input.port.tag)){
+        //           await this.resolveEdge({
+        //             input: input.port,
+        //             output: output.port
+        //           }, false);    
+
+        //           edges[outTag].push(input.port.tag)
+        //         }   
+        //       }
+        //     }
+        //     if (nodeInfo.nodes && depth < maxDepth) await checkNodesForEdges(nodeInfo.nodes, depth + 1)
+        //   }
+        //   }
+        //   await checkNodesForEdges(this.nodes)
+        // };
+
+        // await createEdges()
 
         this.onEdgesReady()
       }
 
       return nodes
     }
+
+   match = (route:string) => {
+
+      let tags = route.split('.')
+      let portName = tags.pop()
+      let match = this.nodes.get(route);
+
+      tags.forEach(t => {
+        const temp = this.nodes.get(t)
+        if (temp) match = temp
+      })
+
+      if (tags.length === 0) {
+        // tags.push(portName) // place base back
+        portName = match.ports.keys().next().value // fallback to first node
+      }
+
+      const port = match.ports.get(portName);
+
+      return {
+        // route: [...tags, portName].join('.'),
+        port,
+        match
+      }
+}
     
     render(){
 
@@ -366,19 +434,22 @@ export class GraphWorkspace extends LitElement {
     // Behavior
     _scale = (e) => {
       e.preventDefault()
-      this.context.zoom += 0.01*-e.deltaY
+      let xs = (e.clientX - this.context.point.x) / this.context.zoom;
+      let ys = (e.clientY - this.context.point.y) / this.context.zoom;
+      let delta = (e.wheelDelta ? e.wheelDelta : -e.deltaY);
+      this.context.zoom = (delta > 0) ? (this.context.zoom * 1.2) : (this.context.zoom / 1.2);
       if (this.context.zoom < this.context.minZoom) this.context.zoom = this.context.minZoom // clamp
       if (this.context.zoom > this.context.maxZoom) this.context.zoom = this.context.maxZoom // clamp
+
+
+      this.context.point.x = e.clientX - xs * this.context.zoom;
+      this.context.point.y = e.clientY - ys * this.context.zoom;
+
       this._transform()
   }
 
-      setZoomOrigin = (ev?:MouseEvent, translation = this.translation) => {
-        // this.element.style.transformOrigin = `0px 0px`
-        this.element.style.transformOrigin = `${this.middle.x - translation.x + ev?.clientX ?? 0}px ${this.middle.y - translation.y + ev?.clientY ?? 0}px`
-      }
-
     _transform = () => {
-        this.element.style['transform'] = `translate(calc(-50% + ${this.translation.x}px), calc(-50% + ${this.translation.y}px)) scale(${this.context.zoom*100}%)`
+      this.element.style['transform'] = `translate(calc(-50% + ${this.context.point.x}px), calc(-50% + ${this.context.point.y}px)) scale(${this.context.zoom*100}%)`
     }
     
 
@@ -388,11 +459,11 @@ export class GraphWorkspace extends LitElement {
       this.context.lastMousePos.x = e.clientX
       this.context.lastMousePos.y = e.clientY
 
+      // e.preventDefault();
+
       if (!this.editing){
 
         if (e.target.parentNode){
-
-          this.setZoomOrigin(e)
 
             // Transform relative to Parent
             let rectParent = e.target.parentNode.getBoundingClientRect();
@@ -400,11 +471,9 @@ export class GraphWorkspace extends LitElement {
             let curYParent = (e.clientY - rectParent.top)/rectParent.height;  //y position within the element.
         
             if (this.mouseDown){
-                let tX = (curXParent-this.relXParent)*rectParent.width
-                let tY = (curYParent-this.relYParent)*rectParent.height
 
-                if (!isNaN(tX) && isFinite(tX)) this.translation.x += tX
-                if (!isNaN(tY) && isFinite(tY)) this.translation.y += tY
+                this.context.point.x = (e.clientX - this.context.start.x);
+                this.context.point.y = (e.clientY - this.context.start.y);
                 this._transform()
             } 
             this.relXParent = curXParent

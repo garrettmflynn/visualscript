@@ -1,16 +1,15 @@
 
 import { LitElement, html, css } from 'lit';
 import './Workspace';
-import {Input} from '../input/Input'
 import { GraphWorkspace } from './Workspace';
 import context from '../../instances/context'
 import { Modal, Overlay } from '../general';
-import { ObjectEditor } from '../object';
 import { Tree } from '../tree';
 
 type keyType = string | number | symbol
 export type GraphEditorProps = {
-  graph: graphscriptGraph
+  graph: waslGraph,
+  plugins: {[x:string]: waslNode[] | GraphEditorProps['plugins']}
   plot?: Function[],
   onPlot?: Function
   preprocess?: Function
@@ -89,11 +88,12 @@ export class GraphEditor extends LitElement {
     }
 
     graph: GraphEditorProps['graph']
+    plugins: GraphEditorProps['plugins']
     keys: (keyType)[]
     history: any[] = []
     workspace: GraphWorkspace
     onedgeadded: GraphWorkspace['onedgeadded']
-    onedgeremoved: GraphWorkspace['onedgeremovedd']
+    onedgeremoved: GraphWorkspace['onedgeremoved']
     onnodeadded: GraphWorkspace['onnodeadded']
     onnoderemoved: GraphWorkspace['onnoderemoved']
 
@@ -111,8 +111,10 @@ export class GraphEditor extends LitElement {
 
       this.workspace = new GraphWorkspace(props)
       if (props) this.set(props.graph)
+      this.plugins = props?.plugins ?? {}
 
             // Setting Context Menu Response
+            if (!context.parentNode) document.body.appendChild(context)
             context.set('visualscript-graph-editor', {
               condition: (el) => {
                 const root =  this.workspace.shadowRoot
@@ -125,9 +127,7 @@ export class GraphEditor extends LitElement {
                 return [
                   {
                     text: 'Create new node',
-                    onclick: () => {
-
-                      const tag = `Node${Math.floor(1000*Math.random())}`
+                    onclick: async () => {
 
                       var rect = this.workspace.element.getBoundingClientRect();
                       var x = ev.clientX - rect.left; //x position within the element.
@@ -145,55 +145,41 @@ export class GraphEditor extends LitElement {
                       }
 
                       // Show Node Options in a List
-                      let onResolve = null;
-                      const list = new Tree({
-                        target: {
-                          header: {
-                            option: 'wow',
-                            again: 'wow'
+                      const info = await new Promise((resolve) => {
+
+                        const list = new Tree({
+                          target: this.plugins,
+                          conditions: {
+                            value: (o) => {
+                              return 'tag' in o
+                             } // wasl nodes always have a tag
                           },
-                          tag: {
-                            option: 'wow',
-                            again: 'wow'
-                          }
-                        },
-                        onClick: (type, thing) => {
-                          console.log(type, thing)
-                          // if (typeof onResolve === 'function') onResolve()
-                        }
-                      })
-                      modal.appendChild(list)
+                          onClick: (_, thing:any) => resolve(Object.assign({}, thing)) // pass a shallow copy onwards
+                        })
+                        modal.appendChild(list)
+                        this.workspace.parentNode.appendChild(overlay)
+                        overlay.open = true
+                      }) as waslNode
 
 
-                      this.workspace.parentNode.appendChild(overlay)
-                      overlay.open = true
+                      // Add essential info
+                      info.tag = `${info.tag}_${Math.floor(1000*Math.random())}` // generate tag from plugin
+                      // if (!info.nodes) info.nodes = new Map([['input', undefined]])
+                      // info.graph = this.graph
 
-                      
-                      // Wait for user to select an option
-                      const info = {
-                        tag,
-                        nodes: new Map([['input', undefined]]),
-                        graph: this.graph,
-
-                        // Extension
-                        x,
-                        y
-                      }
-
-                      info.x = x
-                      info.y = y
-
-                        
-                        this.workspace.addNode({info})
-                        this.workspace.triggerUpdate()
+                      // extend info for visualscript
+                      this.workspace.addNode({info, x, y})
+                      this.workspace.triggerUpdate()
+                      modal.open = false
+                      overlay.open = false
                   },
                 },
-                   {
-                    text: 'Do another thing',
-                    onclick: () => {
-                      console.warn('MUST DO SOMETHING')
-                  }
-                }
+                //    {
+                //     text: 'Do another thing',
+                //     onclick: () => {
+                //       console.warn('MUST DO SOMETHING')
+                //   }
+                // }
                 ]
               }
             })

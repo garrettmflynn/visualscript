@@ -1,7 +1,7 @@
 import { Story, Meta } from '@storybook/web-components';
-import { context } from '../../src/instances';
 import { GraphEditor, GraphEditorProps } from '../../src/components/graph/Editor';
 import { graph } from './info';
+import plugins from './plugins';
 
 export default {
   title: 'Graph/Editor',
@@ -13,10 +13,9 @@ const Template: Story<Partial<GraphEditorProps>> = (args:any) => new GraphEditor
 
 export const Default = Template.bind({});
 Default.args = {
-  graph: graph
+  graph: graph,
+  plugins
 };
-
-document.body.appendChild(context);
 
 // export const Stacked = Template.bind({});
 // Stacked.args = {
