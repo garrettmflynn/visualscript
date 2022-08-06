@@ -109,7 +109,7 @@ export class GraphNode extends LitElement {
       let args;
       if (info.src?.operator) args = getFnParamInfo(info.src?.operator) ?? new Map()
       else {
-        args = new Map(Object.entries(info.src).filter(([_,o]) => o.operator instanceof Function).map(([k]) => [k, undefined]))
+        args = new Map(Object.entries(info.src?.nodes ?? info.src ?? {}).filter(([_, o]) => (o.src?.operator ?? o.operator) instanceof Function).map(([k]) => [k, undefined]));
       }      
       
       // Set trigger port

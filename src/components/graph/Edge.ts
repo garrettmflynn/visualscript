@@ -220,7 +220,7 @@ export class GraphEdge extends LitElement {
     // use route if already in use (otherwise target node and fallback to first port)
     if (firstPort === base) {
       const target = (type === 'input' && outName) ? this.workspace.graph.edges[outName] : this.workspace.graph.edges
-      if (target[nodeTag]) tag = nodeTag
+      if (target?.[nodeTag]) tag = nodeTag
       else tag = route
     }
 

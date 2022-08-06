@@ -33,7 +33,6 @@ export class GraphEditor extends LitElement {
       align-items: center;
       justify-content: center;
       position: relative;
-      overflow: scroll;
       height: 100%;
     }
 

@@ -16,7 +16,7 @@ type waslNode = {
     // arguments?: Map<string, any>
     // graph?: waslGraph // Use if nested graphs
     // nodes?: Map<string, waslNode>
-    src?: nodeSrcInfo | {[x:string]: nodeSrcInfo}, // NOTE: Can be nested
+    src?: nodeSrcInfo | waslGraph, // NOTE: Can be nested
     extensions?: {
         [x:string]: {
             [x:string]: any
@@ -40,6 +40,6 @@ type waslEdges = {
 }
 
 type waslGraph = {
-    nodes: Map<string, waslNode>
-    edges: Map<string, waslEdges>
+    nodes: {[x:string]: waslNode}
+    edges: {[x:string]: waslEdges}
 }

@@ -25,7 +25,7 @@ export class GraphWorkspace extends LitElement {
 
     :host {
         overflow: hidden;
-        --grid-size: 1000%;
+        --grid-size: 5000px;
         --grid-color: rgb(210, 210, 210);
     }
 
