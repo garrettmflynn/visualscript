@@ -192,7 +192,7 @@ export class GraphEdge extends LitElement {
           this.input.setEdge(this)
 
           // update user
-          this.workspace.onedgeadded(this)
+          if (this.workspace.onedgeadded instanceof Function) this.workspace.onedgeadded(this)
 
           // update wasl
           const outputTag = this.getTag()
@@ -667,7 +667,7 @@ export class GraphEdge extends LitElement {
   deinit = () => {
 
     // update user
-    this.workspace.onedgeremoved(this)
+    if (this.workspace.onedgeremoved instanceof Function) this.workspace.onedgeremoved(this)
 
     // update ui
     if (this.output) this.output.deleteEdge(this.id)

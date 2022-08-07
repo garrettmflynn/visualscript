@@ -242,7 +242,7 @@ export class GraphWorkspace extends LitElement {
 
     removeNode = (name) => {
       const node = this.nodes.get(name)
-      this.onnoderemoved(node)
+      if (this.onnoderemoved instanceof Function) this.onnoderemoved(node)
 
       // update wasl
       delete this.graph.nodes[node.info.tag]
@@ -261,7 +261,7 @@ export class GraphWorkspace extends LitElement {
       // update ui
      const gN = new GraphNode(props)
       this.nodes.set(gN.info.tag, gN)
-      this.onnodeadded(gN)
+      if (this.onnodeadded instanceof Function) this.onnodeadded(gN)
 
       // update wasl
       this.graph.nodes[gN.info.tag] = gN.info
@@ -426,10 +426,10 @@ export class GraphWorkspace extends LitElement {
     }
 
     // Events
-    onedgeadded: (edge:GraphEdge) => void = () => {}
-    onedgeremoved: (edge:GraphEdge) => void = () => {}
-    onnodeadded: (node:GraphNode) => void = () => {}
-    onnoderemoved: (node:GraphNode) => void = () => {}
+    onedgeadded?: (edge:GraphEdge) => void = () => {}
+    onedgeremoved?: (edge:GraphEdge) => void = () => {}
+    onnodeadded?: (node:GraphNode) => void = () => {}
+    onnoderemoved?: (node:GraphNode) => void = () => {}
 
     // Behavior
     _scale = (e) => {
