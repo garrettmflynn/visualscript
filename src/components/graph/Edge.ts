@@ -168,6 +168,7 @@ export class GraphEdge extends LitElement {
 
   firstUp?: boolean
   ready: Promise<boolean>
+  isReady: boolean = false;
 
   resolveReady?: {
     resolve: Function,
@@ -192,7 +193,10 @@ export class GraphEdge extends LitElement {
           this.input.setEdge(this)
 
           // update user
-          if (this.workspace.onedgeadded instanceof Function) this.workspace.onedgeadded(this)
+          if (
+            this.workspace.toResolve.length === 0 // workspace has rendered
+            && this.workspace.onedgeadded instanceof Function // callback is a function
+            ) this.workspace.onedgeadded(this)
 
           // update wasl
           const outputTag = this.getTag()
@@ -201,6 +205,7 @@ export class GraphEdge extends LitElement {
           if (!this.workspace.graph.edges[outputTag]) this.workspace.graph.edges[outputTag] = {}
           this.workspace.graph.edges[outputTag][inputTag] = this.info
 
+          this.isReady = true
           resolve(arg)
         }, reject
       }
@@ -209,6 +214,8 @@ export class GraphEdge extends LitElement {
 
   getTag = (outName?:string) => {
     const type = (outName) ? 'input' : 'output'
+    if (!this[type]) return 
+
     const firstPort  = this[type].node.ports.keys().next().value
     const nodeTag = this[type].node.info.tag
 
@@ -667,7 +674,11 @@ export class GraphEdge extends LitElement {
   deinit = () => {
 
     // update user
-    if (this.workspace.onedgeremoved instanceof Function) this.workspace.onedgeremoved(this)
+    if (
+      this.workspace.toResolve.length === 0 // workspace has rendered
+      && this.ready // edge is ready
+      && this.workspace.onedgeremoved instanceof Function // callback is a function
+      ) this.workspace.onedgeremoved(this)
 
     // update ui
     if (this.output) this.output.deleteEdge(this.id)

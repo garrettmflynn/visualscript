@@ -75,20 +75,12 @@ export class GraphEditor extends LitElement {
     
     static get properties() {
       return {
-        // graph: {
-        //   type: Object,
-        //   reflect: false,
-        // },
-        keys: {
-          type: Object,
-          reflect: true,
-        },
+
       };
     }
 
     graph: GraphEditorProps['graph']
     plugins: GraphEditorProps['plugins']
-    keys: (keyType)[]
     history: any[] = []
     workspace: GraphWorkspace
     onedgeadded: GraphWorkspace['onedgeadded']
@@ -168,7 +160,6 @@ export class GraphEditor extends LitElement {
 
                       // extend info for visualscript
                       this.workspace.addNode({info, x, y})
-                      this.workspace.triggerUpdate()
                       modal.open = false
                       overlay.open = false
                   },
@@ -186,8 +177,7 @@ export class GraphEditor extends LitElement {
 
     set = async (graph) => {
       this.graph = graph
-      this.workspace.set(this.graph)
-      this.keys = (this.graph) ? Object.keys(this.graph) : []
+      await this.workspace.set(this.graph)
     }
 
     render() {

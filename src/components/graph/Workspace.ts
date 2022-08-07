@@ -116,6 +116,7 @@ export class GraphWorkspace extends LitElement {
     edges: Map<string, GraphEdge> = new Map()
 
     firstRender: boolean = true
+    toResolve: Function[] = []
 
 
     onEdgesReady = () => {}
@@ -133,7 +134,7 @@ export class GraphWorkspace extends LitElement {
 
     set = async (graph) => {
       this.graph = graph
-      this.triggerUpdate(true)
+      await this.triggerUpdate(true)
     }
 
     updated() {
@@ -185,6 +186,11 @@ export class GraphWorkspace extends LitElement {
 
       this.autolayout(notMoved)
       this._transform() // Move to center
+
+      if (this.toResolve.length > 0) {
+        this.toResolve.forEach(f => f()) // return to those waiting for a full rerender
+        this.toResolve = []
+      }
     }
 
     this.resize() // Catch first edge to resize
@@ -196,12 +202,16 @@ export class GraphWorkspace extends LitElement {
   }
 
 
+  // can be awaited until full rerender
     triggerUpdate = (reset=false) => {
-      if (reset) this.firstRender = true // Reset first render of this graph
-      this.updateCount = this.updateCount + 1
+      return new Promise(resolve => {
+        this.toResolve.push(() => resolve(true))
+        if (reset) this.firstRender = true // Reset first render of this graph
+        this.updateCount = this.updateCount + 1
+      })
     }
 
-    resolveEdge = async (info, rerender = true, willAwait=false) => {
+    resolveEdge = async (info, willAwait=true) => {
 
       if (!(this.editing instanceof GraphEdge)){
 
@@ -211,7 +221,9 @@ export class GraphWorkspace extends LitElement {
 
         this.edges.set(tempId, edge) // Place temp into DOM to trigger edge.rendered
 
-        if (rerender) this.triggerUpdate()
+        const grid = this.shadowRoot.querySelector('#grid')
+        if (grid) grid.appendChild(edge)
+        else console.warn('[visualscript-graph-workspace]: Grid has not been rendered yet.')
 
         edge.ready.then(res => {
           if (res){
@@ -242,7 +254,10 @@ export class GraphWorkspace extends LitElement {
 
     removeNode = (name) => {
       const node = this.nodes.get(name)
-      if (this.onnoderemoved instanceof Function) this.onnoderemoved(node)
+      if (
+        this.toResolve.length === 0 // workspace has rendered
+        && this.onnoderemoved instanceof Function // callback is a function
+        ) this.onnoderemoved(node)
 
       // update wasl
       delete this.graph.nodes[node.info.tag]
@@ -261,10 +276,18 @@ export class GraphWorkspace extends LitElement {
       // update ui
      const gN = new GraphNode(props)
       this.nodes.set(gN.info.tag, gN)
-      if (this.onnodeadded instanceof Function) this.onnodeadded(gN)
+      if (
+        this.toResolve.length === 0 // workspace has rendered
+        && this.onnodeadded instanceof Function // callback is a function
+        ) this.onnodeadded(gN)
+      
+      // add node to grid without full rerender
+      const grid = this.shadowRoot.querySelector('#grid')
+      if (grid) grid.appendChild(gN)
 
       // update wasl
       this.graph.nodes[gN.info.tag] = gN.info
+
 
       return gN
     }
@@ -304,81 +327,14 @@ export class GraphWorkspace extends LitElement {
             await this.resolveEdge({
               input: input.port,
               output: output.port
-            }, false);    
+            });    
 
             edges[outTag].push(input.port.tag)
           }   
 
         }
       }
-
-
-        // // Create Edges to Children
-        // const createEdges = async () => {
-
-        //   // Look Two Levels Down
-        //   const edges = {}
-        //   const maxDepth = 2
-
-        //   const condition = (node) => node?.graph && node?.graph != this.graph
-        //   const drillForMatchingGraph = (node, tag=node.tag) => {
-        //         let tags = [tag];
-        //         do {
-        //           const hasCondition = condition(node)
-        //           node = this.graph.nodes.get(node.graph?.tag)
-        //           if (hasCondition) tags.unshift(node.tag);
-        //         } while (condition(node))
-
-        //         let portName = tags.pop()
-        //         let match = this.nodes.get(tag);
-        //         tags.forEach(t => {
-        //           const temp = this.nodes.get(t)
-        //           if (temp) match = temp
-        //         })
-
-        //         if (tags.length === 0) portName = match.info.nodes.keys().next().value // fallback to first node
-        //         const port = match.ports.get(portName);
-
-        //         return {
-        //           port,
-        //           match
-        //         }
-        //   }
-        //   const checkNodesForEdges = async (nodes: Map<string, (GraphNode | GraphNode['info'])>, depth=0) => {
-        //     const nodeArr = Array.from(nodes.entries());
-
-        //   for (let i = 0; i < nodeArr.length; i++) {
-
-        //     const [key, value] = nodeArr[i]
-        //     let nodeInfo = (depth === 0) ? (value as GraphNode).info : value as GraphNode['info']
-
-        //     if (nodeInfo.children) {
-        //       for (let nodeTag in nodeInfo.children) {
-
-        //         const output = drillForMatchingGraph(nodeInfo, key)
-        //         const input = drillForMatchingGraph(nodeInfo.children[nodeTag], nodeTag)
-
-        //         // Don't duplicate on construction
-        //         const outTag = output.port.tag
-        //         if (!edges[outTag]) edges[outTag] = []
-        //         if (!edges[outTag].includes(input.port.tag)){
-        //           await this.resolveEdge({
-        //             input: input.port,
-        //             output: output.port
-        //           }, false);    
-
-        //           edges[outTag].push(input.port.tag)
-        //         }   
-        //       }
-        //     }
-        //     if (nodeInfo.nodes && depth < maxDepth) await checkNodesForEdges(nodeInfo.nodes, depth + 1)
-        //   }
-        //   }
-        //   await checkNodesForEdges(this.nodes)
-        // };
-
-        // await createEdges()
-
+      
         this.onEdgesReady()
       }
 

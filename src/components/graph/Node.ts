@@ -86,7 +86,7 @@ export class GraphNode extends LitElement {
       this.workspace = props.workspace
       this.info = props.info ?? {tag: 'node'}
 
-      this.id = `${this.info.tag}${Math.round(10000*Math.random())}` // TODO: Make these informative
+      this.id = `${this.info.tag}_${Math.round(10000*Math.random())}`
 
       if (this.info.extensions?.visualscript){
         this.info.extensions.visualscript.x = this.x = props.x ?? this.info.extensions.visualscript.x ?? 0
