@@ -5,6 +5,7 @@ import './Port';
 import { GraphEdge } from './Edge';
 import { GraphPort } from './Port';
 import { getFnParamInfo } from './utils/parse';
+import drag from './utils/drag'
 
 export type GraphNodeProps = {
   workspace?: GraphWorkspace
@@ -84,18 +85,16 @@ export class GraphNode extends LitElement {
       super();
 
       this.workspace = props.workspace
-      this.info = props.info ?? {tag: 'node'}
+      this.info = props.info ?? {tag: 'node', extensions: {visualscript: {x: 0, y:0}}}
 
       this.id = `${this.info.tag}_${Math.round(10000*Math.random())}`
 
-      if (this.info.extensions?.visualscript){
-        this.info.extensions.visualscript.x = this.x = props.x ?? this.info.extensions.visualscript.x ?? 0
-        this.info.extensions.visualscript.y = this.y = props.y ?? this.info.extensions.visualscript.y ?? 0
-      }
+      if (!this.info.extensions) this.info.extensions = {}
+      if (!this.info.extensions.visualscript) this.info.extensions.visualscript = {x: 0, y:0}
+      this.info.extensions.visualscript.x = this.x = props.x ?? this.info.extensions.visualscript.x ?? 0
+      this.info.extensions.visualscript.y = this.y = props.y ?? this.info.extensions.visualscript.y ?? 0
 
-      if (this.info) {
-        this.updatePorts()
-      }
+      if (this.info) this.updatePorts()
     }
 
     setInfo = (info) => {
@@ -134,9 +133,12 @@ export class GraphNode extends LitElement {
       if (updatedProps.has('info')) this.updatePorts()
     }
 
-    updated(changedProperties) {
+    updated() {
       this.element = this.shadowRoot.querySelector("div")
       if (!this.workspace) this.workspace = (this.parentNode.parentNode as any).host
+
+      // add drag handler
+      this.workspace.drag(this)
 
       this.edges.forEach(e => e.resize()) // resize all edges after
     }

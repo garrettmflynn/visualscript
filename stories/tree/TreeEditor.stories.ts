@@ -15,8 +15,8 @@ Default.args = {
   target: object
 }
 
-export const Filesystem = Template.bind({});
-Filesystem.args = {
+export const Files = Template.bind({});
+Files.args = {
   target: object,
-  mode: 'filesystem'
+  mode: 'files'
 }

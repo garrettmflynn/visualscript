@@ -4,9 +4,6 @@ import { Tab } from './Tab';
 import { Sidebar } from '..';
 import { TabBar } from './TabBar';
 
-// TODO: Remove long-winded references to the Global Main
-
-
 export type TabToggleProps = {
   tab: Tab,
   selected?: boolean,
@@ -138,12 +135,12 @@ export class TabToggle extends LitElement {
 
         // Show Correct Tab
         if (!toggles){
-           toggles = this.bar.querySelectorAll('visualscript-tab-toggle') // Get toggles
-           if (toggles.length === 0) toggles = this.bar.shadowRoot.querySelectorAll('visualscript-tab-toggle')
+           toggles = this.getBar().querySelectorAll('visualscript-tab-toggle') // Get toggles
+           if (toggles.length === 0) toggles = this.getBar().shadowRoot.querySelectorAll('visualscript-tab-toggle')
         }
        
 
-        if (toggles){
+        if (toggles?.length){
 
           this.selected = true
 
@@ -158,7 +155,7 @@ export class TabToggle extends LitElement {
 
             })
           // }
-        } else console.warn('No TabBar instance in the global Main')
+        }
 
         // Swap Sidebar Content
         const dashboard = this.to.dashboard 
@@ -172,9 +169,14 @@ export class TabToggle extends LitElement {
         }
     }
 
-    updated = () => {
+    getBar = () => {
       let parent = this.parentNode as TabBar | any
       this.bar = ((!(parent instanceof HTMLElement)) ? parent.host : parent) as TabBar
+      return this.bar
+    }
+
+    updated = () => {
+      this.bar = this.getBar()
     }
     
     render() {
@@ -184,7 +186,7 @@ export class TabToggle extends LitElement {
         if (this.parentNode) this.select() // Only allow if in the DOM
       }}>
         ${this.to.name ?? `Tab`}
-        ${(this.close === true) ? html`<visualscript-icon id=close type=close @click=${() => this.bar.delete(this.to.name)}></visualscript-icon>` : ''}
+        ${(this.close === true) ? html`<visualscript-icon id=close type=close @click=${() => this.getBar().delete(this.to.name)}></visualscript-icon>` : ''}
       </button>
     `
     }

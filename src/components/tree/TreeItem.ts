@@ -162,7 +162,7 @@ export class TreeItem extends LitElement {
           depth: this.parent.depth + 1, 
           conditions: this.parent.conditions, 
           onClick: this.onClick, 
-          mode: (isUsingFilesystemStrings) ? 'filesystem': undefined
+          mode: (isUsingFilesystemStrings) ? 'files': undefined
         }) // Create new tree from parent constructor (to avoid circular dependency)
         : undefined
 

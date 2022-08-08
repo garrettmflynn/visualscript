@@ -123,6 +123,7 @@ export class GraphEditor extends LitElement {
                       var rect = this.workspace.element.getBoundingClientRect();
                       var x = ev.clientX - rect.left; //x position within the element.
                       var y = ev.clientY - rect.top;  //y position within the element.
+                      
 
                       // Blur the Background
                       const overlay = new Overlay()
@@ -152,13 +153,11 @@ export class GraphEditor extends LitElement {
                         overlay.open = true
                       }) as waslNode
 
-
                       // Add essential info
                       info.tag = `${info.tag}_${Math.floor(1000*Math.random())}` // generate tag from plugin
-                      // if (!info.nodes) info.nodes = new Map([['input', undefined]])
-                      // info.graph = this.graph
 
                       // extend info for visualscript
+                      delete info?.extensions?.visualscript // delete existing instance-specific info
                       this.workspace.addNode({info, x, y})
                       modal.open = false
                       overlay.open = false

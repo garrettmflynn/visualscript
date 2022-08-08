@@ -9,7 +9,7 @@ export type TreeProps = {
   target: {[x:string]: any}
   depth?: number,
   onClick?: Function,
-  mode?: 'filesystem',
+  mode?: 'files',
   conditions?: {
     value: (value: any) => boolean
   }
@@ -179,7 +179,7 @@ export class Tree extends LitElement {
       // assign type
       let type;
       switch(this.mode){
-        case 'filesystem':
+        case 'files':
           type = complexCondition ? 'folder' : 'file'
           break;
 

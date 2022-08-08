@@ -5,7 +5,8 @@ import './TabToggle';
 import { TabBar } from './TabBar';
 
 export type PanelProps = {
-  minTabs?: number
+  minTabs?: number,
+  tabs?: Tab[]
 }
 
 export class Panel extends LitElement {
@@ -69,6 +70,10 @@ export class Panel extends LitElement {
       if (props.minTabs) this.minTabs = props.minTabs
 
       this.reset()
+      if (props.tabs) {
+        props.tabs.forEach(t => this.addTab(t, false, false))
+        this.updateTabs()
+      }
     }
 
     reset = () => {
@@ -78,11 +83,11 @@ export class Panel extends LitElement {
       this.updateTabs()
     }
 
-    addTab = (tab, switchTo=false) => {
+    addTab = (tab, switchTo=false, update=true) => {
       this.insertAdjacentElement('beforeend', tab)
       if (switchTo) this.activeTab = this.tabs.size
       this.tabs.set(tab.name, tab)
-      this.updateTabs()
+      if (update) this.updateTabs()
     }
 
     removeTab = (tab: Tab | string) => {

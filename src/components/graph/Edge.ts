@@ -370,6 +370,7 @@ export class GraphEdge extends LitElement {
     let label = (type === 'output') ? 'p1' : 'p2'
     let otherType = this.getOtherType(type)
 
+    // Allow tracking mouse movement
     let onMouseMove = (e) => {
       this.resize()
 
@@ -398,22 +399,23 @@ export class GraphEdge extends LitElement {
     this.workspace.element.addEventListener('mousemove', onMouseMove)
     this.workspace.element.dispatchEvent(new Event('mousemove'));
 
+
     this.toResolve = {
       type,
       listeners: [
         {name: 'mousemove', function: onMouseMove},
-        // {name: 'mouseup', function: onMouseUp}
       ],
       callback: upCallback
     }
 
-    // let onMouseUp = (e) => {
-    //   if (this.firstUp == undefined) this.firstUp = true
-    //   else this.firstUp = false
-    //   this.resolveIO(e.target, type, this.toResolve.callback, 'up')
-    // }
+    // Allow cancelling an edge
+    let onMouseUp = (e) => {
+      if (this.firstUp == undefined) this.firstUp = true
+      else this.firstUp = false
+      this.resolveIO(e.target, type, this.toResolve.callback, 'up')
+    }
 
-    // this.workspace.element.addEventListener('mouseup', onMouseUp)
+    this.workspace.element.addEventListener('mouseup', onMouseUp)
   }
 
   init = async () => {
@@ -443,7 +445,7 @@ export class GraphEdge extends LitElement {
 
       if (res === true && match == null && compatible) resolve(true)
       else {
-        // this.deinit()
+        this.deinit()
         // if (match == null) reject(`edge from ${this.output?.node?.name} (${this.output?.name}) to ${this.input?.node?.name} (${this.input?.name}) already exists`) // not currently checking
         // else 
         reject(res)
@@ -689,8 +691,9 @@ export class GraphEdge extends LitElement {
     // update wasl
     const outputTag = this.getTag()
     const inputTag = this.getTag(outputTag)
-    if (this.workspace.graph.edges[outputTag]) delete this.workspace.graph.edges[outputTag][inputTag]
-    else console.error('incorrect tag', outputTag, this.workspace.graph.edges)
+    if (this.ready) {
+      if (this.workspace.graph.edges[outputTag]) delete this.workspace.graph.edges[outputTag][inputTag]
+    } else console.error('incorrect tag', outputTag, this.workspace.graph.edges)
   }
 
   resize = () => {

@@ -78,10 +78,6 @@ export class GraphWorkspace extends LitElement {
 
       minZoom: number,
       maxZoom: number,
-      lastMousePos: {
-        x: number,
-        y: number
-      },
 
       start: {
         x: number,
@@ -95,7 +91,6 @@ export class GraphWorkspace extends LitElement {
         zoom: 1,
         minZoom: 0.6 / window.devicePixelRatio,
         maxZoom: 3.0,
-        lastMousePos: {x: 0, y: 0},
         start: {x: 0, y: 0},
         point: {x: 0, y: 0}
 
@@ -167,22 +162,16 @@ export class GraphWorkspace extends LitElement {
           y: rect.height / 2
         }
 
-        let notMoved = []
-        this.nodes.forEach((node: GraphNode) => {
-
-          drag(this, node, () => {
-            this.resize([node])
-          }, () => { 
-            if (!this.editing) this.editing = node
-          }, () => {
-            if (this.editing instanceof GraphNode) this.editing = null
-          })
-
-          if (node.info.extensions?.visualscript) {
-            const info = node.info.extensions.visualscript
-            if (info.x != 0 && info.y != 0) notMoved.push(node)
-          } else notMoved.push(node)
-      })
+        // autolayout nodes added through the graph interface
+      let notMoved = []
+      this.nodes.forEach((node) => {
+        if (node.info.extensions?.visualscript) {
+          const info = node.info.extensions.visualscript;
+          if (info.x === 0 && info.y === 0)
+            notMoved.push(node);
+        } else
+          notMoved.push(node);
+      });
 
       this.autolayout(notMoved)
       this._transform() // Move to center
@@ -231,7 +220,7 @@ export class GraphWorkspace extends LitElement {
             this.edges.set(edge.id, edge)
             edge.resize()
           }
-        }).catch(e => console.error(e))
+        }).catch(() => {})
 
         if (willAwait) await edge.ready // Wait until the edge is complete
 
@@ -243,10 +232,21 @@ export class GraphWorkspace extends LitElement {
     autolayout = (nodes: GraphNode[] | Map<string, GraphNode> = this.nodes) => {
       let count = 0
       let rowLen = 5
-      let offset = 20
+      let xOff = 100
+      let yOff = 150
+
+      const numNodes = nodes?.size ?? nodes?.length
+      const width = Math.min(rowLen, numNodes) * xOff
+      const height = (1 + Math.floor(numNodes/rowLen)) * yOff
+
+      // Set top-left viewport location
+      this.context.point.x = width
+      this.context.point.y = Math.max(this.parentNode.clientHeight / 2 , height)
+
+      // Move nodes
       nodes.forEach((n) => {
-        n.x = this.middle.x + offset + 100*(count % rowLen)
-        n.y =  this.middle.y + offset + 150*(Math.floor(count/rowLen))
+        n.x = this.middle.x  + xOff*(count % rowLen) - width / 2
+        n.y =  this.middle.y  + yOff*(Math.floor(count/rowLen)) - height / 2
         count++
       })
 
@@ -288,8 +288,18 @@ export class GraphWorkspace extends LitElement {
       // update wasl
       this.graph.nodes[gN.info.tag] = gN.info
 
-
       return gN
+    }
+
+    drag = (item: GraphNode | any) => {
+            // add drag handler
+      drag(this, item, () => {
+            this.resize([item])
+          }, () => { 
+            if (!this.editing) this.editing = item
+          }, () => {
+            if (this.editing instanceof GraphNode) this.editing = null
+        })
     }
 
     createUIFromGraph = async () => {
@@ -411,9 +421,6 @@ export class GraphWorkspace extends LitElement {
 
 
     _pan = (e) => {
-
-      this.context.lastMousePos.x = e.clientX
-      this.context.lastMousePos.y = e.clientY
 
       // e.preventDefault();
 
