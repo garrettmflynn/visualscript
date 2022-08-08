@@ -129,7 +129,7 @@ export class GraphEditor extends LitElement {
                       const overlay = new Overlay()
 
                       // Create a Modal
-                      const modal = new Modal({open: true, header: 'Plugins', footer: '<small>All plugins can be found on <a href="https://github.com/brainsatplay/awesome-brainsatplay">awesome-brainsatplay</a></small>'})
+                      const modal = new Modal({open: true, header: 'Plugins', footer: '<small>All plugins can be found on the <a href="https://github.com/brainsatplay/plugins">plugins</a>repository.</small>'})
                       overlay.appendChild(modal)
 
                       modal.onClose = () => {
