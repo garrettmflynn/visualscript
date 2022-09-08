@@ -362,12 +362,9 @@ export class GraphWorkspace extends LitElement {
         if (temp) match = temp
       })
 
-      if (tags.length === 0) {
-        // tags.push(portName) // place base back
-        portName = match.ports.keys().next().value // fallback to first node
-      }
-
-      const port = match.ports.get(portName);
+      if (tags.length === 0) portName = 'default'; // fallback to default port
+      let port = match.ports.get(portName);
+      if (!port) port = match.ports.get('_internal');  // fallback to internal port
 
       return {
         // route: [...tags, portName].join('.'),

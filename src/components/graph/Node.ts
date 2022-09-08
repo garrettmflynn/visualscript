@@ -111,8 +111,8 @@ export class GraphNode extends LitElement {
         args = new Map(Object.entries(info.src?.nodes ?? info.src ?? {}).filter(([_, o]) => (o.src?.operator ?? o.operator) instanceof Function).map(([k]) => [k, {}]));
       }      
       
-      // Set trigger port
-      if (args.size === 0) args.set('trigger', {})
+      if (args.size === 0) args.set('default', {}) // always have a default port
+      args.set('_internal', {}) // always have an internal port
 
       // Add ports from arguments
       if (args) args.forEach((o, tag) => {
