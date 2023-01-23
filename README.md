@@ -4,13 +4,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Discord](https://img.shields.io/badge/community-discord-7289da.svg?sanitize=true)](https://discord.gg/CDxskSh9ZB)
 
-**visualscript** is a low-code programming system for [wasl](https://github.com/brainsatplay/wasl) applications.
-
-> **Note:** **visualscript** is a core library of the [Brains@Play Framework](https://github.com/brainsatplay/brainsatplay)
-
-## Notable Dependents
-### [Brains@Play Studio](https://github.com/brainsatplay/studio)
-This editor was created to allow users to rapidly construct high-performance web applications on the browser.
+**visualscript** is a framework for building interactive applications.
 
 ## Creating a Theme
 ### CSS Variables
@@ -19,7 +13,7 @@ This editor was created to allow users to rapidly construct high-performance web
 - --visualscript-secondary-color
 
 ## Acknowledgments
-This library is maintained by [Garrett Flynn](https://github.com/garrettmflynn) and [Joshua Brewster](https://github.com/joshbrew), who use contract work and community contributions through [Open Collective](https://opencollective.com/brainsatplay) to support themselves.
+This library is maintained by [Garrett Flynn](https://github.com/garrettmflynn), who uses contract work and community contributions through [Open Collective](https://opencollective.com/brainsatplay) to support himself.
 
 ### Backers
 [Support us with a monthly donation](https://opencollective.com/brainsatplay#backer) and help us continue our activities!
