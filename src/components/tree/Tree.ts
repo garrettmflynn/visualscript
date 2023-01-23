@@ -1,6 +1,7 @@
 
 import { LitElement, html, css } from 'lit';
 import {until} from 'lit-html/directives/until.js';
+import { darkBackgroundColor } from 'src/globals';
 import context from '../../instances/context';
 import { TreeItem } from './TreeItem';
 
@@ -25,7 +26,7 @@ export class Tree extends LitElement {
     }
 
     :host > div {
-      background: white;
+      background-color: white;
       height: 100%;
       width: 100%;
     }
@@ -74,8 +75,9 @@ export class Tree extends LitElement {
     }
 
     @media (prefers-color-scheme: dark) {
-      :host > * {
-        background-color: rgb(40, 40, 40);
+      :host > div {
+        color: white;
+        background-color: ${darkBackgroundColor};
       }
     }
 
@@ -214,15 +216,8 @@ export class Tree extends LitElement {
     addContextOptions = () => {
 
       // Setting Context Menu Response
-      context.set('visualscript-tree', {
-        condition: (el) => {
-          const root = this.shadowRoot
-          if (root){
-            console.log('MATCHING', el)
-            return el === this 
-            // || root.contains(el) // Is the workspace grid
-          } else return false
-        },
+      context.set(`visualscript-tree_${Math.random()}`, {
+        condition: (path) => path.includes(this),
         contents: () => {
           return [
             {

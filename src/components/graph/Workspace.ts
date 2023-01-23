@@ -5,28 +5,27 @@ import './Edge';
 import './Node';
 import drag from './utils/drag'
 import { GraphEdge } from './Edge';
-
-export type GraphWorkspaceProps = {
-  // tree: {[x:string]: any}
-  graph: waslGraph;
-  plot?: Function[],
-  onPlot?: Function
-  preprocess?: Function
-}
+import { GraphWorkspaceProps } from './types/general';
+import { darkBackgroundColor } from 'src/globals';
 
 export class GraphWorkspace extends LitElement {
 
   static get styles() {
     return css`
-
+    
     :host * {
       box-sizing: border-box;
     }
 
     :host {
+        --visualscript-dark-background-color: ${darkBackgroundColor};
+
         overflow: hidden;
+        height: 100%;
+        display: block;
         --grid-size: 5000px;
         --grid-color: rgb(210, 210, 210);
+        background: white;
     }
 
     #grid {
@@ -50,7 +49,8 @@ export class GraphWorkspace extends LitElement {
 
       @media (prefers-color-scheme: dark) { 
         :host {
-            --grid-color: rgb(45, 45, 45);
+            --grid-color: rgb(80, 80, 80);
+            background: var(--visualscript-dark-background-color);
         }
       }
 
@@ -113,13 +113,18 @@ export class GraphWorkspace extends LitElement {
     firstRender: boolean = true
     toResolve: Function[] = []
 
+    edgeMode: GraphWorkspaceProps['edgeMode'] = 'from'
 
-    onEdgesReady = () => {}
+
+    onEdgeReady = () => {}
 
     constructor(props?: GraphWorkspaceProps) {
       super();
 
-      if (props) this.set(props.graph)
+      if (props) {
+        this.set(props.graph)
+        if (props.edgeMode) this.edgeMode = props.edgeMode
+      }
 
       // Resize with Window Resize
       window.addEventListener('resize', () => {
@@ -134,19 +139,22 @@ export class GraphWorkspace extends LitElement {
 
     updated() {
 
+      this.element = this.shadowRoot.querySelector("div")
+
       // Rerender when All Edges have been Readied
       if (this.firstRender) {
-        this.onEdgesReady = () => {
+        this.onEdgeReady = () => {
           this.firstRender = false
           this.triggerUpdate()
-          this.onEdgesReady = () => {}
+          this.onEdgeReady = () => {}
         }
+
+        if (!this.edges.size) this.onEdgeReady() // No edges...
       } 
       
       // Apply Final Methods
       else {
 
-        this.element = this.shadowRoot.querySelector("div")
         this.addEventListener('mousedown', e => { 
           this.context.start = { x: e.clientX - this.context.point.x, y: e.clientY - this.context.point.y };
           this.mouseDown = true
@@ -162,17 +170,19 @@ export class GraphWorkspace extends LitElement {
           y: rect.height / 2
         }
 
+
         // autolayout nodes added through the graph interface
       let notMoved = []
       this.nodes.forEach((node) => {
-        if (node.info.extensions?.visualscript) {
-          const info = node.info.extensions.visualscript;
+        if (node.info.__extensions?.visualscript) {
+          const info = node.info.__extensions.visualscript;
           if (info.x === 0 && info.y === 0)
             notMoved.push(node);
         } else
           notMoved.push(node);
       });
 
+      
       this.autolayout(notMoved)
       this._transform() // Move to center
 
@@ -229,53 +239,111 @@ export class GraphWorkspace extends LitElement {
       } else await this.editing.link(info) // Link second port to the current edge
     }
 
-    autolayout = (nodes: GraphNode[] | Map<string, GraphNode> = this.nodes) => {
-      let count = 0
-      let rowLen = 5
-      let xOff = 100
-      let yOff = 150
 
-      const numNodes = nodes?.size ?? nodes?.length
-      const width = Math.min(rowLen, numNodes) * xOff
-      const height = (1 + Math.floor(numNodes/rowLen)) * yOff
+    // Currently laying out nodes in a rough square with more nodes in the columns
+    autolayout = (nodes: GraphNode[] | Map<string, GraphNode> = this.nodes) => {
+      let offset = 50
+
+      const numNodes = (nodes instanceof Map) ? nodes.size : nodes.length
+      let nPerRow = Math.floor(Math.sqrt(numNodes))
+
+      // const parent =  this.parentNode as Element
+      // const viewWidth = parent.clientWidth
+      // const viewHeight = parent.clientHeight
+
+      let rowSizes = []
+      let colSizes = []
+      let info = []
+
+      nodes.forEach((n, i) => {
+        const col = i % nPerRow
+        const row = Math.floor(i/nPerRow)
+
+        const dimensions = [
+          {
+            value: col,
+            sizes: colSizes,
+            dimension: 'height'
+          },
+          {
+            value: row,
+            sizes: rowSizes,
+            dimension: 'width'
+          }
+        ]
+
+        const rect = n.getBoundingClientRect()
+        info.push({
+          rect,
+          col,
+          row
+        })
+
+        dimensions.forEach(o => {
+          let isNew = false
+          if (o.sizes[o.value] === undefined) {
+            isNew = true
+            o.sizes[o.value] = 0
+          }
+
+          o.sizes[o.value] += rect[o.dimension]
+          if (!isNew) o.sizes[o.value] += offset
+        })
+      })
 
       // Set top-left viewport location
-      this.context.point.x = width
-      this.context.point.y = Math.max(this.parentNode.clientHeight / 2 , height)
+      const width = this.context.point.x = Math.max(...rowSizes)
+      const height = this.context.point.y = Math.max(...colSizes)
 
-      // Move nodes
-      nodes.forEach((n) => {
-        n.x = this.middle.x  + xOff*(count % rowLen) - width / 2
-        n.y =  this.middle.y  + yOff*(Math.floor(count/rowLen)) - height / 2
-        count++
+      // Actually move nodes
+      let rowAcc = []
+      let colAcc = []
+      nodes.forEach((n, i) => {
+        const nInfo = info[i]
+
+        if (colAcc[nInfo.col] === undefined) colAcc[nInfo.col] = 0
+        else colAcc[nInfo.col] += offset
+        
+        if (rowAcc[nInfo.row] === undefined) rowAcc[nInfo.row] = 0
+        else rowAcc[nInfo.row] += offset
+
+        n.x = this.middle.x  + colAcc[nInfo.col] - width // Set Column
+        n.y = this.middle.y  + rowAcc[nInfo.row] - height // Set Row
+
+        // Update with Shift
+        rowAcc[nInfo.row] += nInfo.rect.height
+        colAcc[nInfo.col] += nInfo.rect.width
       })
+
 
     }
 
-    removeNode = (name) => {
-      const node = this.nodes.get(name)
+    removeNode = (node: string | GraphNode) => {
+      if (typeof node === 'string') node = this.nodes.get(node)
+
       if (
         this.toResolve.length === 0 // workspace has rendered
         && this.onnoderemoved instanceof Function // callback is a function
         ) this.onnoderemoved(node)
 
-      // update wasl
-      delete this.graph.nodes[node.info.tag]
 
       // update ui
-      this.nodes.delete(name)
+      node.deinit(false)
+      this.nodes.delete(node.tag)
+
     }
 
     addNode = (props: GraphNodeProps) => {
+
       if (!props.workspace) props.workspace = this
  
       // shift position to the middle
-      if (props.info?.extensions?.visualscript?.x) props.x = props.info.extensions.visualscript.x
-      if (props.info?.extensions?.visualscript?.y) props.y = props.info.extensions.visualscript.y
+      if (props.info?.__extensions?.visualscript?.x) props.x = props.info.__extensions.visualscript.x
+      if (props.info?.__extensions?.visualscript?.y) props.y = props.info.__extensions.visualscript.y
 
       // update ui
      const gN = new GraphNode(props)
-      this.nodes.set(gN.info.tag, gN)
+      this.nodes.set(props.tag, gN)
       if (
         this.toResolve.length === 0 // workspace has rendered
         && this.onnodeadded instanceof Function // callback is a function
@@ -284,9 +352,6 @@ export class GraphWorkspace extends LitElement {
       // add node to grid without full rerender
       const grid = this.shadowRoot.querySelector('#grid')
       if (grid) grid.appendChild(gN)
-
-      // update wasl
-      this.graph.nodes[gN.info.tag] = gN.info
 
       return gN
     }
@@ -307,25 +372,30 @@ export class GraphWorkspace extends LitElement {
       let nodes:any = ''
 
       if (this.graph){
+        const nodes = (this.graph.nodes instanceof Map) ? this.graph.nodes : new Map(Object.entries(this.graph.nodes))
 
-        for (let key in this.graph.nodes) {
-          const n = this.graph.nodes[key]
-            if (!n.tag) n.tag = key
+        nodes.forEach((n,key) => {
             let gN = this.nodes.get(n.tag);
             if (!gN){
               gN = this.addNode({
+                tag: key,
                 info: n,
                 workspace: this
               })
             }
-        }
+        })
 
         for (let key in this.graph.edges) {
-          const nodeEdges = this.graph.edges[key]
-          for (let targetKey in nodeEdges) {
+          
+          let nodeEdges = this.graph.edges[key]
 
-          const output = this.match(key)
-          const input = this.match(targetKey)
+          // String shortcut
+          if (typeof nodeEdges === 'string') nodeEdges = {[nodeEdges]: true}
+
+          for (let targetKey in nodeEdges) {
+            const info = nodeEdges[targetKey]
+            const output = (this.edgeMode === 'from') ? this.match(key) : this.match(targetKey, info)
+            const input = (this.edgeMode === 'from') ? this.match(targetKey, info) : this.match(key)
 
           const edges = {}
 
@@ -335,6 +405,7 @@ export class GraphWorkspace extends LitElement {
           if (!edges[outTag].includes(input.port.tag)){
 
             await this.resolveEdge({
+              info,
               input: input.port,
               output: output.port
             });    
@@ -345,29 +416,37 @@ export class GraphWorkspace extends LitElement {
         }
       }
       
-        this.onEdgesReady()
+        this.onEdgeReady()
       }
 
       return nodes
     }
 
-   match = (route:string) => {
+   match = (route:string, edgeInfo: any = {}) => {
 
       let tags = route.split('.')
-      let portName = tags.pop()
-      let match = this.nodes.get(route);
+      let match = this.nodes.get(tags[0]);
+
+      // If no port name, choose between operator and default
+      const portName = (tags.length === 1) ? (match.info.__operator ? '__operator' : 'default') : tags.slice(1).join('.'); // fallback to default port
 
       tags.forEach(t => {
         const temp = this.nodes.get(t)
         if (temp) match = temp
       })
 
-      if (tags.length === 0) portName = 'default'; // fallback to default port
-      let port = match.ports.get(portName);
-      if (!port) port = match.ports.get('_internal');  // fallback to internal port
-
+      let port;
+      try {
+        port = match.ports.get(portName);
+        if (!port) {
+          // alert('Port not found: ' + route)
+          port = match.addPort({tag: portName, value: edgeInfo.target})
+        }
+      } catch (e) {
+        console.error('failed to get port', e, route, this.nodes)
+      }
+      
       return {
-        // route: [...tags, portName].join('.'),
         port,
         match
       }

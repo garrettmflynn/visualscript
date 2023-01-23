@@ -2,7 +2,7 @@
 import { LitElement, html, css } from 'lit';
 import "../general/Overlay"
 import { Main } from './Main';
-import { Sidebar } from '../dashboard';
+import { Sidebar } from '.';
 import { Nav, Footer } from '../general';
 import { App } from './App';
 

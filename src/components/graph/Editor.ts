@@ -5,15 +5,9 @@ import { GraphWorkspace } from './Workspace';
 import context from '../../instances/context'
 import { Modal, Overlay } from '../general';
 import { Tree } from '../tree';
+import { GraphEditorProps } from './types/general';
 
 type keyType = string | number | symbol
-export type GraphEditorProps = {
-  graph: waslGraph,
-  plugins: {[x:string]: waslNode[] | GraphEditorProps['plugins']}
-  plot?: Function[],
-  onPlot?: Function
-  preprocess?: Function
-}
 
 export class GraphEditor extends LitElement {
 
@@ -88,10 +82,15 @@ export class GraphEditor extends LitElement {
     onnodeadded: GraphWorkspace['onnodeadded']
     onnoderemoved: GraphWorkspace['onnoderemoved']
 
+    contextMenu = context
+
     constructor(props?: GraphEditorProps) {
       super();
 
-      // Define Setters and Getters for Workspace Events
+      // ---------------------------------------------------------------------------------------------------------
+      // ----------------------------------------- Proxy Workspace Events ----------------------------------------
+      // ---------------------------------------------------------------------------------------------------------
+
       const events = ['onedgeadded', 'onedgeremoved', 'onnodeadded', 'onnoderemoved']
       events.forEach(ev => {
         Object.defineProperty(this, ev, {
@@ -104,20 +103,41 @@ export class GraphEditor extends LitElement {
       if (props) this.set(props.graph)
       this.plugins = props?.plugins ?? {}
 
-            // Setting Context Menu Response
-            if (!context.parentNode) document.body.appendChild(context)
-            context.set('visualscript-graph-editor', {
-              condition: (el) => {
-                const root =  this.workspace.shadowRoot
-                if (root){
-                  return el ===  this.workspace // Is the workspace
-                  || root.contains(el) // Is the workspace grid
-                } else return false
-              },
+            // ---------------------------------------------------------------------------------------------------------
+            // ------------------------------------- Setting Context Menu Response -------------------------------------
+            // ---------------------------------------------------------------------------------------------------------
+
+            if (!this.contextMenu.parentNode) document.body.appendChild(this.contextMenu)
+
+            // Setting Context Menu Responses
+            this.contextMenu.set(`visualscript-graph-editor_nodes_${Math.random()}`, {
+              condition: (path) => {
+                  let returned: any = false
+                  this.workspace.nodes.forEach(n => {
+                    if (path.includes(n)) returned = n
+                  })
+                  return returned
+                },
+              contents: () => {
+                return [
+                  {
+                    text: 'Delete',
+                    onclick: (_, node) => {
+                      this.workspace.removeNode(node)
+                  }
+                }
+                ]
+                
+              }
+            })
+
+
+            this.contextMenu.set(`visualscript-graph-editor_${Math.random()}`, {
+              condition: (path) => path.includes(this),
               contents: (ev) => {
                 return [
                   {
-                    text: 'Create new node',
+                    text: 'Add Component',
                     onclick: async () => {
 
                       var rect = this.workspace.element.getBoundingClientRect();
@@ -129,7 +149,7 @@ export class GraphEditor extends LitElement {
                       const overlay = new Overlay()
 
                       // Create a Modal
-                      const modal = new Modal({open: true, header: 'Plugins', footer: '<small>All plugins can be found on the <a href="https://github.com/brainsatplay/plugins">plugins</a>repository.</small>'})
+                      const modal = new Modal({open: true, header: 'Components', footer: '<small>All ES Components can be found on the <a href="https://github.com/brainsatplay/escode/blob/main/components">ESCode</a> repository.</small>'})
                       overlay.appendChild(modal)
 
                       modal.onClose = () => {
@@ -137,28 +157,33 @@ export class GraphEditor extends LitElement {
                       }
 
                       // Show Node Options in a List
-                      const info = await new Promise((resolve) => {
+                      const result = await new Promise((resolve) => {
 
                         const list = new Tree({
                           target: this.plugins,
                           conditions: {
-                            value: (o) => {
-                              return 'tag' in o
-                             } // wasl nodes always have a tag
+                            value: (o) => !!o.__ // Check if a component
                           },
-                          onClick: (_, thing:any) => resolve(Object.assign({}, thing)) // pass a shallow copy onwards
+                          onClick: (tag, thing:any) => {
+                            resolve({tag, info: Object.assign({}, thing)}) // Copying thing so that it doesn't get modified globally
+                           } // pass a shallow copy onwards
                         })
                         modal.appendChild(list)
-                        this.workspace.parentNode.appendChild(overlay)
+                        document.body.appendChild(overlay)
+                        // this.workspace.parentNode.appendChild(overlay)
                         overlay.open = true
-                      }) as waslNode
+                        
+                      }) as any // TODO: Add ES Component types...
 
                       // Add essential info
-                      info.tag = `${info.tag}_${Math.floor(1000*Math.random())}` // generate tag from plugin
+                      const info = result.info
+
+                      const tag = `${result.tag}_${Math.floor(1000*Math.random())}` // generate tag from plugin
 
                       // extend info for visualscript
                       delete info?.extensions?.visualscript // delete existing instance-specific info
-                      this.workspace.addNode({info, x, y})
+
+                      this.workspace.addNode({ tag, info, x, y })
                       modal.open = false
                       overlay.open = false
                   },

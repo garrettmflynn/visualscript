@@ -1,4 +1,5 @@
 import { LitElement, html, css } from 'lit';
+import { darkBackgroundColor } from 'src/globals';
 import './Button'
 
 export interface ModalProps {
@@ -104,6 +105,15 @@ export class Modal extends LitElement {
   pointer-events: all;
 }
 
+@media (prefers-color-scheme: dark) {
+
+  .modal-content {
+    background-color: ${darkBackgroundColor};
+    color: white;
+  }
+
+}
+
     `;
   }
     
@@ -153,8 +163,11 @@ export class Modal extends LitElement {
     toggle = () => {
       this.open = !this.open
 
-      if (!this.open) this.onClose()
-      else this.onOpen()
+      if (!this.open) {
+        if (this.onClose instanceof Function) this.onClose()
+      } else {
+        if (this.onOpen instanceof Function) this.onOpen()
+      }
 
     }
 
