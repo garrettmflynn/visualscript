@@ -3,7 +3,7 @@ import { classMap } from "lit-html/directives/class-map.js";
 import { getPersistent, setPersistent, PersistableProps } from './persistable';
 
 export interface InputProps {
-    value?: string;
+    value?: string | number | boolean | String | Number | Boolean;
     outline?: boolean;
     disabled?: boolean;
     type?: string;
@@ -31,6 +31,7 @@ export class Input extends LitElement {
             outline: { type: Boolean, reflect: true },
         });
     }
+
     constructor(props:InputProps = {}) {
         super();
 
@@ -134,6 +135,7 @@ opacity: 0.5;
         return html`
             <div class="form-group">
                 <input
+                value=${this.value}
                 class=${classMap({
                             outline: this.outline
                         })}
@@ -150,6 +152,7 @@ opacity: 0.5;
                     if (this.onInput instanceof Function) this.onInput(ev)
                 }}
                 />
+
                 <label>${this.label}</label>
             </div>
         `;

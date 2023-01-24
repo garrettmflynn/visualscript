@@ -8,11 +8,12 @@ import { darkBackgroundColor } from 'src/globals';
 
 type keyType = string | number | symbol
 export type ObjectEditorProps = {
-  target: {[x:string]: any}
+  target?: {[x:string]: any}
   header?: keyType
   mode?: string
   plot?: Function[],
   onPlot?: Function
+  toPlot?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
   preprocess?: Function
 }
 
@@ -152,15 +153,19 @@ export class ObjectEditor extends LitElement {
     timeseries: TimeSeries
     base: any
 
-    constructor(props: ObjectEditorProps = {target: {}, header: 'Object'}) {
+    constructor(props: ObjectEditorProps = {target: {}}) {
       super();
 
-      this.set(props.target, {base: true})
-      this.header = props.header ?? 'Object'
+      const target = props.target
+
+      // this.header = props.header
+      this.set(target, { base: true })
       this.mode = props.mode ?? 'view'
       this.plot = props.plot ?? []
       this.onPlot = props.onPlot
+      if (props.toPlot) this.toPlot = props.toPlot
       if (props.preprocess) this.preprocess = props.preprocess
+
 
       this.timeseries = new TimeSeries({
         data: []
@@ -182,6 +187,8 @@ export class ObjectEditor extends LitElement {
       if (options.base) this.base = target
       if (this.preprocess instanceof Function) this.target = await this.preprocess(target)
       else this.target = target
+
+      this.header = this.target.constructor.name
       this.keys = Object.keys(this.target).sort()
       this.mode = this.getMode(this.target, options.plot)
     }
@@ -219,7 +226,7 @@ export class ObjectEditor extends LitElement {
 
       const register = (key, target, info: any = {}) => {
 
-        const hasKey = (key in target)
+        // const hasKey = (key in target)
 
         // // Check first for special hierarchy key
         // const deeper = target[specialHierarchyKey]
@@ -247,9 +254,9 @@ export class ObjectEditor extends LitElement {
       const info = registerAll(path, this.base)
       if (!info) return
       else {
-        this.history = [{key: this.header, parent: this.base}, ...info.history.slice(0, -1)]
+        this.history = [{key: this.header, value: this.base}, ...info.history.slice(0, -1)]
         this.set(info.value, {
-          plot: this.checkToPlot(info.last, info.parent)
+          plot: this.toPlot(info.last, info.parent, this.history)
         }).then(() => {
           this.header = info.last
         })
@@ -257,14 +264,14 @@ export class ObjectEditor extends LitElement {
       }
     }
 
-    checkToPlot = (key, o) => this.plot.length !== 0 && this.plot.reduce((a,f) => a + f(key, o), 0) === this.plot.length
+    toPlot: ObjectEditorProps['toPlot'] = () => false
 
-    updateHistory = (parent, key, history = this.history) => history.push({parent, key})
+    updateHistory = (value, key, history = this.history) => history.push({value, key})
 
     change = async (val, key, parent=this.target, previousKey=this.header) => {
       this.updateHistory(parent, previousKey)
       await this.set(val, {
-        plot: this.checkToPlot(key,parent)
+        plot: this.toPlot(key, parent, this.history)
       })
       this.header = key
       return true
@@ -277,7 +284,7 @@ export class ObjectEditor extends LitElement {
       const val = await Promise.resolve(o[key])
 
       if (typeof val === 'object') {
-        const mode = this.getMode(val, this.checkToPlot(key,o))
+        const mode = this.getMode(val, this.toPlot(key, o, this.history))
         actions = html`<visualscript-button primary=true size="small" @click="${async () => this.change(val, key, o)}">${mode[0].toUpperCase() + mode.slice(1)}</visualscript-button>`
       }
 
@@ -290,34 +297,57 @@ export class ObjectEditor extends LitElement {
 
 
     getElement = async (key:keyType, o: any) => {
-        let display;
-
+        let display : any = '';
+        
         const val = await Promise.resolve(o[key])
 
-        if (typeof val === 'string' && val.includes('data:image')) {
-          display = document.createElement('img') as HTMLImageElement
-          display.src = val
-          display.style.height = '100%'
-        } else {
-          display = new Input()
-          display.value = val
-          display.onInput = (ev) => {
-            o[key] = ev.target.value // Modify original data
+        let showValue = true
+        let displayValue = val ?? '';
+
+        let check = true
+        let classes = [String, Boolean, Number]
+        classes.forEach(cls => {
+          if (val instanceof cls) {
+            showValue = false
+            check = false
+            display = new Input({
+              value: val, 
+              onInput: (ev) => {
+                o[key] = new cls(ev.target.value) // Modify original data
+              }
+            })
+          }
+        })
+
+
+        if (check) {
+          if (val === undefined) displayValue = 'undefined'
+          else if (val === null) displayValue = 'null'
+          else if (val && typeof val === 'object') {
+              display = await this.getActions(key, o)
+              displayValue = Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`
+          } else if (typeof val === 'string' && val.includes('data:image')) {
+            display = document.createElement('img') as HTMLImageElement
+            display.src = val
+            display.style.height = '100%'
+          } else {
+            showValue = false
+            display = new Input({
+              value: val, 
+              onInput: (ev) => {
+                o[key] = ev.target.value // Modify original data
+              }
+            })
           }
         }
 
-        const isObject = typeof val === 'object' 
-
         return html`
         <div class="attribute separate">
-        <div class="info">
-          <span class="name">${key}</span><br>
-          <span class="value">${(val ? (
-            (isObject)
-            ? (Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`)
-            : '') : val)}</span>
-        </div>
-          ${val && isObject ? await this.getActions(key, o) : display}
+          <div class="info">
+            <span class="name">${key}</span><br>
+            ${showValue ? html`<span class="value">${displayValue}</span>` : ''}
+          </div>
+          ${display}
         </div>`
 
     }
@@ -335,29 +365,46 @@ export class ObjectEditor extends LitElement {
         : []
       )
 
-      return until(Promise.all(content).then((data) => {
 
-        const history = [...this.history.map(o => o.key), this.header].join(`<wbr>.`)
-        const small = document.createElement('small')
-        small.innerHTML = history
+        const historyEl = document.createElement('small')
+        const historyArr = [...this.history, { key: this.header, value: this.target }]
+        historyArr.forEach((o, i) => {
+          const last =  i === (this.history.length)
+          const a = document.createElement('a')
+          historyEl.appendChild(a)
+
+          a.innerHTML = o.key
+          if (!last) {
+            a.title=`Click to shift history to ${o.key}`
+            a.href="#"
+            a.addEventListener('click', () => {
+              this.set(o.value)
+              this.history = historyArr.slice(0, i)
+              this.header = o.key
+              return false
+            })
+            historyEl.insertAdjacentHTML('beforeend', ' —&nbsp;')
+          }
+        })
+
 
         return html`
         <div>
           <div class="header">
-            <small>${small}</small>
-            ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
-                const historyItem = this.history.pop()
-                this.set(historyItem.parent)
-                this.header = historyItem.key
-            }}">Go Back</visualscript-button>` : ``}
+            ${historyEl}
           </div>
           <div class="container">
-                ${data}
-          </div>
+            ${until(Promise.all(content).then((data) => html`${data}`), html`<span>Loading...</span>`)}
+            </div>
         </div>
       `
-      }), html`<span>Loading...</span>`)
 
+    // // This Go Back button used to be implemented instead of the history trail
+    //   ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {
+    //     const historyItem = this.history.pop()
+    //     this.set(historyItem.value)
+    //     this.header = historyItem.key
+    // }}">Go Back</visualscript-button>` : ``}
     }
   }
   
