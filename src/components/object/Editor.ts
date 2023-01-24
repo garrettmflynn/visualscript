@@ -10,10 +10,9 @@ type keyType = string | number | symbol
 export type ObjectEditorProps = {
   target?: {[x:string]: any}
   header?: keyType
-  mode?: string
   plot?: Function[],
-  onPlot?: Function
-  toPlot?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
+  onRender?: Function
+  toDisplay?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
   preprocess?: Function
 }
 
@@ -43,27 +42,43 @@ export class ObjectEditor extends LitElement {
       max-height: 100px;
     }
 
-    .header {
+    #header {
       padding: 5px 10px;
       font-size: 70%;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      border-bottom: 1px solid gray;
     }
 
-    .header span {
+    #header span {
       font-weight: 800;
       font-size: 120%;
     }
 
-    .container {
+    #container {
       width: 100%;
       padding: 10px;
-      align-items: center;
-      justify-content: center;
       position: relative;
       overflow: scroll;
       height: 100%;
+    }
+
+    #display {
+      position: relative;
+      overflow-y: scroll;
+      max-height: 50%;
+    }
+
+    #loading {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      width: 100%;
+      font-size: 80%;
+      font-weight: 800;
     }
 
     .separate {
@@ -81,8 +96,7 @@ export class ObjectEditor extends LitElement {
     }
 
     .info {
-      display: flex;
-      align-items: center;
+      display: block;
     }
 
     .name {
@@ -90,8 +104,8 @@ export class ObjectEditor extends LitElement {
       padding-right: 10px;
     }
 
-    .value {
-      font-size: 80%;
+    .type {
+      font-size: 70%;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -100,7 +114,7 @@ export class ObjectEditor extends LitElement {
         box-shadow: 0 1px 5px 0 rgb(255 255 255 / 20%);
       }
 
-      .header {
+      #header {
         border-bottom: 1px solid gray;
       }
     }
@@ -126,11 +140,7 @@ export class ObjectEditor extends LitElement {
           type: String,
           reflect: true,
         },
-        mode: {
-          type: String,
-          reflect: true,
-        },
-        onPlot: {
+        onRender: {
           type: Function,
           reflect: true,
         },
@@ -146,10 +156,9 @@ export class ObjectEditor extends LitElement {
     header: ObjectEditorProps['header']
     history: any[] = []
     plot: ObjectEditorProps['plot']
-    onPlot: ObjectEditorProps['onPlot']
+    onRender: ObjectEditorProps['onRender']
     preprocess: ObjectEditorProps['preprocess']
 
-    mode: string
     timeseries: TimeSeries
     base: any
 
@@ -160,20 +169,14 @@ export class ObjectEditor extends LitElement {
 
       // this.header = props.header
       this.set(target, { base: true })
-      this.mode = props.mode ?? 'view'
       this.plot = props.plot ?? []
-      this.onPlot = props.onPlot
-      if (props.toPlot) this.toPlot = props.toPlot
+      this.onRender = props.onRender
       if (props.preprocess) this.preprocess = props.preprocess
 
 
       this.timeseries = new TimeSeries({
         data: []
       })
-    }
-
-    getMode = (target, plot) => {
-      return (plot) ? 'plot' : 'view' 
     }
 
     set = async (target={}, options: {
@@ -190,7 +193,6 @@ export class ObjectEditor extends LitElement {
 
       this.header = this.target.constructor.name
       this.keys = Object.keys(this.target).sort()
-      this.mode = this.getMode(this.target, options.plot)
     }
 
     to = (path) => {
@@ -255,24 +257,19 @@ export class ObjectEditor extends LitElement {
       if (!info) return
       else {
         this.history = [{key: this.header, value: this.base}, ...info.history.slice(0, -1)]
-        this.set(info.value, {
-          plot: this.toPlot(info.last, info.parent, this.history)
-        }).then(() => {
+        this.set(info.value).then(() => {
           this.header = info.last
         })
         return true
       }
     }
 
-    toPlot: ObjectEditorProps['toPlot'] = () => false
 
     updateHistory = (value, key, history = this.history) => history.push({value, key})
 
     change = async (val, key, parent=this.target, previousKey=this.header) => {
       this.updateHistory(parent, previousKey)
-      await this.set(val, {
-        plot: this.toPlot(key, parent, this.history)
-      })
+      await this.set(val)
       this.header = key
       return true
     }
@@ -284,8 +281,7 @@ export class ObjectEditor extends LitElement {
       const val = await Promise.resolve(o[key])
 
       if (typeof val === 'object') {
-        const mode = this.getMode(val, this.toPlot(key, o, this.history))
-        actions = html`<visualscript-button primary=true size="small" @click="${async () => this.change(val, key, o)}">${mode[0].toUpperCase() + mode.slice(1)}</visualscript-button>`
+        actions = html`<visualscript-button primary=true size="small" @click="${async () => this.change(val, key, o)}">View</visualscript-button>`
       }
 
       return html`
@@ -301,14 +297,14 @@ export class ObjectEditor extends LitElement {
         
         const val = await Promise.resolve(o[key])
 
-        let showValue = true
-        let displayValue = val ?? '';
+        let showType = true
+        let type = val ?? '';
 
         let check = true
         let classes = [String, Boolean, Number]
         classes.forEach(cls => {
           if (val instanceof cls) {
-            showValue = false
+            showType = false
             check = false
             display = new Input({
               value: val, 
@@ -321,17 +317,17 @@ export class ObjectEditor extends LitElement {
 
 
         if (check) {
-          if (val === undefined) displayValue = 'undefined'
-          else if (val === null) displayValue = 'null'
+          if (val === undefined) type = 'undefined'
+          else if (val === null) type = 'null'
           else if (val && typeof val === 'object') {
               display = await this.getActions(key, o)
-              displayValue = Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`
+              type = Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`
           } else if (typeof val === 'string' && val.includes('data:image')) {
             display = document.createElement('img') as HTMLImageElement
             display.src = val
             display.style.height = '100%'
           } else {
-            showValue = false
+            showType = false
             display = new Input({
               value: val, 
               onInput: (ev) => {
@@ -345,7 +341,7 @@ export class ObjectEditor extends LitElement {
         <div class="attribute separate">
           <div class="info">
             <span class="name">${key}</span><br>
-            ${showValue ? html`<span class="value">${displayValue}</span>` : ''}
+            ${showType ? html`<span class="type">${type}</span>` : ''}
           </div>
           ${display}
         </div>`
@@ -354,16 +350,10 @@ export class ObjectEditor extends LitElement {
   
     render() {
 
-      if (this.mode === 'plot') {
-        if (this.onPlot instanceof Function) this.onPlot(this)
-        this.insertAdjacentElement('afterend', this.timeseries)
-      } else this.timeseries.remove()
-
-      const content = (
-        this.mode === 'view' 
-        ? this.keys?.map(key => this.getElement(key, this.target)) 
-        : []
-      )
+      let display: any = ""
+      if (this.onRender instanceof Function) display = this.onRender(this.header, this.target, this.history)
+      
+      const content = this.keys?.map(key => this.getElement(key, this.target)) 
 
 
         const historyEl = document.createElement('small')
@@ -387,14 +377,16 @@ export class ObjectEditor extends LitElement {
           }
         })
 
-
         return html`
         <div>
-          <div class="header">
+          <div id="header">
             ${historyEl}
           </div>
-          <div class="container">
-            ${until(Promise.all(content).then((data) => html`${data}`), html`<span>Loading...</span>`)}
+          <div id="display">
+          ${until(Promise.resolve(display), '')}
+          </div>
+          <div id="container">
+            ${until(Promise.all(content).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
             </div>
         </div>
       `
