@@ -67,7 +67,7 @@ export class ObjectEditor extends LitElement {
     #display {
       position: relative;
       overflow-y: scroll;
-      max-height: 50%;
+      height: 50%;
     }
 
     #loading {
@@ -350,8 +350,13 @@ export class ObjectEditor extends LitElement {
   
     render() {
 
-      let display: any = ""
-      if (this.onRender instanceof Function) display = this.onRender(this.header, this.target, this.history)
+      let display: any
+      if (this.onRender instanceof Function) {
+        display = this.onRender(this.header, this.target, this.history)
+        // Promise.resolve(display).then((d) => {
+        //   this.insertAdjacentElement('afterend', d)
+        // })
+      }
       
       const content = this.keys?.map(key => this.getElement(key, this.target)) 
 
@@ -376,20 +381,29 @@ export class ObjectEditor extends LitElement {
             historyEl.insertAdjacentHTML('beforeend', ' —&nbsp;')
           }
         })
-
+        
         return html`
         <div>
           <div id="header">
             ${historyEl}
           </div>
-          <div id="display">
-          ${until(Promise.resolve(display), '')}
-          </div>
+          ${until(Promise.resolve(display).then((res) => res ? html`<div id="display">${res}</div>` : ''), '')}
           <div id="container">
             ${until(Promise.all(content).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
             </div>
         </div>
       `
+
+      // return html`
+      //   <div>
+      //     <div id="header">
+      //       ${historyEl}
+      //     </div>
+      //     <div id="container">
+      //       ${until(Promise.all(content).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
+      //       </div>
+      //   </div>
+      // `
 
     // // This Go Back button used to be implemented instead of the history trail
     //   ${ (this.history.length > 0) ? html`<visualscript-button size="extra-small" @click="${() => {

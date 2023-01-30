@@ -1,5 +1,6 @@
-import {LitElement, css, } from 'lit';
+import {LitElement, css, html, } from 'lit';
 // import ResizeObserver from 'resize-observer-polyfill';
+import { plotlyStyles } from './plotly-styles.js'
 
 export type TimeSeriesProps = {
   max?: number;
@@ -22,18 +23,22 @@ const colorscales = ['Hot' , 'Cold' , 'YlGnBu' , 'YlOrRd' , 'RdBu' , 'Portland' 
 export class TimeSeries extends LitElement {
 
     static get styles() {
-      return css`
+      return [ css`
 
       :host {
+        display: block;
         overflow: hidden;
+        height: 100%;
       }
       
-      `;
+      `, 
+      
+      plotlyStyles ]
     }
 
-    createRenderRoot() {
-      return this;
-    }
+    // createRenderRoot() {
+    //   return this;
+    // }
     
     
     static get properties() {
@@ -75,7 +80,7 @@ export class TimeSeries extends LitElement {
 
     static colorscales = colorscales
     colorscale: TimeSeriesProps['colorscale'] = 'Electric'
-    div: any = document.createElement('div');
+    div: any
     data: TimeSeriesProps['data'] = [];
     plotData: any[] = []
     layout: TimeSeriesProps['layout'] = {}
@@ -99,10 +104,8 @@ export class TimeSeries extends LitElement {
       if (props.onLegendClick) this.onLegendClick = props.onLegendClick
       if (props.config) this.config = props.config
 
-      if (props.Plotly){
-        this.Plotly = props.Plotly
-        this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
-      } else console.warn('<visualscript-timeseries->: Plotly instance not provided...')
+      if (props.Plotly) this.Plotly = props.Plotly
+      else console.warn('<visualscript-timeseries->: Plotly instance not provided...')
 
       // window.addEventListener('resize', this.resize)
 
@@ -122,7 +125,7 @@ export class TimeSeries extends LitElement {
   getConfig = () => {
     return Object.assign({
       displaylogo: false, 
-      responsive: true
+      // responsive: true
     }, this.config)
   }
 
@@ -147,11 +150,12 @@ export class TimeSeries extends LitElement {
       });
   }
 
+
   willUpdate(changedProps:any) {
     
-    if (changedProps.has('data')) {
-      this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
-    }
+    // if (changedProps.has('data')) {
+    //   this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
+    // }
 
     if (changedProps.has('onClick')) {
       this.div.on('plotly_click', this.onClick);
@@ -159,6 +163,25 @@ export class TimeSeries extends LitElement {
     if (changedProps.has('onLegendClick')) {
       this.div.on('plotly_legendclick', this.onLegendClick)
     }
+  }
+
+  updated() {
+    this.div = this.shadowRoot.querySelector('#plotlyDiv')
+    this.Plotly.newPlot(this.div, this.getTraces(), this.getLayout(), this.getConfig());
+
+    const resize = () => {
+      const rect = this.getBoundingClientRect()
+      var update = {
+        width: rect.width,
+        height: rect.height 
+      };
+      
+      this.Plotly.relayout(this.div, update);
+    };
+
+    
+    window.addEventListener('resize', resize)
+    resize()
   }
 
   //   updateData = (newData) => {
@@ -201,7 +224,7 @@ export class TimeSeries extends LitElement {
   //   }
 
     render() {
-      return this.div
+      return html`<div id="plotlyDiv"></div>`
     }
   }
   
