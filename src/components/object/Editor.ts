@@ -8,6 +8,12 @@ import { darkBackgroundColor } from 'src/globals';
 
 
 const noTypeSymbol = Symbol('noType')
+var TypedArray = Object.getPrototypeOf(Uint8Array);
+
+
+const isAnyArray = (val) => {
+  return val && (Array.isArray(val) || val instanceof TypedArray)
+}
 
 type keyType = string | number | symbol
 export type ObjectEditorProps = {
@@ -17,7 +23,7 @@ export type ObjectEditorProps = {
   onRender?: Function
   toDisplay?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
   preprocess?: Function,
-  showType?: boolean
+  deferValues?: boolean
 }
 
 export class ObjectEditor extends LitElement {
@@ -152,7 +158,7 @@ export class ObjectEditor extends LitElement {
           type: Function,
           reflect: true,
         },
-        showType: {
+        deferValues: {
           type: Boolean,
           reflect: true,
         },
@@ -166,7 +172,7 @@ export class ObjectEditor extends LitElement {
     plot: ObjectEditorProps['plot']
     onRender: ObjectEditorProps['onRender']
     preprocess: ObjectEditorProps['preprocess']
-    showType: ObjectEditorProps['showType']
+    deferValues: ObjectEditorProps['deferValues']
 
     timeseries: TimeSeries
     base: any
@@ -180,7 +186,7 @@ export class ObjectEditor extends LitElement {
       this.set(target, { base: true })
       this.plot = props.plot ?? []
       this.onRender = props.onRender
-      this.showType = props.showType ?? true
+      this.deferValues = props.deferValues
       if (props.preprocess) this.preprocess = props.preprocess
 
 
@@ -201,12 +207,18 @@ export class ObjectEditor extends LitElement {
       if (this.preprocess instanceof Function) this.target = await this.preprocess(target)
       else this.target = target
 
-      if (typeof this.target === 'object') {
+
+      const typeOf = typeof this.target
+      const isClassValue = this.isClassValue(this.target)
+      const isObject = (this.target && typeOf === 'object' && !isClassValue) 
+      const isArray = this.target && isAnyArray(this.target)
+      const renderValues = isObject || isArray
+      if (renderValues) {
         this.header = this.target.constructor.name
         this.keys = Object.keys(this.target).sort()
       } else {
         this.header = this.target
-        this.keys = []
+        this.keys = null
       }
     }
 
@@ -316,18 +328,19 @@ export class ObjectEditor extends LitElement {
 
     getElement = async (key:keyType, parent: any, force = false) => {
         
-        const getValue = (this.showType || force)
-        const val = getValue ? await Promise.resolve(parent[key]) : noTypeSymbol
-        let display : any = force ? `${val}` : '';
+        const getValue = !this.deferValues || force || isAnyArray(parent)
+        const val = (getValue) ? await Promise.resolve(parent[key]) : noTypeSymbol 
+        let display : any = '';
 
-        let showType = getValue
-        let type = val ?? '';
+        let type = '';
+
+        let renderType = getValue
 
         let check = true
         let classes = [String, Boolean, Number]
         classes.forEach(cls => {
           if (val instanceof cls) {
-            showType = false
+            renderType = false
             check = false
             display = new Input({
               value: val, 
@@ -338,7 +351,6 @@ export class ObjectEditor extends LitElement {
           }
         })
 
-        
 
         if (check) {
           if (val && (typeof val === 'object' || val === noTypeSymbol)) {
@@ -352,7 +364,7 @@ export class ObjectEditor extends LitElement {
           display.src = val
           display.style.height = '100%'
         } else {
-            showType = false
+          renderType = false
             display = new Input({
               value: val, 
               onInput: (ev) => {
@@ -361,15 +373,13 @@ export class ObjectEditor extends LitElement {
             })
           }
         }
-        const renderName = !force
-        const renderType = showType && !force
 
         return html`
         <div class="attribute separate">
-          ${(renderName || renderType) ? html`<div class="info">
-            ${renderName ? html`<span class="name">${typeof key === 'string' ? key : html`[${typeof key}]`}</span>` : ''}
-            ${renderType ? html`<br><span class="type">${type}</span>` : ''}
-          </div>` : ''} 
+          <div class="info">
+            <span class="name">${typeof key === 'string' ? key : html`[${typeof key}]`}</span>
+            ${(renderType) ? html`<br><span class="type">${type}</span>` : ''}
+          </div>
           ${display}
         </div>`
 
@@ -378,16 +388,14 @@ export class ObjectEditor extends LitElement {
     render() {
       
       const key = this.header
-      const typeOf = typeof this.target
-      const isClassValue = this.isClassValue(this.target)
-      const isObject = (this.target && typeOf === 'object' && !isClassValue) 
 
       // Only pass objects through the render function
       let display: any
-      if (isObject && this.onRender instanceof Function) display = this.onRender(this.header, this.target, this.history)
 
+      if (this.keys && this.onRender instanceof Function) display = this.onRender(this.header, this.target, this.history)
 
-      const content = isObject ? this.keys?.map(key => this.getElement(key, this.target))  : this.getElement(key, this.history.slice(-1)[0].value, true)
+      const parent = this.history.slice(-1)[0]?.value
+      const content = this.keys ? this.keys?.map(key => this.getElement(key, this.target))  : this.getElement(key, parent, true)
 
         const historyEl = document.createElement('small')
         const historyArr = [...this.history, { key, value: this.target }]
@@ -417,7 +425,7 @@ export class ObjectEditor extends LitElement {
           </div>
           ${until(Promise.resolve(display).then((res) => res ? html`<div id="display">${res}</div>` : ''), '')}
           <div id="container">
-            ${until((isObject ? Promise.all(content) : Promise.resolve(content)).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
+            ${until((this.keys ? Promise.all(content) : Promise.resolve(content)).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
             </div>
         </div>
       `
