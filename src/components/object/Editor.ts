@@ -6,6 +6,9 @@ import { TimeSeries } from '../plots';
 import {Input} from '../input/Input'
 import { darkBackgroundColor } from 'src/globals';
 
+
+const noTypeSymbol = Symbol('noType')
+
 type keyType = string | number | symbol
 export type ObjectEditorProps = {
   target?: {[x:string]: any}
@@ -13,7 +16,8 @@ export type ObjectEditorProps = {
   plot?: Function[],
   onRender?: Function
   toDisplay?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
-  preprocess?: Function
+  preprocess?: Function,
+  showType?: boolean
 }
 
 export class ObjectEditor extends LitElement {
@@ -148,29 +152,35 @@ export class ObjectEditor extends LitElement {
           type: Function,
           reflect: true,
         },
+        showType: {
+          type: Boolean,
+          reflect: true,
+        },
       };
     }
 
-    target: ObjectEditorProps['target']
+    target: ObjectEditorProps['target'] | any
     keys: (keyType)[]
     header: ObjectEditorProps['header']
     history: any[] = []
     plot: ObjectEditorProps['plot']
     onRender: ObjectEditorProps['onRender']
     preprocess: ObjectEditorProps['preprocess']
+    showType: ObjectEditorProps['showType']
 
     timeseries: TimeSeries
     base: any
 
-    constructor(props: ObjectEditorProps = {target: {}}) {
+    constructor(props: ObjectEditorProps = {}) {
       super();
 
-      const target = props.target
+      const target = props.target ?? {}
 
       // this.header = props.header
       this.set(target, { base: true })
       this.plot = props.plot ?? []
       this.onRender = props.onRender
+      this.showType = props.showType ?? true
       if (props.preprocess) this.preprocess = props.preprocess
 
 
@@ -179,7 +189,7 @@ export class ObjectEditor extends LitElement {
       })
     }
 
-    set = async (target={}, options: {
+    set = async (target, options: {
       plot?: boolean,
       base?: boolean
     } = {
@@ -191,8 +201,13 @@ export class ObjectEditor extends LitElement {
       if (this.preprocess instanceof Function) this.target = await this.preprocess(target)
       else this.target = target
 
-      this.header = this.target.constructor.name
-      this.keys = Object.keys(this.target).sort()
+      if (typeof this.target === 'object') {
+        this.header = this.target.constructor.name
+        this.keys = Object.keys(this.target).sort()
+      } else {
+        this.header = this.target
+        this.keys = []
+      }
     }
 
     to = (path) => {
@@ -267,7 +282,8 @@ export class ObjectEditor extends LitElement {
 
     updateHistory = (value, key, history = this.history) => history.push({value, key})
 
-    change = async (val, key, parent=this.target, previousKey=this.header) => {
+    change = async (key, parent=this.target, previousKey=this.header) => {
+      const val = await Promise.resolve(parent[key])
       this.updateHistory(parent, previousKey)
       await this.set(val)
       this.header = key
@@ -278,11 +294,11 @@ export class ObjectEditor extends LitElement {
 
       let actions;
 
-      const val = await Promise.resolve(o[key])
+      // const val = await Promise.resolve(o[key])
 
-      if (typeof val === 'object') {
-        actions = html`<visualscript-button primary=true size="small" @click="${async () => this.change(val, key, o)}">View</visualscript-button>`
-      }
+      // if (typeof val === 'object') {
+        actions = html`<visualscript-button primary=true size="small" @click="${async () => this.change(key, o)}">View</visualscript-button>`
+      // }
 
       return html`
       <div class="actions">
@@ -291,13 +307,20 @@ export class ObjectEditor extends LitElement {
       `
     }
 
+    isClassValue = (val) => {
+      let classes = [String, Boolean, Number]
+      return classes.find(cls => {
+        if (val instanceof cls) return true
+      })
+    }
 
-    getElement = async (key:keyType, o: any) => {
-        let display : any = '';
+    getElement = async (key:keyType, parent: any, force = false) => {
         
-        const val = await Promise.resolve(o[key])
+        const getValue = (this.showType || force)
+        const val = getValue ? await Promise.resolve(parent[key]) : noTypeSymbol
+        let display : any = force ? `${val}` : '';
 
-        let showType = true
+        let showType = getValue
         let type = val ?? '';
 
         let check = true
@@ -309,60 +332,65 @@ export class ObjectEditor extends LitElement {
             display = new Input({
               value: val, 
               onInput: (ev) => {
-                o[key] = new cls(ev.target.value) // Modify original data
+                parent[key] = new cls(ev.target.value) // Modify original data
               }
             })
           }
         })
 
+        
 
         if (check) {
-          if (val === undefined) type = 'undefined'
-          else if (val === null) type = 'null'
-          else if (val && typeof val === 'object') {
-              display = await this.getActions(key, o)
-              type = Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`
-          } else if (typeof val === 'string' && val.includes('data:image')) {
-            display = document.createElement('img') as HTMLImageElement
-            display.src = val
-            display.style.height = '100%'
-          } else {
+          if (val && (typeof val === 'object' || val === noTypeSymbol)) {
+            display = await this.getActions(key, parent)
+            type = Object.keys(val).length ? val.constructor?.name : html`Empty ${val.constructor?.name}`
+        }
+        else if (val === undefined) type = 'undefined'
+        else if (val === null) type = 'null'
+        else if (typeof val === 'string' && val.includes('data:image')) {
+          display = document.createElement('img') as HTMLImageElement
+          display.src = val
+          display.style.height = '100%'
+        } else {
             showType = false
             display = new Input({
               value: val, 
               onInput: (ev) => {
-                o[key] = ev.target.value // Modify original data
+                parent[key] = ev.target.value // Modify original data
               }
             })
           }
         }
+        const renderName = !force
+        const renderType = showType && !force
 
         return html`
         <div class="attribute separate">
-          <div class="info">
-            <span class="name">${key}</span><br>
-            ${showType ? html`<span class="type">${type}</span>` : ''}
-          </div>
+          ${(renderName || renderType) ? html`<div class="info">
+            ${renderName ? html`<span class="name">${typeof key === 'string' ? key : html`[${typeof key}]`}</span>` : ''}
+            ${renderType ? html`<br><span class="type">${type}</span>` : ''}
+          </div>` : ''} 
           ${display}
         </div>`
 
     }
   
     render() {
-
-      let display: any
-      if (this.onRender instanceof Function) {
-        display = this.onRender(this.header, this.target, this.history)
-        // Promise.resolve(display).then((d) => {
-        //   this.insertAdjacentElement('afterend', d)
-        // })
-      }
       
-      const content = this.keys?.map(key => this.getElement(key, this.target)) 
+      const key = this.header
+      const typeOf = typeof this.target
+      const isClassValue = this.isClassValue(this.target)
+      const isObject = (this.target && typeOf === 'object' && !isClassValue) 
 
+      // Only pass objects through the render function
+      let display: any
+      if (isObject && this.onRender instanceof Function) display = this.onRender(this.header, this.target, this.history)
+
+
+      const content = isObject ? this.keys?.map(key => this.getElement(key, this.target))  : this.getElement(key, this.history.slice(-1)[0].value, true)
 
         const historyEl = document.createElement('small')
-        const historyArr = [...this.history, { key: this.header, value: this.target }]
+        const historyArr = [...this.history, { key, value: this.target }]
         historyArr.forEach((o, i) => {
           const last =  i === (this.history.length)
           const a = document.createElement('a')
@@ -389,7 +417,7 @@ export class ObjectEditor extends LitElement {
           </div>
           ${until(Promise.resolve(display).then((res) => res ? html`<div id="display">${res}</div>` : ''), '')}
           <div id="container">
-            ${until(Promise.all(content).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
+            ${until((isObject ? Promise.all(content) : Promise.resolve(content)).then((data) => html`${data}`), html`<div id="loading"><span>Loading...</span></div>`)}
             </div>
         </div>
       `
