@@ -24,6 +24,7 @@ export type ObjectEditorProps = {
   toDisplay?: (key?: keyType, parent?: any, history?: ObjectEditor['history']) => boolean
   preprocess?: Function,
   deferValues?: boolean
+  readOnly?: boolean
 }
 
 export class ObjectEditor extends LitElement {
@@ -61,9 +62,22 @@ export class ObjectEditor extends LitElement {
       border-bottom: 1px solid gray;
     }
 
-    #header span {
+    #history span {
       font-weight: 800;
-      font-size: 120%;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    #history span:hover {
+      color: gray;
+    }
+
+    #history span:last-child {
+      font-weight: normal;
+    }
+
+    #history span:first-child {
+      font-weight: bold;
     }
 
     #container {
@@ -100,13 +114,20 @@ export class ObjectEditor extends LitElement {
     .attribute {
       width: 100%;
       font-size: 90%;
-      padding: 15px;
+      padding: 10px 15px;
       flex-grow: 1;
-      flex-wrap: wrap;
+      min-height: 50px;
+    }
+
+    .display {
+      font-size: 80%;
+      text-align: right;
+      flex-grow: 1;
     }
 
     .info {
       display: block;
+      padding-right: 10px;
     }
 
     .name {
@@ -162,6 +183,10 @@ export class ObjectEditor extends LitElement {
           type: Boolean,
           reflect: true,
         },
+        readOnly: {
+          type: Boolean,
+          reflect: true,
+        },
       };
     }
 
@@ -173,6 +198,7 @@ export class ObjectEditor extends LitElement {
     onRender: ObjectEditorProps['onRender']
     preprocess: ObjectEditorProps['preprocess']
     deferValues: ObjectEditorProps['deferValues']
+    readOnly: ObjectEditorProps['readOnly']
 
     timeseries: TimeSeries
     base: any
@@ -187,6 +213,8 @@ export class ObjectEditor extends LitElement {
       this.plot = props.plot ?? []
       this.onRender = props.onRender
       this.deferValues = props.deferValues
+      this.readOnly = props.readOnly
+
       if (props.preprocess) this.preprocess = props.preprocess
 
 
@@ -332,25 +360,30 @@ export class ObjectEditor extends LitElement {
         const val = (getValue) ? await Promise.resolve(parent[key]) : noTypeSymbol 
         let display : any = '';
 
-        let type = '';
+        let type: any = typeof val;
 
         let renderType = getValue
 
         let check = true
+        let wrap = false
+
         let classes = [String, Boolean, Number]
         classes.forEach(cls => {
           if (val instanceof cls) {
-            renderType = false
             check = false
-            display = new Input({
-              value: val, 
-              onInput: (ev) => {
-                parent[key] = new cls(ev.target.value) // Modify original data
-              }
-            })
+            type = cls.name
+            if (this.readOnly) display = val // Avoid providing an input
+            else {
+              wrap = true
+              display = new Input({
+                value: val, 
+                onInput: (ev) => {
+                  parent[key] = new cls(ev.target.value) // Modify original data
+                }
+              })
+            }
           }
         })
-
 
         if (check) {
           if (val && (typeof val === 'object' || val === noTypeSymbol)) {
@@ -363,8 +396,11 @@ export class ObjectEditor extends LitElement {
           display = document.createElement('img') as HTMLImageElement
           display.src = val
           display.style.height = '100%'
-        } else {
-          renderType = false
+          wrap = true
+        } 
+        else if (this.readOnly) display = val // Avoid providing an input
+        else {
+          wrap = true
             display = new Input({
               value: val, 
               onInput: (ev) => {
@@ -374,13 +410,16 @@ export class ObjectEditor extends LitElement {
           }
         }
 
+        let style = (wrap) ? 'flex-wrap: wrap;' : ''
+        if (!getValue || this.readOnly) style += 'padding: 0px 15px;'
+
         return html`
-        <div class="attribute separate">
+        <div class="attribute separate" style="${style}">
           <div class="info">
             <span class="name">${typeof key === 'string' ? key : html`[${typeof key}]`}</span>
             ${(renderType) ? html`<br><span class="type">${type}</span>` : ''}
           </div>
-          ${display}
+          ${display instanceof HTMLElement ? display : html`<p class="display">${display}</p>`}
         </div>`
 
     }
@@ -397,18 +436,17 @@ export class ObjectEditor extends LitElement {
       const parent = this.history.slice(-1)[0]?.value
       const content = this.keys ? this.keys?.map(key => this.getElement(key, this.target))  : this.getElement(key, parent, true)
 
-        const historyEl = document.createElement('small')
+        const historyEl = document.createElement('div')
+        historyEl.id = 'history'
         const historyArr = [...this.history, { key, value: this.target }]
         historyArr.forEach((o, i) => {
           const last =  i === (this.history.length)
-          const a = document.createElement('a')
-          historyEl.appendChild(a)
+          const pointInHistory = document.createElement('span')
+          historyEl.appendChild(pointInHistory)
 
-          a.innerHTML = o.key
+          pointInHistory.innerHTML = o.key
           if (!last) {
-            a.title=`Click to shift history to ${o.key}`
-            a.href="#"
-            a.addEventListener('click', () => {
+            pointInHistory.addEventListener('click', () => {
               this.set(o.value)
               this.history = historyArr.slice(0, i)
               this.header = o.key
