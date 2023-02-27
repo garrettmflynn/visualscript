@@ -5,7 +5,9 @@ import context from './context'
 globalThis.visualscriptContextMenu = context
 
 // Append to Document
-document.body.appendChild(context)
+window.onload = () => {
+    document.body.appendChild(context)
+}
 
 export {
     context
